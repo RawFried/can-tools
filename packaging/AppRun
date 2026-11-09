@@ -1,0 +1,5 @@
+#!/bin/sh
+# AppImage 入口: 定位挂载根目录并转发参数。
+set -eu
+HERE="$(dirname "$(readlink -f "$0")")"
+exec "$HERE/usr/bin/can-tools" "$@"

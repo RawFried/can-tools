@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=CAN Tools
+Name[zh_CN]=CAN 上位机
+GenericName=CAN Bus Host
+GenericName[zh_CN]=CAN 总线上位机
+Comment=USBCAN-II web host with baud rate, filters and frame recording
+Comment[zh_CN]=USBCAN-II Web 上位机: 波特率、滤波与报文录制
+Exec=can-tools
+Icon=can-tools
+Terminal=false
+Categories=Development;
+Keywords=CAN;USBCAN;CANalyst;bus;recording;
+StartupNotify=false
