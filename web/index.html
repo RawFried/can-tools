@@ -37,7 +37,7 @@
       <span class="pill pill-rec" id="recPill" hidden title="正在录制 CSV">
         <span class="pill-dot rec"></span><span class="txt">录制中</span>
       </span>
-      <span class="pill" id="wsPill" title="WebSocket 数据链路状态">
+      <span class="pill" id="wsPill" title="与服务端的数据链路（WebSocket）状态">
         <span class="pill-dot warn" id="wsDot"></span><span class="txt" id="wsText">连接中…</span>
       </span>
       <span class="version" id="versionLabel">v—</span>
@@ -142,14 +142,14 @@
           </div>
         </div>
         <div class="field">
-          <span class="field-label" id="lb-gen">按 ID 生成（写入单滤波器模式）</span>
+          <span class="field-label" id="lb-gen">ID 精确匹配（按 ID 生成单滤波器）</span>
           <div class="gen-row" role="group" aria-labelledby="lb-gen">
-            <span class="hex"><input class="input" id="genIdInput" type="text" placeholder="123" autocomplete="off" spellcheck="false" aria-label="帧 ID（十六进制）"></span>
+            <span class="hex"><input class="input" id="filterIdInput" type="text" placeholder="123" autocomplete="off" spellcheck="false" aria-label="帧 ID（十六进制）"></span>
             <div class="seg seg-mini" role="radiogroup" aria-label="帧类型">
               <label><input type="radio" name="gen-ext" value="std" checked><span>标准</span></label>
-              <label><input type="radio" name="gen-ext" value="ext"><span>扩展</span></label>
+              <label><input type="radio" name="gen-ext" value="ext" id="filterIdExtended"><span>扩展</span></label>
             </div>
-            <button class="btn" id="btnGenFilter" type="button"><span>生成</span></button>
+            <button class="btn" id="btnFilterById" type="button"><span>按 ID 生成</span></button>
           </div>
         </div>
         <div class="field">
@@ -164,9 +164,10 @@
           <button class="btn" id="btnAcceptAll" type="button"><span>接受全部</span></button>
         </div>
         <p class="hint">
-          由 CAN 控制器在接收前执行，通过条件：<code class="nobreak">(归一化值 &amp; ~屏蔽码) == (验收码 &amp; ~屏蔽码)</code>。<br>
+          由 CAN 控制器在接收前执行；验收码/屏蔽码为控制器级数值，通过条件：<code class="nobreak">(归一化值 &amp; ~屏蔽码) == (验收码 &amp; ~屏蔽码)</code>。<br>
           按 ID 生成（模式 1）——标准帧：<code class="nobreak">验收码 = ID&lt;&lt;21 · 屏蔽码 = 001FFFFF</code><br>
-          扩展帧：<code class="nobreak">验收码 = ID&lt;&lt;3 · 屏蔽码 = 00000007</code>
+          扩展帧：<code class="nobreak">验收码 = ID&lt;&lt;3 · 屏蔽码 = 00000007</code><br>
+          需要匹配 ID 区间或多个 ID 时，请改用「04 软件过滤器」。
         </p>
       </div>
     </section>
@@ -202,7 +203,9 @@
           </button>
           <button class="btn btn-danger" id="btnRecStop" type="button" disabled><span>停止并保存</span></button>
         </div>
-        <p class="hint">文件保存于服务器 <code id="dataDirLabel">—</code> 目录下的 <code>recordings</code> 中。</p>
+        <p class="hint">
+          录制文件以 CSV 保存于服务器的 <code>recordings</code> 目录：<code class="code-path" id="dataDirLabel">—</code>
+        </p>
       </div>
     </section>
 
@@ -245,6 +248,51 @@
       </div>
     </section>
 
+    <section class="card panel-send" id="sendPanel" aria-labelledby="h-send">
+      <header class="card-head">
+        <span class="card-index tx-index">TX</span>
+        <h2 id="h-send">发送报文</h2>
+        <span class="head-spacer"></span>
+        <span class="send-count">已发送 <strong id="sendCount">0</strong> 帧</span>
+      </header>
+      <div class="card-body send-body">
+        <div class="send-row">
+          <div class="field send-ch">
+            <label class="field-label" for="sendChannel">通道</label>
+            <select class="input" id="sendChannel" aria-label="发送通道">
+              <option value="0">CAN1</option>
+              <option value="1">CAN2</option>
+            </select>
+          </div>
+          <div class="field send-id">
+            <label class="field-label" for="sendId">ID（十六进制）</label>
+            <span class="hex"><input class="input" id="sendId" type="text" value="123" autocomplete="off" spellcheck="false" aria-label="发送 ID（十六进制）"></span>
+          </div>
+          <div class="field send-type">
+            <span class="field-label" id="lb-send-type">帧类型</span>
+            <div class="seg seg-mini" role="radiogroup" aria-labelledby="lb-send-type">
+              <label><input type="radio" name="send-ext" value="std" checked><span>标准</span></label>
+              <label><input type="radio" name="send-ext" value="ext" id="sendExtended"><span>扩展</span></label>
+            </div>
+          </div>
+          <div class="field send-data">
+            <label class="field-label" for="sendData">数据（十六进制，≤ 8 字节）</label>
+            <input class="input" id="sendData" type="text" value="11 22 33 44 55 66 77 88" autocomplete="off" spellcheck="false" aria-label="发送数据（十六进制）">
+          </div>
+          <div class="field send-dlc">
+            <label class="field-label" for="sendDlc">DLC</label>
+            <input class="input" id="sendDlc" type="number" min="0" max="8" value="8" readonly aria-label="数据长度">
+          </div>
+          <label class="check-mini send-rtr"><input type="checkbox" id="sendRemote"><span>远程</span></label>
+          <button class="btn btn-primary send-btn" id="btnSend" type="button" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12 16-8-6 16-2.8-5.2L4 12Z"/><path d="M11.2 14.8 20 4"/></svg>
+            <span>发送</span>
+          </button>
+        </div>
+        <p class="hint send-hint" id="sendHint" aria-live="polite">设备打开并启动通道后可发送；数据支持 11 22 33 / 112233 / 0x11,0x22。</p>
+      </div>
+    </section>
+
     <section class="card panel-frames" id="framesPanel" aria-labelledby="h-frames">
       <header class="card-head frames-head">
         <span class="card-index">06</span><h2 id="h-frames">实时报文</h2>
@@ -259,7 +307,7 @@
             <span class="ic ic-play" id="icPlay" hidden><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.2 18 12l-9 5.8z" fill="currentColor"/></svg></span>
             <span id="btnPauseLabel">暂停显示</span>
           </button>
-          <button class="btn" id="btnClearView" type="button" title="清空实时缓冲（不影响录制文件）">
+          <button class="btn btn-ghost" id="btnClearView" type="button" title="清空实时缓冲（不影响录制文件）">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M8 7l.9 12h6.2L16 7M10.5 10.5v5M13.5 10.5v5"/></svg>
             <span>清空</span>
           </button>
@@ -270,7 +318,7 @@
           <table class="frames">
             <caption class="sr-only">实时 CAN 报文</caption>
             <colgroup>
-              <col style="width:88px"><col style="width:118px"><col style="width:80px"><col style="width:134px"><col style="width:92px"><col style="width:52px"><col>
+              <col style="width:88px"><col style="width:118px"><col style="width:80px"><col style="width:134px"><col style="width:92px"><col style="width:52px"><col style="width:100%">
             </colgroup>
             <thead>
               <tr><th class="num" scope="col">序列</th><th scope="col">时间</th><th scope="col">通道</th><th scope="col">ID</th><th scope="col">类型</th><th class="num" scope="col">DLC</th><th scope="col">数据</th></tr>
@@ -310,8 +358,11 @@
       <div class="recs-wrap">
         <table class="recs-table">
           <caption class="sr-only">已保存的 CSV 录制文件</caption>
+          <colgroup>
+            <col style="width:100%"><col style="width:96px"><col style="width:176px"><col style="width:168px">
+          </colgroup>
           <thead>
-            <tr><th scope="col">文件名</th><th class="num c-size" scope="col">大小</th><th scope="col">修改时间</th><th class="right" scope="col">操作</th></tr>
+            <tr><th scope="col">文件名</th><th class="num c-size" scope="col">大小</th><th class="c-time" scope="col">修改时间</th><th class="right" scope="col">操作</th></tr>
           </thead>
           <tbody id="recordingsList"></tbody>
         </table>

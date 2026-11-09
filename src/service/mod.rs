@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use tokio::sync::oneshot;
 
-use crate::can::types::{DeviceInfo, StartConfig};
+use crate::can::types::{DeviceInfo, SendFrameRequest, StartConfig};
 use crate::state::SharedState;
 use recorder::RecordingSummary;
 
@@ -47,6 +47,11 @@ pub(crate) enum Command {
     StopRecording { reply: Reply<RecordingSummary> },
     /// 清空实时帧与统计。
     ClearFrames { reply: Reply<()> },
+    /// 发送一帧。
+    Send {
+        request: SendFrameRequest,
+        reply: Reply<()>,
+    },
     /// 退出工作线程。
     Shutdown { reply: Reply<()> },
 }
@@ -131,6 +136,15 @@ impl CanService {
     /// 清空实时帧与统计。
     pub async fn clear_frames(&self) -> Result<(), String> {
         self.call(Duration::from_secs(5), |reply| Command::ClearFrames {
+            reply,
+        })
+        .await
+    }
+
+    /// 发送一帧。
+    pub async fn send(&self, request: SendFrameRequest) -> Result<(), String> {
+        self.call(Duration::from_secs(5), |reply| Command::Send {
+            request,
             reply,
         })
         .await

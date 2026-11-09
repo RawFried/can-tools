@@ -73,6 +73,8 @@ pub struct Stats {
     pub rx_rate: f64,
     /// 当前录制文件中的帧数。
     pub recorded_frames: u64,
+    /// 打开/清空以来成功发送的帧数。
+    pub tx_frames: u64,
 }
 
 /// 服务端信息。

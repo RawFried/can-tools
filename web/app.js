@@ -203,6 +203,7 @@ function parseStatusDto(v) {
             filtered_frames: numOr(stats['filtered_frames'], 0),
             rx_rate: numOr(stats['rx_rate'], 0),
             recorded_frames: numOr(stats['recorded_frames'], 0),
+            tx_frames: numOr(stats['tx_frames'], 0),
         },
         server: { version: strOr(srv['version'], ''), data_dir: strOr(srv['data_dir'], '') },
     };
@@ -306,8 +307,9 @@ const els = {
     accMaskInput: byId('accMaskInput'),
     filterModeSelect: byId('filterModeSelect'),
     btnAcceptAll: byId('btnAcceptAll'),
-    genIdInput: byId('genIdInput'),
-    btnGenFilter: byId('btnGenFilter'),
+    filterIdInput: byId('filterIdInput'),
+    filterIdExtended: byId('filterIdExtended'),
+    btnFilterById: byId('btnFilterById'),
     /* 软件过滤器 */
     swFilterList: byId('swFilterList'),
     btnAddFilter: byId('btnAddFilter'),
@@ -324,6 +326,15 @@ const els = {
     statRate: byId('statRate'),
     statFiltered: byId('statFiltered'),
     statRecorded: byId('statRecorded'),
+    /* 发送报文 */
+    sendChannel: byId('sendChannel'),
+    sendId: byId('sendId'),
+    sendData: byId('sendData'),
+    sendDlc: byId('sendDlc'),
+    sendRemote: byId('sendRemote'),
+    btnSend: byId('btnSend'),
+    sendCount: byId('sendCount'),
+    sendHint: byId('sendHint'),
     /* 实时报文 */
     frameFilter: byId('frameFilter'),
     autoscrollCheck: byId('autoscrollCheck'),
@@ -812,7 +823,7 @@ function applyStatus(st) {
             continue;
         chip.classList.toggle('running', ch.running);
         stateEl.textContent = ch.running ? '运行中' : '已停止';
-        subEl.textContent = ch.running && ch.baud ? ch.baud + ' · ' + MODE_LABELS[ch.mode ?? 'normal'] : '未运行';
+        subEl.textContent = ch.running && ch.baud ? ch.baud + ' · ' + MODE_LABELS[ch.mode ?? 'normal'] : '—';
     }
     /* 录制 */
     els.recActive.hidden = !st.recording.active;
@@ -830,6 +841,8 @@ function applyStatus(st) {
     els.statRate.textContent = fmtRate(st.stats.rx_rate);
     els.statFiltered.textContent = fmtInt(st.stats.filtered_frames);
     els.statRecorded.textContent = fmtInt(st.stats.recorded_frames);
+    els.sendCount.textContent = fmtInt(st.stats.tx_frames);
+    syncSendChannels(st);
     /* 版本 */
     if (st.server.version)
         els.versionLabel.textContent = 'v' + st.server.version;
@@ -852,6 +865,7 @@ function updateControls() {
     els.btnRecStop.disabled = !recActive;
     els.btnPauseView.disabled = !anyRunning;
     els.deviceList.classList.toggle('locked', open);
+    updateSendControls();
 }
 /** 首个状态到达时，把运行中的通道配置回填到表单（仅一次，不覆盖用户后续编辑）。 */
 function syncFormOnce(st) {
@@ -1071,12 +1085,12 @@ function collectConfig() {
         const end = parseHex(endIn.value, maxId);
         const scope = ext ? '扩展帧最大 1FFFFFFF' : '标准帧最大 7FF';
         if (start === null) {
-            toast('第 ' + (i + 1) + ' 条过滤器：起始 ID 无效（' + scope + '）', 'warn');
+            toast('第 ' + (i + 1) + ' 条过滤器：起始 ID 无效 （' + scope + '）', 'warn');
             startIn.focus();
             return null;
         }
         if (end === null) {
-            toast('第 ' + (i + 1) + ' 条过滤器：结束 ID 无效（' + scope + '）', 'warn');
+            toast('第 ' + (i + 1) + ' 条过滤器：结束 ID 无效 （' + scope + '）', 'warn');
             endIn.focus();
             return null;
         }
@@ -1124,6 +1138,163 @@ function setPaused(p) {
     }
 }
 /* ---------- 事件绑定 ---------- */
+/* ---------- 发送报文 ---------- */
+let sendChannelSignature = null;
+function sendExtended() {
+    const selected = document.querySelector('input[name="send-ext"]:checked');
+    return selected !== null && selected.value === 'ext';
+}
+/** 解析发送数据；支持空格/逗号/冒号分隔或连续十六进制。 */
+function parseSendData(raw) {
+    const trimmed = raw.trim();
+    if (trimmed.length === 0)
+        return [];
+    const tokens = trimmed.split(/[\s,:]+/).filter((token) => token.length > 0);
+    if (tokens.length > 1) {
+        const bytes = [];
+        for (const token of tokens) {
+            const cleaned = token.replace(/^0x/i, '');
+            if (!/^[0-9a-f]{1,2}$/i.test(cleaned))
+                return null;
+            bytes.push(parseInt(cleaned, 16));
+        }
+        return bytes.length <= 8 ? bytes : null;
+    }
+    const cleaned = trimmed.replace(/^0x/i, '');
+    if (cleaned.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(cleaned))
+        return null;
+    const bytes = [];
+    for (let index = 0; index < cleaned.length; index += 2) {
+        bytes.push(parseInt(cleaned.slice(index, index + 2), 16));
+    }
+    return bytes.length <= 8 ? bytes : null;
+}
+/** 依据运行中的通道重建发送通道下拉框；保留用户选择。 */
+function syncSendChannels(st) {
+    const running = st.channels.filter((channel) => channel.running);
+    const signature = running
+        .map((channel) => channel.index + ':' + (channel.mode ?? ''))
+        .join(',');
+    if (signature === sendChannelSignature)
+        return;
+    sendChannelSignature = signature;
+    const previous = els.sendChannel.value;
+    if (running.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '无通道';
+        option.disabled = true;
+        option.selected = true;
+        els.sendChannel.replaceChildren(option);
+        return;
+    }
+    const options = running.map((channel) => {
+        const option = document.createElement('option');
+        option.value = String(channel.index);
+        option.textContent =
+            'CAN' + (channel.index + 1) + (channel.mode === 'listen_only' ? '（只听）' : '');
+        option.disabled = channel.mode === 'listen_only';
+        return option;
+    });
+    els.sendChannel.replaceChildren(...options);
+    const sendable = running.filter((channel) => channel.mode !== 'listen_only');
+    let selected = sendable[0]?.index ?? running[0].index;
+    if (previous !== '' && sendable.some((channel) => channel.index === Number(previous))) {
+        selected = Number(previous);
+    }
+    els.sendChannel.value = String(selected);
+}
+/** 远程帧禁用数据输入；数据帧的 DLC 自动等于字节数。 */
+function updateSendDlc() {
+    const remote = els.sendRemote.checked;
+    els.sendData.disabled = remote;
+    els.sendDlc.readOnly = !remote;
+    if (remote) {
+        if (els.sendDlc.value === '')
+            els.sendDlc.value = '0';
+    }
+    else {
+        const bytes = parseSendData(els.sendData.value);
+        els.sendDlc.value = bytes === null ? '' : String(bytes.length);
+    }
+}
+function updateSendControls() {
+    const st = state.status;
+    const open = st !== null && st.device.open;
+    const channelValue = els.sendChannel.value;
+    const channel = channelValue === '' ? null : Number(channelValue);
+    const running = channel === null
+        ? null
+        : (st?.channels.find((item) => item.index === channel && item.running) ?? null);
+    const extended = sendExtended();
+    const id = parseHex(els.sendId.value, extended ? 0x1fffffff : 0x7ff);
+    const remote = els.sendRemote.checked;
+    const bytes = remote ? [] : parseSendData(els.sendData.value);
+    const dlc = remote ? Number(els.sendDlc.value) : (bytes?.length ?? 0);
+    let reason = '';
+    if (!open)
+        reason = '先打开设备';
+    else if (running === null)
+        reason = '先启动一个通道';
+    else if (running.mode === 'listen_only')
+        reason = '只听模式不可发送';
+    else if (id === null)
+        reason = 'ID 无效或超出范围';
+    else if (bytes === null)
+        reason = '数据必须是 1–8 个十六进制字节';
+    else if (remote && (!Number.isInteger(dlc) || dlc < 0 || dlc > 8))
+        reason = 'DLC 必须在 0–8';
+    els.btnSend.disabled = reason !== '';
+    els.sendHint.textContent =
+        reason === ''
+            ? '数据支持 11 22 33 / 112233 / 0x11,0x22；回车发送。'
+            : reason;
+    els.sendHint.classList.toggle('error', reason !== '' && open && running !== null);
+}
+async function sendCurrentFrame() {
+    const channelValue = els.sendChannel.value;
+    if (channelValue === '') {
+        toast('没有可用的发送通道', 'warn');
+        return;
+    }
+    const channel = Number(channelValue);
+    const extended = sendExtended();
+    const id = parseHex(els.sendId.value, extended ? 0x1fffffff : 0x7ff);
+    if (id === null) {
+        toast('发送 ID 无效或超出范围', 'warn');
+        els.sendId.focus();
+        return;
+    }
+    const remote = els.sendRemote.checked;
+    const bytes = remote ? [] : parseSendData(els.sendData.value);
+    if (bytes === null) {
+        toast('发送数据格式无效', 'warn');
+        els.sendData.focus();
+        return;
+    }
+    const dlc = remote ? Number(els.sendDlc.value) : bytes.length;
+    if (remote && (!Number.isInteger(dlc) || dlc < 0 || dlc > 8)) {
+        toast('远程帧 DLC 必须在 0–8', 'warn');
+        els.sendDlc.focus();
+        return;
+    }
+    const body = {
+        channel,
+        id,
+        extended,
+        remote,
+        dlc,
+        data: bytes.map((byte) => byte.toString(16).toUpperCase().padStart(2, '0')).join(' '),
+    };
+    const response = await api('/api/send', 'POST', body);
+    const status = parseStatusDto(isObj(response) ? response['status'] : null);
+    if (status)
+        applyStatus(status);
+    const label = 'CAN' + (channel + 1) + ' 0x' + id.toString(16).toUpperCase();
+    const detail = remote ? '远程帧 DLC ' + dlc : bytes.length + ' 字节';
+    toast('已发送 ' + label + '（' + detail + '）', 'success');
+    setLastLog('已发送 ' + label + '（' + detail + '）');
+}
 function bindEvents() {
     els.btnRefreshDevices.addEventListener('click', () => {
         void runBusy(els.btnRefreshDevices, loadDevices);
@@ -1169,7 +1340,7 @@ function bindEvents() {
             if (st)
                 applyStatus(st);
             const names = body.channels.map((c) => 'CAN' + (c + 1)).join('、');
-            toast('配置已应用，' + names + ' 已启动（' + body.baud + '）', 'success');
+            toast('配置已应用，' + names + ' 已启动 （' + body.baud + '）', 'success');
         });
     });
     els.btnStopChannels.addEventListener('click', () => {
@@ -1187,14 +1358,13 @@ function bindEvents() {
         els.filterModeSelect.value = '0';
         toast('已设置为接收全部帧', 'info');
     });
-    els.btnGenFilter.addEventListener('click', () => {
-        const genExt = document.querySelector('input[name="gen-ext"]:checked');
-        const ext = genExt !== null && genExt.value === 'ext';
+    els.btnFilterById.addEventListener('click', () => {
+        const ext = els.filterIdExtended.checked;
         const maxId = ext ? 0x1fffffff : 0x7ff;
-        const id = parseHex(els.genIdInput.value, maxId);
+        const id = parseHex(els.filterIdInput.value, maxId);
         if (id === null) {
-            toast('帧 ID 无效（' + (ext ? '扩展帧最大 1FFFFFFF' : '标准帧最大 7FF') + '）', 'warn');
-            els.genIdInput.focus();
+            toast('帧 ID 无效 （' + (ext ? '扩展帧最大 1FFFFFFF' : '标准帧最大 7FF') + '）', 'warn');
+            els.filterIdInput.focus();
             return;
         }
         /* SJA1000 单滤波器位布局：标准帧 ID 位于高 11 位，扩展帧 ID 位于高 29 位 */
@@ -1203,7 +1373,7 @@ function bindEvents() {
         els.accCodeInput.value = code.toString(16).toUpperCase();
         els.accMaskInput.value = mask.toString(16).toUpperCase();
         els.filterModeSelect.value = '1';
-        toast('已生成单滤波器：验收码 ' + hexOf(code, 8) + ' · 屏蔽码 ' + hexOf(mask, 8), 'success');
+        toast('已生成单滤波器：验收码 ' + hexOf(code, 8) + ' · 屏蔽码 ' + hexOf(mask, 8) + ' （应用配置后生效）', 'success');
     });
     els.btnAddFilter.addEventListener('click', () => {
         els.swFilterList.appendChild(buildSwRow(false));
@@ -1227,7 +1397,7 @@ function bindEvents() {
                 applyStatus(st);
             const file = isObj(res) && isStr(res['file']) ? res['file'] : '';
             const frames = isObj(res) && isNum(res['frames']) ? fmtInt(res['frames']) : '—';
-            toast('已保存 ' + file + '（' + frames + ' 帧）', 'success');
+            toast('已保存 ' + file + ' （' + frames + ' 帧）', 'success');
             await loadRecordings();
         });
     });
@@ -1258,6 +1428,35 @@ function bindEvents() {
         if (d > 100)
             setAutoscroll(false);
     }, { passive: true });
+    /* 发送报文 */
+    els.sendChannel.addEventListener('change', updateSendControls);
+    els.sendId.addEventListener('input', updateSendControls);
+    els.sendData.addEventListener('input', () => {
+        updateSendDlc();
+        updateSendControls();
+    });
+    els.sendDlc.addEventListener('input', updateSendControls);
+    els.sendRemote.addEventListener('change', () => {
+        if (els.sendRemote.checked)
+            els.sendDlc.value = '0';
+        updateSendDlc();
+        updateSendControls();
+    });
+    for (const radio of document.querySelectorAll('input[name="send-ext"]')) {
+        radio.addEventListener('change', updateSendControls);
+    }
+    for (const input of [els.sendId, els.sendData]) {
+        input.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (!els.btnSend.disabled)
+                    els.btnSend.click();
+            }
+        });
+    }
+    els.btnSend.addEventListener('click', () => {
+        void runBusy(els.btnSend, sendCurrentFrame);
+    });
     document.addEventListener('keydown', (e) => {
         if (e.key !== '/' || e.defaultPrevented)
             return;
@@ -1291,6 +1490,8 @@ function init() {
     renderRecordings();
     updateStrip();
     updateEmpty();
+    updateSendDlc();
+    updateSendControls();
     void loadStatus();
     void loadDevices();
     void loadRecordings();

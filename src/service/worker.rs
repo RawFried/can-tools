@@ -6,7 +6,9 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::can::error::Error;
-use crate::can::types::{BaudRate, CanFrame, CanMode, HardwareFilter, SoftwareFilter, StartConfig};
+use crate::can::types::{
+    BaudRate, CanFrame, CanMode, HardwareFilter, SendFrameRequest, SoftwareFilter, StartConfig,
+};
 use crate::can::UsbCan;
 use crate::service::recorder::{Recorder, RecordingSummary};
 use crate::service::{now_ms, Command, Reply};
@@ -122,6 +124,10 @@ impl Worker {
                 self.rate_start = Instant::now();
                 self.publish_status();
                 send(reply, Ok(()));
+            }
+            Command::Send { request, reply } => {
+                let result = self.send_frame(&request);
+                send(reply, result);
             }
             Command::Shutdown { reply } => {
                 self.shutdown();
@@ -323,6 +329,44 @@ impl Worker {
                 .join(", ");
             self.shared.log("info", format!("已停止 {names}"));
         }
+        Ok(())
+    }
+
+    /// 发送一帧。
+    fn send_frame(&mut self, request: &SendFrameRequest) -> Result<(), String> {
+        let frame = request.to_frame()?;
+        let channel = request.channel;
+        if self.device.is_none() {
+            return Err("设备未打开, 无法发送".to_string());
+        }
+        if self.channels[channel as usize].is_none() {
+            return Err(format!("CAN{} 未启动, 请先应用配置", channel + 1));
+        }
+        if self.channels[channel as usize].map(|runtime| runtime.mode) == Some(CanMode::ListenOnly)
+        {
+            return Err(format!("CAN{} 处于只听模式, 不能发送", channel + 1));
+        }
+        let result = match self.device.as_ref() {
+            Some(device) => device.send_frame(channel, &frame),
+            None => Err(Error::NotOpen),
+        };
+        result.map_err(|error| format!("发送失败: {error}"))?;
+        self.stats.tx_frames += 1;
+        self.publish_status();
+        let detail = if frame.remote {
+            "远程帧".to_string()
+        } else {
+            format!("{} 字节", frame.dlc)
+        };
+        self.shared.log(
+            "info",
+            format!(
+                "已发送 CAN{} 0x{:X} ({detail}), 累计 {} 帧",
+                channel + 1,
+                frame.id,
+                self.stats.tx_frames
+            ),
+        );
         Ok(())
     }
 

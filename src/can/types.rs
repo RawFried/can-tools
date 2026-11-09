@@ -253,8 +253,11 @@ pub struct CanFrame {
 }
 
 impl CanFrame {
-    /// 有效数据切片。
+    /// 有效数据切片; 远程帧没有数据负载, 返回空切片。
     pub fn data_bytes(&self) -> &[u8] {
+        if self.remote {
+            return &[];
+        }
         &self.data[..self.dlc.min(8) as usize]
     }
 }
@@ -368,6 +371,148 @@ impl StartConfig {
         }
         Ok(())
     }
+}
+
+/// `/api/send` 请求体。
+///
+/// `data` 支持 `"11 22 33"`、`"112233"`、`"0x11,0x22,0x33"` 等写法。
+/// `dlc` 可省略: 数据帧默认等于字节数, 远程帧默认 0。
+#[derive(Debug, Clone, Deserialize)]
+pub struct SendFrameRequest {
+    /// 发送通道 (0 = CAN1, 1 = CAN2)。
+    pub channel: u8,
+    /// 仲裁 ID。
+    pub id: u32,
+    /// 是否扩展帧。
+    #[serde(default)]
+    pub extended: bool,
+    /// 是否远程帧 (无数据负载)。
+    #[serde(default)]
+    pub remote: bool,
+    /// 数据长度; 数据帧必须等于字节数。
+    #[serde(default)]
+    pub dlc: Option<u8>,
+    /// 十六进制数据串。
+    #[serde(default)]
+    pub data: String,
+}
+
+impl SendFrameRequest {
+    /// CAN 2.0 单帧最大数据字节数。
+    pub const MAX_DATA_LEN: usize = 8;
+
+    /// 校验并转换为驱动帧。
+    pub fn to_frame(&self) -> Result<CanFrame, String> {
+        if self.channel > 1 {
+            return Err(format!("非法通道 {}; 合法值为 0 或 1", self.channel));
+        }
+        let max_id = if self.extended { 0x1FFF_FFFF } else { 0x7FF };
+        if self.id > max_id {
+            let kind = if self.extended {
+                "扩展帧"
+            } else {
+                "标准帧"
+            };
+            return Err(format!(
+                "{kind} ID 0x{:X} 超出范围 (最大 0x{max_id:X})",
+                self.id
+            ));
+        }
+        let bytes = parse_hex_data(&self.data)?;
+        if bytes.len() > Self::MAX_DATA_LEN {
+            return Err(format!(
+                "数据最多 {} 字节, 实际 {} 字节",
+                Self::MAX_DATA_LEN,
+                bytes.len()
+            ));
+        }
+
+        let mut data = [0u8; 8];
+        if self.remote {
+            if !bytes.is_empty() {
+                return Err("远程帧不能携带数据".to_string());
+            }
+            let dlc = self.dlc.unwrap_or(0);
+            if dlc > Self::MAX_DATA_LEN as u8 {
+                return Err(format!("DLC 必须在 0-8 之间, 实际 {dlc}"));
+            }
+            return Ok(CanFrame {
+                id: self.id,
+                timestamp: 0,
+                remote: true,
+                extended: self.extended,
+                dlc,
+                data,
+            });
+        }
+
+        let dlc = self.dlc.unwrap_or(bytes.len() as u8);
+        if dlc as usize != bytes.len() {
+            return Err(format!("DLC {dlc} 必须等于数据字节数 {}", bytes.len()));
+        }
+        data[..bytes.len()].copy_from_slice(&bytes);
+        Ok(CanFrame {
+            id: self.id,
+            timestamp: 0,
+            remote: false,
+            extended: self.extended,
+            dlc,
+            data,
+        })
+    }
+}
+
+/// 解析十六进制数据串。
+///
+/// 支持空格/逗号/冒号分隔的字节 (可带 `0x` 前缀), 也支持连续十六进制串。
+pub fn parse_hex_data(raw: &str) -> Result<Vec<u8>, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(Vec::new());
+    }
+    let separated = trimmed
+        .split(|character: char| {
+            character.is_ascii_whitespace() || character == ',' || character == ':'
+        })
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>();
+
+    if separated.len() > 1 {
+        let mut bytes = Vec::with_capacity(separated.len());
+        for token in separated {
+            let token = token
+                .strip_prefix("0x")
+                .or_else(|| token.strip_prefix("0X"))
+                .unwrap_or(token);
+            if token.is_empty() || token.len() > 2 || !token.chars().all(|c| c.is_ascii_hexdigit())
+            {
+                return Err(format!("非法十六进制字节: {token}"));
+            }
+            bytes.push(
+                u8::from_str_radix(token, 16).map_err(|_| format!("非法十六进制字节: {token}"))?,
+            );
+        }
+        return Ok(bytes);
+    }
+
+    let cleaned = trimmed
+        .strip_prefix("0x")
+        .or_else(|| trimmed.strip_prefix("0X"))
+        .unwrap_or(trimmed);
+    if cleaned.len() % 2 != 0 {
+        return Err("连续十六进制数据必须为偶数个字符".to_string());
+    }
+    if !cleaned.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err("数据包含非十六进制字符".to_string());
+    }
+    let bytes = (0..cleaned.len())
+        .step_by(2)
+        .map(|index| {
+            u8::from_str_radix(&cleaned[index..index + 2], 16)
+                .map_err(|_| "数据包含非法十六进制字符".to_string())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(bytes)
 }
 
 #[cfg(test)]
@@ -520,5 +665,90 @@ mod tests {
     fn hardware_filter_for_id_rejects_out_of_range_ids() {
         assert!(HardwareFilter::for_id(0x800, false).is_err());
         assert!(HardwareFilter::for_id(0x2000_0000, true).is_err());
+    }
+
+    #[test]
+    fn parse_hex_data_accepts_common_forms() {
+        assert_eq!(parse_hex_data("11 22 33").unwrap(), vec![0x11, 0x22, 0x33]);
+        assert_eq!(parse_hex_data("112233").unwrap(), vec![0x11, 0x22, 0x33]);
+        assert_eq!(
+            parse_hex_data("0x11,0x22:0x33").unwrap(),
+            vec![0x11, 0x22, 0x33]
+        );
+        assert_eq!(parse_hex_data("  ").unwrap(), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn parse_hex_data_rejects_invalid_input() {
+        assert!(parse_hex_data("1 234").is_err());
+        assert!(parse_hex_data("ZZ").is_err());
+        assert!(parse_hex_data("123").is_err());
+    }
+
+    #[test]
+    fn send_request_builds_data_and_remote_frames() {
+        let request = SendFrameRequest {
+            channel: 0,
+            id: 0x123,
+            extended: false,
+            remote: false,
+            dlc: None,
+            data: "11 22 33".to_string(),
+        };
+        let frame = request.to_frame().unwrap();
+        assert_eq!(frame.id, 0x123);
+        assert_eq!(frame.dlc, 3);
+        assert_eq!(frame.data_bytes(), &[0x11, 0x22, 0x33]);
+        assert!(!frame.remote && !frame.extended);
+
+        let remote = SendFrameRequest {
+            channel: 1,
+            id: 0x18FF_50E5,
+            extended: true,
+            remote: true,
+            dlc: Some(8),
+            data: String::new(),
+        };
+        let frame = remote.to_frame().unwrap();
+        assert!(frame.remote && frame.extended);
+        assert_eq!(frame.dlc, 8);
+        assert!(frame.data_bytes().is_empty());
+    }
+
+    #[test]
+    fn send_request_rejects_invalid_combinations() {
+        let base = SendFrameRequest {
+            channel: 0,
+            id: 0x123,
+            extended: false,
+            remote: false,
+            dlc: None,
+            data: "11 22".to_string(),
+        };
+        assert!(SendFrameRequest {
+            dlc: Some(1),
+            ..base.clone()
+        }
+        .to_frame()
+        .is_err());
+        assert!(SendFrameRequest {
+            data: "11 22 33 44 55 66 77 88 99".to_string(),
+            ..base.clone()
+        }
+        .to_frame()
+        .is_err());
+        assert!(SendFrameRequest {
+            remote: true,
+            ..base.clone()
+        }
+        .to_frame()
+        .is_err());
+        assert!(SendFrameRequest {
+            id: 0x800,
+            ..base.clone()
+        }
+        .to_frame()
+        .is_err());
+        assert!(SendFrameRequest { channel: 2, ..base }.to_frame().is_err());
     }
 }

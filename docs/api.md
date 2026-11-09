@@ -45,7 +45,8 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
     "rx_frames": 1234,
     "filtered_frames": 3,
     "rx_rate": 420.5,
-    "recorded_frames": 1234
+    "recorded_frames": 1234,
+    "tx_frames": 12
   },
   "server": {
     "version": "0.1.0",
@@ -67,6 +68,8 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
   accepts every frame. Otherwise a frame passes when at least one record matches both its
   standard/extended flag and `start <= id <= end`.
 - `stats.rx_rate` is the accepted-frame rate over the last second (frames/second).
+- `stats.tx_frames` is the number of frames successfully sent since the device was opened or
+  the live counters were cleared.
 
 ## Frame object
 
@@ -150,6 +153,33 @@ Stops (resets) the given channels. An omitted `channels` field stops all running
 ```json
 {"channels": [0, 1]}
 ```
+
+Response: `{"ok": true, "status": { ... }}`
+
+### `POST /api/send`
+
+Sends one CAN frame on a running channel. The device must be open and the target channel
+started (for example with `mode: "self_test"` to see the frame loop back into the receiver).
+Listen-only channels reject sends.
+
+```json
+{
+  "channel": 0,
+  "id": 291,
+  "extended": false,
+  "remote": false,
+  "dlc": 8,
+  "data": "11 22 33 44 55 66 77 88"
+}
+```
+
+- `id` is validated against 0x7FF (standard) or 0x1FFFFFFF (extended).
+- `data` accepts spaced bytes (`"11 22 33"`), a contiguous string (`"112233"`) or tokens with
+  `0x` prefixes; at most 8 bytes.
+- `dlc` is optional. For data frames it must equal the byte count; for remote frames it may be
+  0–8 and `data` must be empty.
+- Recording captures received frames; a frame sent in normal mode is not echoed unless the
+  bus/device loops it back.
 
 Response: `{"ok": true, "status": { ... }}`
 
