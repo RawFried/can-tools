@@ -162,12 +162,14 @@
         </div>
         <div class="btn-row">
           <button class="btn" id="btnAcceptAll" type="button"><span>接受全部</span></button>
+          <button class="btn" id="btnApplyFilters" type="button" disabled><span>实时应用滤波</span></button>
         </div>
         <p class="hint">
-          由 CAN 控制器在接收前执行；验收码/屏蔽码为控制器级数值，通过条件：<code class="nobreak">(归一化值 &amp; ~屏蔽码) == (验收码 &amp; ~屏蔽码)</code>。<br>
+          由 CAN 控制器在接收前执行；验收码/屏蔽码为控制器级数值，通过条件：<code class="nobreak">(归一化值 &amp; ~屏蔽码) == (验收码 &amp; ~屏蔽码)</code><br>
           按 ID 生成（模式 1）——标准帧：<code class="nobreak">验收码 = ID&lt;&lt;21 · 屏蔽码 = 001FFFFF</code><br>
           扩展帧：<code class="nobreak">验收码 = ID&lt;&lt;3 · 屏蔽码 = 00000007</code><br>
-          需要匹配 ID 区间或多个 ID 时，请改用「04 软件过滤器」。
+          需要匹配 ID 区间或多个 ID 时，请改用「04 软件过滤器」。<br>
+          通道运行中点击「实时应用滤波」：同时应用本卡与软件过滤器，不会停止通道；硬件滤波变化会快速热重初始化。
         </p>
       </div>
     </section>
@@ -301,7 +303,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
             <input type="search" id="frameFilter" placeholder="过滤 ID / 数据 / 通道（按 / 聚焦）" aria-label="快速过滤报文">
           </div>
-          <label class="switch"><input type="checkbox" id="autoscrollCheck" checked><span class="track" aria-hidden="true"></span>自动滚动</label>
+          <label class="switch" title="开启时始终跟随最新报文；关闭后可向上查看历史"><input type="checkbox" id="autoscrollCheck" checked><span class="track" aria-hidden="true"></span>自动滚动</label>
           <button class="btn" id="btnPauseView" type="button" aria-pressed="false" disabled title="暂停或恢复显示（不影响接收与录制）">
             <span class="ic ic-pause" id="icPause"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M9.5 6v12M14.5 6v12"/></svg></span>
             <span class="ic ic-play" id="icPlay" hidden><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.2 18 12l-9 5.8z" fill="currentColor"/></svg></span>

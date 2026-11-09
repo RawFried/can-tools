@@ -14,7 +14,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
 
-use crate::can::types::{SendFrameRequest, StartConfig};
+use crate::can::types::{FilterUpdateRequest, SendFrameRequest, StartConfig};
 use crate::service::CanService;
 use crate::state::SharedState;
 
@@ -44,6 +44,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/config", post(configure))
         .route("/api/stop", post(stop))
         .route("/api/send", post(send_frame))
+        .route("/api/filters", post(update_filters))
         .route("/api/recording/start", post(start_recording))
         .route("/api/recording/stop", post(stop_recording))
         .route("/api/frames/clear", post(clear_frames))
@@ -156,6 +157,18 @@ async fn send_frame(
     Json(request): Json<SendFrameRequest>,
 ) -> Result<Json<Value>, ApiError> {
     state.service.send(request).await.map_err(ApiError::bad)?;
+    Ok(Json(json!({"ok": true, "status": state.shared.status()})))
+}
+
+async fn update_filters(
+    State(state): State<AppState>,
+    Json(request): Json<FilterUpdateRequest>,
+) -> Result<Json<Value>, ApiError> {
+    state
+        .service
+        .update_filters(request)
+        .await
+        .map_err(ApiError::bad)?;
     Ok(Json(json!({"ok": true, "status": state.shared.status()})))
 }
 

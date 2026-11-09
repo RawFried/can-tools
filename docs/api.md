@@ -146,6 +146,27 @@ channels. At least one channel is required.
 
 Response: `{"ok": true, "status": { ... }}`
 
+### `POST /api/filters`
+
+Updates filtering on **already running** channels without closing/reopening the device:
+
+```json
+{
+  "channels": [0, 1],
+  "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 0},
+  "software_filters": [{"extended": false, "start": 256, "end": 511}]
+}
+```
+
+- `software_filters` take effect immediately in the host worker.
+- If the hardware filter changed for a running channel, the worker re-runs `InitCAN` +
+  `StartCAN` without `ResetCAN`/close; this is a fast hot re-initialization, not a channel stop.
+- If only software filters changed, no USB I/O is performed.
+- Every selected channel must be running; otherwise the request fails with a clear error.
+- The request also accepts listen-only channels (they still receive/filter).
+
+Response: `{"ok": true, "status": { ... }}`
+
 ### `POST /api/stop`
 
 Stops (resets) the given channels. An omitted `channels` field stops all running channels.

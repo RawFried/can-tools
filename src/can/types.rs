@@ -462,6 +462,44 @@ impl SendFrameRequest {
     }
 }
 
+/// `/api/filters` 请求体: 运行中实时更新滤波。
+#[derive(Debug, Clone, Deserialize)]
+pub struct FilterUpdateRequest {
+    /// 要更新滤波的通道 (必须已启动)。
+    pub channels: Vec<u8>,
+    /// 新的硬件验收滤波。
+    pub filter: HardwareFilter,
+    /// 新的应用层 ID 滤波。
+    #[serde(default)]
+    pub software_filters: Vec<SoftwareFilter>,
+}
+
+impl FilterUpdateRequest {
+    /// 校验通道、硬件滤波与软件滤波参数。
+    pub fn validate(&self) -> Result<(), String> {
+        if self.channels.is_empty() {
+            return Err("至少选择一个通道".to_string());
+        }
+        for &channel in &self.channels {
+            if channel > 1 {
+                return Err(format!("非法通道 {channel}; 合法值为 0 或 1"));
+            }
+        }
+        self.filter.validate()?;
+        if self.software_filters.len() > StartConfig::MAX_SOFTWARE_FILTERS {
+            return Err(format!(
+                "软件滤波记录最多 {} 条, 实际 {} 条",
+                StartConfig::MAX_SOFTWARE_FILTERS,
+                self.software_filters.len()
+            ));
+        }
+        for filter in &self.software_filters {
+            filter.validate()?;
+        }
+        Ok(())
+    }
+}
+
 /// 解析十六进制数据串。
 ///
 /// 支持空格/逗号/冒号分隔的字节 (可带 `0x` 前缀), 也支持连续十六进制串。
@@ -750,5 +788,40 @@ mod tests {
         .to_frame()
         .is_err());
         assert!(SendFrameRequest { channel: 2, ..base }.to_frame().is_err());
+    }
+
+    #[test]
+    fn filter_update_request_validates_channels_and_filters() {
+        let valid = FilterUpdateRequest {
+            channels: vec![0, 1],
+            filter: HardwareFilter::default(),
+            software_filters: vec![SoftwareFilter {
+                extended: false,
+                start: 0,
+                end: 0x7FF,
+            }],
+        };
+        assert!(valid.validate().is_ok());
+        assert!(FilterUpdateRequest {
+            channels: vec![],
+            ..valid.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(FilterUpdateRequest {
+            channels: vec![2],
+            ..valid.clone()
+        }
+        .validate()
+        .is_err());
+        assert!(FilterUpdateRequest {
+            filter: HardwareFilter {
+                mode: 3,
+                ..HardwareFilter::default()
+            },
+            ..valid
+        }
+        .validate()
+        .is_err());
     }
 }

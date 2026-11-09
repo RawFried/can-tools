@@ -434,6 +434,7 @@ const els = {
   accMaskInput: byId<HTMLInputElement>('accMaskInput'),
   filterModeSelect: byId<HTMLSelectElement>('filterModeSelect'),
   btnAcceptAll: byId<HTMLButtonElement>('btnAcceptAll'),
+  btnApplyFilters: byId<HTMLButtonElement>('btnApplyFilters'),
   filterIdInput: byId<HTMLInputElement>('filterIdInput'),
   filterIdExtended: byId<HTMLInputElement>('filterIdExtended'),
   btnFilterById: byId<HTMLButtonElement>('btnFilterById'),
@@ -910,10 +911,17 @@ function trimRows(): void {
   }
 }
 
+let scrollScheduled = false;
+
 function maybeScroll(): void {
-  if (state.autoscroll && !state.paused) {
-    els.tableWrap.scrollTop = els.tableWrap.scrollHeight;
-  }
+  if (!state.autoscroll || state.paused || scrollScheduled) return;
+  scrollScheduled = true;
+  window.requestAnimationFrame(() => {
+    scrollScheduled = false;
+    if (state.autoscroll && !state.paused) {
+      els.tableWrap.scrollTop = els.tableWrap.scrollHeight;
+    }
+  });
 }
 
 function clearLocalFrames(): void {
@@ -1028,14 +1036,22 @@ function updateControls(): void {
   const anyRunning = st !== null && st.channels.some((c) => c.running);
   const recActive = st !== null && st.recording.active;
   const anyChannelChecked = els.ch1Check.checked || els.ch2Check.checked;
+  const checkedChannels = selectedChannels();
+  const allCheckedRunning =
+    checkedChannels.length > 0 &&
+    checkedChannels.every((index) => st?.channels[index]?.running === true);
 
   els.btnOpenDevice.disabled = open || state.devices.length === 0 || state.selectedDevice === null;
   els.btnCloseDevice.disabled = !open;
   els.btnApplyConfig.disabled = !open || !anyChannelChecked;
+  els.btnApplyFilters.disabled = !open || !allCheckedRunning;
   els.btnStopChannels.disabled = !anyRunning;
   els.btnRecStart.disabled = !open || recActive;
   els.btnRecStop.disabled = !recActive;
   els.btnPauseView.disabled = !anyRunning;
+
+  /* 异步进行中的按钮保持禁用，避免状态推送期间被重新启用 */
+  for (const b of busy) b.disabled = true;
 
   els.deviceList.classList.toggle('locked', open);
   updateSendControls();
@@ -1235,33 +1251,36 @@ function buildSwRow(ext: boolean, start?: number, end?: number): HTMLElement {
 }
 
 /** 从表单收集 POST /api/config 请求体；校验失败时提示并返回 null。 */
-function collectConfig(): ConfigBody | null {
+function selectedChannels(): number[] {
   const channels: number[] = [];
   if (els.ch1Check.checked) channels.push(0);
   if (els.ch2Check.checked) channels.push(1);
-  if (channels.length === 0) {
-    toast('请至少选择一个通道', 'warn');
-    return null;
-  }
+  return channels;
+}
 
-  const baud = asBaud(els.baudSelect.value) ?? '500k';
-  const checked = document.querySelector<HTMLInputElement>('input[name="mode"]:checked');
-  const mode = checked ? asMode(checked.value) ?? 'normal' : 'normal';
-
+/** 读取硬件验收滤波字段; 非法时提示并返回 null。 */
+function collectHardwareFilter(): AcceptanceFilterDto | null {
   const accCode = parseHex(els.accCodeInput.value, 0xffffffff);
   if (accCode === null) {
-    toast('验收码不是有效的十六进制值（0 – FFFFFFFF）', 'warn');
+    toast('验收码不是有效的十六进制值 （0 – FFFFFFFF）', 'warn');
     els.accCodeInput.focus();
     return null;
   }
   const accMask = parseHex(els.accMaskInput.value, 0xffffffff);
   if (accMask === null) {
-    toast('屏蔽码不是有效的十六进制值（0 – FFFFFFFF）', 'warn');
+    toast('屏蔽码不是有效的十六进制值 （0 – FFFFFFFF）', 'warn');
     els.accMaskInput.focus();
     return null;
   }
-  const filterMode = asFilterMode(Number(els.filterModeSelect.value));
+  return {
+    acc_code: accCode,
+    acc_mask: accMask,
+    mode: asFilterMode(Number(els.filterModeSelect.value)),
+  };
+}
 
+/** 读取软件 ID 过滤行; 非法时提示并返回 null。 */
+function collectSoftwareFilters(): SoftwareFilterDto[] | null {
   const software_filters: SoftwareFilterDto[] = [];
   const rows = Array.from(els.swFilterList.querySelectorAll<HTMLElement>('.sw-row'));
   for (let i = 0; i < rows.length; i++) {
@@ -1290,14 +1309,25 @@ function collectConfig(): ConfigBody | null {
     }
     software_filters.push({ extended: ext, start, end });
   }
+  return software_filters;
+}
 
-  return {
-    channels,
-    baud,
-    mode,
-    filter: { acc_code: accCode, acc_mask: accMask, mode: filterMode },
-    software_filters,
-  };
+function collectConfig(): ConfigBody | null {
+  const channels = selectedChannels();
+  if (channels.length === 0) {
+    toast('请至少选择一个通道', 'warn');
+    return null;
+  }
+
+  const baud = asBaud(els.baudSelect.value) ?? '500k';
+  const checked = document.querySelector<HTMLInputElement>('input[name="mode"]:checked');
+  const mode = checked ? asMode(checked.value) ?? 'normal' : 'normal';
+  const filter = collectHardwareFilter();
+  if (filter === null) return null;
+  const software_filters = collectSoftwareFilters();
+  if (software_filters === null) return null;
+
+  return { channels, baud, mode, filter, software_filters };
 }
 
 /* ---------- 视图控制 ---------- */
@@ -1439,7 +1469,9 @@ function updateSendControls(): void {
   els.btnSend.disabled = reason !== '';
   els.sendHint.textContent =
     reason === ''
-      ? '数据支持 11 22 33 / 112233 / 0x11,0x22；回车发送。'
+      ? remote
+        ? '远程帧不携带数据；DLC 可设 0–8；回车发送。'
+        : '数据支持 11 22 33 / 112233 / 0x11,0x22；回车发送。'
       : reason;
   els.sendHint.classList.toggle('error', reason !== '' && open && running !== null);
 }
@@ -1484,8 +1516,8 @@ async function sendCurrentFrame(): Promise<void> {
   if (status) applyStatus(status);
   const label = 'CAN' + (channel + 1) + ' 0x' + id.toString(16).toUpperCase();
   const detail = remote ? '远程帧 DLC ' + dlc : bytes.length + ' 字节';
-  toast('已发送 ' + label + '（' + detail + '）', 'success');
-  setLastLog('已发送 ' + label + '（' + detail + '）');
+  toast('已发送 ' + label + ' （' + detail + '）', 'success');
+  setLastLog('已发送 ' + label + ' （' + detail + '）');
 }
 
 function bindEvents(): void {
@@ -1551,6 +1583,26 @@ function bindEvents(): void {
     els.accMaskInput.value = 'FFFFFFFF';
     els.filterModeSelect.value = '0';
     toast('已设置为接收全部帧', 'info');
+  });
+
+  els.btnApplyFilters.addEventListener('click', () => {
+    void runBusy(els.btnApplyFilters, async () => {
+      const channels = selectedChannels();
+      if (channels.length === 0) {
+        toast('请至少选择一个通道', 'warn');
+        return;
+      }
+      const filter = collectHardwareFilter();
+      if (filter === null) return;
+      const software_filters = collectSoftwareFilters();
+      if (software_filters === null) return;
+      const res = await api('/api/filters', 'POST', { channels, filter, software_filters });
+      const st = parseStatusDto(isObj(res) ? res['status'] : null);
+      if (st) applyStatus(st);
+      const names = channels.map((channel) => 'CAN' + (channel + 1)).join('、');
+      toast('滤波已实时更新：' + names + '（通道未停止）', 'success');
+      setLastLog('滤波已实时更新：' + names);
+    });
   });
 
   els.btnFilterById.addEventListener('click', () => {
@@ -1625,16 +1677,6 @@ function bindEvents(): void {
   els.autoscrollCheck.addEventListener('change', () => {
     setAutoscroll(els.autoscrollCheck.checked);
   });
-
-  els.tableWrap.addEventListener(
-    'scroll',
-    () => {
-      if (!state.autoscroll) return;
-      const d = els.tableWrap.scrollHeight - els.tableWrap.scrollTop - els.tableWrap.clientHeight;
-      if (d > 100) setAutoscroll(false);
-    },
-    { passive: true }
-  );
 
   /* 发送报文 */
   els.sendChannel.addEventListener('change', updateSendControls);

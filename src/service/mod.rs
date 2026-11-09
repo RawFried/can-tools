@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use tokio::sync::oneshot;
 
-use crate::can::types::{DeviceInfo, SendFrameRequest, StartConfig};
+use crate::can::types::{DeviceInfo, FilterUpdateRequest, SendFrameRequest, StartConfig};
 use crate::state::SharedState;
 use recorder::RecordingSummary;
 
@@ -50,6 +50,11 @@ pub(crate) enum Command {
     /// 发送一帧。
     Send {
         request: SendFrameRequest,
+        reply: Reply<()>,
+    },
+    /// 运行中实时更新滤波。
+    UpdateFilters {
+        request: FilterUpdateRequest,
         reply: Reply<()>,
     },
     /// 退出工作线程。
@@ -144,6 +149,15 @@ impl CanService {
     /// 发送一帧。
     pub async fn send(&self, request: SendFrameRequest) -> Result<(), String> {
         self.call(Duration::from_secs(5), |reply| Command::Send {
+            request,
+            reply,
+        })
+        .await
+    }
+
+    /// 运行中实时更新滤波。
+    pub async fn update_filters(&self, request: FilterUpdateRequest) -> Result<(), String> {
+        self.call(Duration::from_secs(5), |reply| Command::UpdateFilters {
             request,
             reply,
         })

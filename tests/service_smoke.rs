@@ -1,6 +1,8 @@
 //! 无硬件场景下的工作线程冒烟测试: 命令通道、错误路径与关闭流程。
 
-use can_tools::can::types::{BaudRate, CanMode, HardwareFilter, SendFrameRequest, StartConfig};
+use can_tools::can::types::{
+    BaudRate, CanMode, FilterUpdateRequest, HardwareFilter, SendFrameRequest, StartConfig,
+};
 use can_tools::service::CanService;
 use can_tools::state::{ServerInfo, SharedState};
 
@@ -32,6 +34,12 @@ async fn worker_rejects_operations_without_device_and_shuts_down() {
         data: "11 22".to_string(),
     };
     assert!(service.send(send).await.is_err());
+    let filters = FilterUpdateRequest {
+        channels: vec![0],
+        filter: HardwareFilter::default(),
+        software_filters: vec![],
+    };
+    assert!(service.update_filters(filters).await.is_err());
     assert!(service.close().await.is_ok());
     assert!(service.stop(None).await.is_ok());
     assert!(service.list_devices().await.is_ok());

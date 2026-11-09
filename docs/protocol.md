@@ -117,10 +117,13 @@ CAN 帧（例如 CANopen NMT）。对越界残帧做防御性丢弃，不能 pan
 `frame_filter_value` 是固件归一化后的值，而不是裸 ID。
 
 Web UI 的“按 ID 生成”按钮会把用户输入的标准/扩展 ID 转换为上述 AccCode/AccMask；
-范围或多 ID 过滤请使用应用层软件过滤器。验证命令：
+范围或多 ID 过滤请使用应用层软件过滤器。运行中更新硬件滤波可重新发送
+InitCAN + StartCAN（不发送 ResetCAN、不关闭设备），实测可在保持通道运行的情况下生效；
+软件过滤器在主机侧立即切换。验证命令：
 
 ```bash
 cargo test --test hw_filter -- --ignored --nocapture
+cargo test --test hw_live_filter -- --ignored --nocapture
 ```
 
 ## 打开与关闭

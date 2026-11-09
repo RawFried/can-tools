@@ -7,6 +7,7 @@ Rust 后端直接通过 USB 与设备通信，浏览器前端负责配置与展�
 
 - 配置双通道 **波特率**（5k–1000k）与工作模式（正常 / 只听 / 自测）；
 - 设置 **硬件验收滤波**（AccCode / AccMask / 滤波方式）与 **软件 ID 区间滤波**；
+- **运行时实时应用滤波**：软件滤波立即生效，硬件滤波热重初始化，不停止通道；
 - **发送单帧**（标准/扩展/远程），并在自测模式下回环验证；
 - 实时查看报文，并 **保存为 CSV**；可下载、删除历史文件；
 - 单文件 AppImage 分发，内置静态前端，无需 Node 运行时。
@@ -62,6 +63,10 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
   `[start, end]` 记录，并区分标准帧 / 扩展帧。列表为空时全部通过。
   范围或多 ID 过滤应使用这一层。
 - 配置变更会重启所选通道；未选中的通道保持运行。
+- **实时应用滤波**：通道启动后，编辑滤波并点击「实时应用滤波」即可生效，无需停止采集。
+  软件滤波在主机侧立即切换；硬件验收码/屏蔽码变化会对所选运行通道执行
+  `InitCAN + StartCAN`（不发送 `ResetCAN`、不关闭设备），实测通道保持运行。
+  实时滤波只能作用于已启动的通道。
 
 > 验收滤波的归一化布局已在真实设备自测回环中验证，见
 > `tests/hw_filter.rs` 与 `docs/protocol.md`。
@@ -172,6 +177,8 @@ cargo test --all-targets
   `cargo test --test hw_selftest -- --ignored --nocapture`
 - 硬件验收滤波布局（验证标准/扩展 ID 的归一化换算，需要真实设备）：
   `cargo test --test hw_filter -- --ignored --nocapture`
+- 运行时滤波热更新（不 Reset 通道，需要真实设备）：
+  `cargo test --test hw_live_filter -- --ignored --nocapture`
 - 遵循 Google 风格的 Rust 约定：`rustfmt`、`clippy`、`snake_case`/`CamelCase`、
   公共项文档注释；提交信息使用英文 Conventional Commits。
 - 协议实现的关键不变量（RX 双半块、ID 0、0x340 魔数、0x07 关闭序列）在源码

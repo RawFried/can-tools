@@ -7,7 +7,8 @@ use std::time::{Duration, Instant};
 
 use crate::can::error::Error;
 use crate::can::types::{
-    BaudRate, CanFrame, CanMode, HardwareFilter, SendFrameRequest, SoftwareFilter, StartConfig,
+    BaudRate, CanFrame, CanMode, FilterUpdateRequest, HardwareFilter, SendFrameRequest,
+    SoftwareFilter, StartConfig,
 };
 use crate::can::UsbCan;
 use crate::service::recorder::{Recorder, RecordingSummary};
@@ -127,6 +128,10 @@ impl Worker {
             }
             Command::Send { request, reply } => {
                 let result = self.send_frame(&request);
+                send(reply, result);
+            }
+            Command::UpdateFilters { request, reply } => {
+                let result = self.update_filters(&request);
                 send(reply, result);
             }
             Command::Shutdown { reply } => {
@@ -328,6 +333,84 @@ impl Worker {
                 .collect::<Vec<_>>()
                 .join(", ");
             self.shared.log("info", format!("已停止 {names}"));
+        }
+        Ok(())
+    }
+
+    /// 运行中实时更新滤波。
+    ///
+    /// 软件滤波直接生效; 硬件验收滤波变化时对运行中的通道执行
+    /// `InitCAN + StartCAN` (不发送 ResetCAN), 实测可在不重新打开设备的情况下生效。
+    fn update_filters(&mut self, request: &FilterUpdateRequest) -> Result<(), String> {
+        request.validate()?;
+        if self.device.is_none() {
+            return Err("设备未打开, 无法更新滤波".to_string());
+        }
+        let mut channels = request.channels.clone();
+        channels.sort_unstable();
+        channels.dedup();
+        for &channel in &channels {
+            if self.channels[channel as usize].is_none() {
+                return Err(format!(
+                    "CAN{} 未启动; 实时滤波只能作用于运行中的通道",
+                    channel + 1
+                ));
+            }
+        }
+
+        let mut hardware_changed = Vec::new();
+        for &channel in &channels {
+            let Some(runtime) = self.channels[channel as usize] else {
+                continue;
+            };
+            if runtime.filter == request.filter {
+                continue;
+            }
+            let result = match self.device.as_mut() {
+                Some(device) => device
+                    .init_can(channel, runtime.baud, runtime.mode, &request.filter)
+                    .and_then(|_| device.start_can(channel)),
+                None => Err(Error::NotOpen),
+            };
+            if let Err(error) = result {
+                self.channels[channel as usize] = None;
+                self.publish_status();
+                return Err(format!("实时更新 CAN{} 硬件滤波失败: {error}", channel + 1));
+            }
+            if let Some(slot) = self.channels[channel as usize].as_mut() {
+                slot.filter = request.filter;
+            }
+            hardware_changed.push(channel);
+        }
+
+        self.software_filters = request.software_filters.clone();
+        self.publish_status();
+        let names = channels
+            .iter()
+            .map(|channel| format!("CAN{}", channel + 1))
+            .collect::<Vec<_>>()
+            .join(", ");
+        if hardware_changed.is_empty() {
+            self.shared.log(
+                "info",
+                format!(
+                    "已实时更新 {names} 软件滤波 ({} 条), 通道未重启",
+                    self.software_filters.len()
+                ),
+            );
+        } else {
+            let hardware_names = hardware_changed
+                .iter()
+                .map(|channel| format!("CAN{}", channel + 1))
+                .collect::<Vec<_>>()
+                .join(", ");
+            self.shared.log(
+                "info",
+                format!(
+                    "已实时更新 {names} 滤波: 硬件 {hardware_names}, 软件 {} 条",
+                    self.software_filters.len()
+                ),
+            );
         }
         Ok(())
     }
