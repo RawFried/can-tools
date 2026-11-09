@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="description" content="CAN Tools — USBCAN-II CAN 总线上位机：设备连接、通道配置、实时报文捕获与 CSV 录制。">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e1319">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#eef1f6">
+<title>CAN Tools · USBCAN-II 上位机</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/app.css">
+<script defer src="/app.js"></script>
+</head>
+<body>
+<a class="skip-link" href="#framesPanel">跳到实时报文</a>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg class="brand-mark" width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M3 22.5h26" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".85"/>
+        <path d="M5 10.5h4v-6h6v6h4v-6h6v6h2" fill="none" stroke="var(--can1)" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="9" cy="22.5" r="3.6" fill="var(--surface)" stroke="var(--can1)" stroke-width="2"/>
+        <circle cx="16" cy="22.5" r="2.3" fill="currentColor"/>
+        <circle cx="23" cy="22.5" r="3.6" fill="var(--surface)" stroke="var(--can2)" stroke-width="2"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-name">CAN Tools</span>
+        <span class="brand-sub">USBCAN-II 上位机</span>
+      </div>
+    </div>
+    <div class="topbar-status">
+      <span class="pill" id="devicePill" title="设备连接状态">
+        <span class="pill-dot" id="devicePillDot"></span><span class="txt" id="devicePillText">未连接设备</span>
+      </span>
+      <span class="pill pill-rec" id="recPill" hidden title="正在录制 CSV">
+        <span class="pill-dot rec"></span><span class="txt">录制中</span>
+      </span>
+      <span class="pill" id="wsPill" title="WebSocket 数据链路状态">
+        <span class="pill-dot warn" id="wsDot"></span><span class="txt" id="wsText">连接中…</span>
+      </span>
+      <span class="version" id="versionLabel">v—</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="rail" aria-label="配置面板">
+
+    <section class="card" aria-labelledby="h-device">
+      <header class="card-head"><span class="card-index">01</span><h2 id="h-device">设备连接</h2></header>
+      <div class="card-body">
+        <div class="device-list" id="deviceList" role="radiogroup" aria-label="检测到的 USBCAN 设备"></div>
+        <div class="empty-inline" id="deviceEmpty" hidden>未检测到 USBCAN 设备（04d8:0053）。<br>插入设备后点击「刷新」。</div>
+        <div class="btn-row">
+          <button class="btn" id="btnRefreshDevices" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
+            <span>刷新设备列表</span>
+          </button>
+        </div>
+        <dl class="kv" id="deviceInfo" hidden>
+          <div><dt>硬件类型</dt><dd id="devHw">—</dd></div>
+          <div><dt>固件版本</dt><dd id="devFw">—</dd></div>
+          <div><dt>序列号</dt><dd id="devSerial">—</dd></div>
+          <div><dt>通道数</dt><dd id="devChannels">—</dd></div>
+        </dl>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnOpenDevice" type="button" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg>
+            <span>打开设备</span>
+          </button>
+          <button class="btn" id="btnCloseDevice" type="button" disabled><span>关闭设备</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-chan">
+      <header class="card-head"><span class="card-index">02</span><h2 id="h-chan">通道与波特率</h2></header>
+      <div class="card-body">
+        <div class="ch-states">
+          <div class="ch-state t1" id="chipCh1">
+            <div class="row1"><span class="chip-mini ch1">CAN1</span><span class="st"><span class="dot"></span><span id="chipCh1State">已停止</span></span></div>
+            <div class="sub" id="chipCh1Sub">未运行</div>
+          </div>
+          <div class="ch-state t2" id="chipCh2">
+            <div class="row1"><span class="chip-mini ch2">CAN2</span><span class="st"><span class="dot"></span><span id="chipCh2State">已停止</span></span></div>
+            <div class="sub" id="chipCh2Sub">未运行</div>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label" id="lb-ch">通道（至少选择一个）</span>
+          <div class="ch-pick" role="group" aria-labelledby="lb-ch">
+            <label class="ch-toggle t1"><input type="checkbox" id="ch1Check" checked><span class="ch-label ch1">CAN1</span></label>
+            <label class="ch-toggle t2"><input type="checkbox" id="ch2Check"><span class="ch-label ch2">CAN2</span></label>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="baudSelect">波特率</label>
+          <select class="input" id="baudSelect">
+            <option value="5k">5 kbps</option>
+            <option value="10k">10 kbps</option>
+            <option value="20k">20 kbps</option>
+            <option value="50k">50 kbps</option>
+            <option value="100k">100 kbps</option>
+            <option value="125k">125 kbps</option>
+            <option value="250k">250 kbps</option>
+            <option value="500k" selected>500 kbps</option>
+            <option value="800k">800 kbps</option>
+            <option value="1000k">1000 kbps</option>
+          </select>
+        </div>
+        <div class="field">
+          <span class="field-label" id="lb-mode">工作模式</span>
+          <div class="seg" role="radiogroup" aria-labelledby="lb-mode">
+            <label><input type="radio" name="mode" value="normal" checked><span>正常</span></label>
+            <label><input type="radio" name="mode" value="listen_only"><span>只听</span></label>
+            <label><input type="radio" name="mode" value="self_test"><span>自测</span></label>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnApplyConfig" type="button" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 10 17.5 19 6.5"/></svg>
+            <span>应用配置并启动</span>
+          </button>
+          <button class="btn" id="btnStopChannels" type="button" disabled><span>停止采集</span></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-hwfilter">
+      <header class="card-head"><span class="card-index">03</span><h2 id="h-hwfilter">硬件验收滤波</h2></header>
+      <div class="card-body">
+        <div class="grid-2">
+          <div class="field">
+            <label class="field-label" for="accCodeInput">验收码</label>
+            <span class="hex"><input class="input" id="accCodeInput" type="text" autocomplete="off" spellcheck="false" value="0"></span>
+          </div>
+          <div class="field">
+            <label class="field-label" for="accMaskInput">屏蔽码</label>
+            <span class="hex"><input class="input" id="accMaskInput" type="text" autocomplete="off" spellcheck="false" value="FFFFFFFF"></span>
+          </div>
+        </div>
+        <div class="field">
+          <span class="field-label" id="lb-gen">按 ID 生成（写入单滤波器模式）</span>
+          <div class="gen-row" role="group" aria-labelledby="lb-gen">
+            <span class="hex"><input class="input" id="genIdInput" type="text" placeholder="123" autocomplete="off" spellcheck="false" aria-label="帧 ID（十六进制）"></span>
+            <div class="seg seg-mini" role="radiogroup" aria-label="帧类型">
+              <label><input type="radio" name="gen-ext" value="std" checked><span>标准</span></label>
+              <label><input type="radio" name="gen-ext" value="ext"><span>扩展</span></label>
+            </div>
+            <button class="btn" id="btnGenFilter" type="button"><span>生成</span></button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="filterModeSelect">滤波器模式</label>
+          <select class="input" id="filterModeSelect">
+            <option value="0" selected>0 · 接收全部</option>
+            <option value="1">1 · 单滤波器</option>
+            <option value="2">2 · 双滤波器</option>
+          </select>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btnAcceptAll" type="button"><span>接受全部</span></button>
+        </div>
+        <p class="hint">
+          由 CAN 控制器在接收前执行，通过条件：<code class="nobreak">(归一化值 &amp; ~屏蔽码) == (验收码 &amp; ~屏蔽码)</code>。<br>
+          按 ID 生成（模式 1）——标准帧：<code class="nobreak">验收码 = ID&lt;&lt;21 · 屏蔽码 = 001FFFFF</code><br>
+          扩展帧：<code class="nobreak">验收码 = ID&lt;&lt;3 · 屏蔽码 = 00000007</code>
+        </p>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-swfilter">
+      <header class="card-head"><span class="card-index">04</span><h2 id="h-swfilter">软件过滤器</h2></header>
+      <div class="card-body">
+        <div id="swFilterList" aria-label="ID 区间过滤规则"></div>
+        <div class="btn-row">
+          <button class="btn" id="btnAddFilter" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <span>添加 ID 区间</span>
+          </button>
+        </div>
+        <p class="hint">在报文接收后由上位机执行：标准/扩展标志需匹配，且 <code class="nobreak">起始 ≤ ID ≤ 结束</code>（十六进制）。列表为空表示全部接收。</p>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-rec">
+      <header class="card-head"><span class="card-index">05</span><h2 id="h-rec">保存报文（CSV）</h2></header>
+      <div class="card-body">
+        <div class="rec-active" id="recActive" hidden aria-live="polite">
+          <div class="rec-head"><span class="rec-dot"></span><span class="rec-file" id="recActiveFile">—</span></div>
+          <div class="rec-sub">
+            <span>已录 <span id="recActiveFrames">0</span> 帧</span>
+            <span>时长 <span id="recActiveElapsed">00:00</span></span>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnRecStart" type="button" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/></svg>
+            <span>开始录制</span>
+          </button>
+          <button class="btn btn-danger" id="btnRecStop" type="button" disabled><span>停止并保存</span></button>
+        </div>
+        <p class="hint">文件保存于服务器 <code id="dataDirLabel">—</code> 目录下的 <code>recordings</code> 中。</p>
+      </div>
+    </section>
+
+  </aside>
+
+  <main class="main" aria-label="数据区">
+
+    <section class="stats" aria-label="统计">
+      <div class="stat s-rx">
+        <div class="stat-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg>
+          <span>接收报文</span>
+        </div>
+        <div class="stat-val"><span id="statRx">—</span><span class="unit">帧</span></div>
+        <div class="stat-sub">累计接收</div>
+      </div>
+      <div class="stat s-rate">
+        <div class="stat-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="m12 16 3.5-4.5"/></svg>
+          <span>接收速率</span>
+        </div>
+        <div class="stat-val"><span id="statRate">—</span><span class="unit">帧/秒</span></div>
+        <div class="stat-sub">最近 1 秒</div>
+      </div>
+      <div class="stat s-filtered">
+        <div class="stat-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6.2 7.2V19l-3.6 2v-8.8L4 5z"/></svg>
+          <span>已过滤</span>
+        </div>
+        <div class="stat-val"><span id="statFiltered">—</span><span class="unit">帧</span></div>
+        <div class="stat-sub">被滤波丢弃</div>
+      </div>
+      <div class="stat s-recorded">
+        <div class="stat-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>
+          <span>已录制</span>
+        </div>
+        <div class="stat-val"><span id="statRecorded">—</span><span class="unit">帧</span></div>
+        <div class="stat-sub">写入 CSV</div>
+      </div>
+    </section>
+
+    <section class="card panel-frames" id="framesPanel" aria-labelledby="h-frames">
+      <header class="card-head frames-head">
+        <span class="card-index">06</span><h2 id="h-frames">实时报文</h2>
+        <div class="tools">
+          <div class="search">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+            <input type="search" id="frameFilter" placeholder="过滤 ID / 数据 / 通道（按 / 聚焦）" aria-label="快速过滤报文">
+          </div>
+          <label class="switch"><input type="checkbox" id="autoscrollCheck" checked><span class="track" aria-hidden="true"></span>自动滚动</label>
+          <button class="btn" id="btnPauseView" type="button" aria-pressed="false" disabled title="暂停或恢复显示（不影响接收与录制）">
+            <span class="ic ic-pause" id="icPause"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M9.5 6v12M14.5 6v12"/></svg></span>
+            <span class="ic ic-play" id="icPlay" hidden><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.2 18 12l-9 5.8z" fill="currentColor"/></svg></span>
+            <span id="btnPauseLabel">暂停显示</span>
+          </button>
+          <button class="btn" id="btnClearView" type="button" title="清空实时缓冲（不影响录制文件）">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M8 7l.9 12h6.2L16 7M10.5 10.5v5M13.5 10.5v5"/></svg>
+            <span>清空</span>
+          </button>
+        </div>
+      </header>
+      <div class="table-area">
+        <div class="table-wrap" id="tableWrap" tabindex="0" aria-label="报文列表，区域可滚动">
+          <table class="frames">
+            <caption class="sr-only">实时 CAN 报文</caption>
+            <colgroup>
+              <col style="width:88px"><col style="width:118px"><col style="width:80px"><col style="width:134px"><col style="width:92px"><col style="width:52px"><col>
+            </colgroup>
+            <thead>
+              <tr><th class="num" scope="col">序列</th><th scope="col">时间</th><th scope="col">通道</th><th scope="col">ID</th><th scope="col">类型</th><th class="num" scope="col">DLC</th><th scope="col">数据</th></tr>
+            </thead>
+            <tbody id="framesBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="frameEmpty">
+          <svg viewBox="0 0 200 110" aria-hidden="true">
+            <path d="M16 44h26V22h26v44h26V22h26v44h26V22h26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" opacity=".3" stroke-dasharray="6 5"/>
+            <path d="M16 82h168" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".45"/>
+            <circle cx="52" cy="82" r="8" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/>
+            <circle cx="100" cy="82" r="8" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/>
+            <circle cx="148" cy="82" r="8" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/>
+          </svg>
+          <p class="t" id="emptyTitle">等待报文</p>
+          <p class="h" id="emptyHint">打开设备并启动通道后，捕获的报文将显示在这里。</p>
+        </div>
+        <div class="paused-badge" id="pausedBadge" hidden>已暂停 · <span id="pausedCount">0</span> 帧未显示</div>
+      </div>
+      <footer class="strip">
+        <span class="log" id="lastLogMsg">就绪</span>
+        <span class="strip-right"><span id="visibleCount">显示 0 行</span><span id="bufferUsage">缓冲 0 / 5,000</span></span>
+      </footer>
+    </section>
+
+    <section class="card panel-recs" aria-labelledby="h-files">
+      <header class="card-head">
+        <span class="card-index">07</span><h2 id="h-files">录制文件</h2>
+        <span class="count-badge" id="recordingsCount">0</span>
+        <span class="head-spacer"></span>
+        <button class="btn btn-sm" id="btnRefreshRecordings" type="button">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
+          <span>刷新</span>
+        </button>
+      </header>
+      <div class="recs-wrap">
+        <table class="recs-table">
+          <caption class="sr-only">已保存的 CSV 录制文件</caption>
+          <thead>
+            <tr><th scope="col">文件名</th><th class="num c-size" scope="col">大小</th><th scope="col">修改时间</th><th class="right" scope="col">操作</th></tr>
+          </thead>
+          <tbody id="recordingsList"></tbody>
+        </table>
+        <div class="empty-inline" id="recordingsEmpty" hidden>暂无录制文件。在「保存报文」中点击「开始录制」。</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div id="toasts" role="status" aria-live="polite"></div>
+
+<template id="rowTpl">
+  <tr><td class="c-seq"></td><td class="c-time"></td><td class="c-ch"></td><td class="c-id"></td><td class="c-type"></td><td class="c-dlc"></td><td class="c-data"></td></tr>
+</template>
+
+<template id="recRowTpl">
+  <tr>
+    <td class="r-name"></td>
+    <td class="r-size num"></td>
+    <td class="r-time"></td>
+    <td class="r-act">
+      <a class="btn btn-sm" href="#" download>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10m0 0-4-4m4 4 4-4M5 19h14"/></svg>
+        <span>下载</span>
+      </a>
+      <button class="btn btn-sm btn-danger" type="button">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M8 7l.9 12h6.2L16 7"/></svg>
+        <span>删除</span>
+      </button>
+    </td>
+  </tr>
+</template>
+
+<template id="swRowTpl">
+  <div class="sw-row">
+    <label class="check-mini"><input type="checkbox" class="sw-ext"><span>扩展</span></label>
+    <span class="hex"><input class="input sw-start" type="text" autocomplete="off" spellcheck="false" value="100"></span>
+    <span class="sw-sep">–</span>
+    <span class="hex"><input class="input sw-end" type="text" autocomplete="off" spellcheck="false" value="7FF"></span>
+    <button class="btn icon-only sw-del" type="button" aria-label="删除此过滤规则">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+</template>
+
+<noscript><div class="noscript">此页面需要启用 JavaScript 才能与 CAN 服务通信。</div></noscript>
+</body>
+</html>

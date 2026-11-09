@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CAN bus">
+  <rect x="24" y="24" width="464" height="464" rx="104" fill="#161f2b"/>
+  <rect x="24" y="24" width="464" height="464" rx="104" fill="none" stroke="#31435c" stroke-width="8"/>
+  <path d="M112 176h52v-72h68v72h52v-72h68v72h48" fill="none" stroke="#3dc3d8" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M96 340h320" fill="none" stroke="#dbe6f2" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="168" cy="340" r="40" fill="#161f2b" stroke="#3dc3d8" stroke-width="14"/>
+  <circle cx="256" cy="340" r="30" fill="#dbe6f2"/>
+  <circle cx="344" cy="340" r="40" fill="#161f2b" stroke="#f2a93b" stroke-width="14"/>
+</svg>

@@ -1,0 +1,13 @@
+{
+  "name": "can-tools-web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CAN Tools 前端（TypeScript 源码；编译产物 app.js 由 Rust 后端嵌入并分发）",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

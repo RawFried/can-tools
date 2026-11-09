@@ -1,0 +1,7 @@
+/target
+/dist
+/.tools
+/data
+*.log
+.DS_Store
+/web/node_modules

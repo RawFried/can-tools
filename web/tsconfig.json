@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    "module": "none",
+    "rootDir": "src",
+    "outDir": ".",
+    "strict": true,
+    "noImplicitAny": true,
+    "noEmitOnError": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "allowJs": false,
+    "pretty": true
+  },
+  "include": ["src/app.ts"],
+  "exclude": ["node_modules"]
+}
