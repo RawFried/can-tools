@@ -4,7 +4,6 @@
 import {
   applyConfig,
   clearFrames,
-  closeDevice,
   openDevice,
   startRecording,
   stopChannels,
@@ -12,7 +11,7 @@ import {
 } from './api';
 import { els } from './dom';
 import { fmtInt } from './format';
-import { renderDevices, loadDevices } from './devices';
+import { loadDevices } from './devices';
 import { loadRecordings } from './recordings';
 import { acceptAllRanges, addRangeRow, applyFiltersLive, collectConfig } from './filters';
 import { clearLocalFrames, rebuildTable, setAutoscroll, setPaused } from './frames';
@@ -27,33 +26,6 @@ export function bindEvents(): void {
     void runBusy(els.btnRefreshDevices, loadDevices);
   });
 
-  els.deviceList.addEventListener('change', (e) => {
-    const t = e.target;
-    if (t instanceof HTMLInputElement && t.name === 'device') {
-      state.selectedDevice = Number(t.value);
-      renderDevices();
-    }
-  });
-
-  els.btnOpenDevice.addEventListener('click', () => {
-    void runBusy(els.btnOpenDevice, async () => {
-      if (state.selectedDevice === null) return;
-      const st = await openDevice(state.selectedDevice);
-      if (st) applyStatus(st);
-      toast('设备已打开', 'success');
-      await loadDevices();
-    });
-  });
-
-  els.btnCloseDevice.addEventListener('click', () => {
-    void runBusy(els.btnCloseDevice, async () => {
-      const st = await closeDevice();
-      if (st) applyStatus(st);
-      toast('设备已关闭，通道状态已复位', 'success');
-      await loadDevices();
-    });
-  });
-
   els.ch1Check.addEventListener('change', updateControls);
   els.ch2Check.addEventListener('change', updateControls);
 
@@ -61,15 +33,25 @@ export function bindEvents(): void {
     void runBusy(els.btnApplyConfig, async () => {
       const body = collectConfig();
       if (!body) return;
+
+      /* 勾选 USB 但设备未打开时，用首个已发现设备自动打开；纯 SocketCAN 不触碰 USB */
+      if (body.usb.length > 0 && state.status?.device.open !== true) {
+        const first = state.devices[0];
+        if (!first) {
+          toast('未检测到 USBCAN 设备', 'error');
+          return;
+        }
+        const opened = await openDevice(first.index);
+        if (opened) applyStatus(opened);
+      }
+
       const st = await applyConfig(body);
       if (st) applyStatus(st);
-      const usbNames = body.channels.map(
-        (c) => state.status?.channels.find((ch) => ch.index === c)?.name ?? 'CAN' + (c + 1)
+      const usbNames = body.usb.map(
+        (ch) => state.status?.channels.find((c) => c.index === ch.index)?.name ?? 'CAN' + (ch.index + 1)
       );
-      const names = [...usbNames, ...body.socketcan].join('、');
-      /* baud 只作用于 USB 通道，纯链路启动时不附带速率 */
-      const baudText = body.channels.length > 0 ? '（' + body.baud + '）' : '';
-      toast('配置已应用，' + names + ' 已启动' + baudText, 'success');
+      const names = [...usbNames, ...body.socketcan.map((link) => link.name)].join('、');
+      toast('配置已应用，' + names + ' 已启动', 'success');
     });
   });
 

@@ -19,21 +19,12 @@
     wsDot: byId("wsDot"),
     wsText: byId("wsText"),
     versionLabel: byId("versionLabel"),
-    /* 设备连接 */
-    deviceList: byId("deviceList"),
-    deviceEmpty: byId("deviceEmpty"),
+    /* 设备刷新与通道配置 */
     btnRefreshDevices: byId("btnRefreshDevices"),
-    btnOpenDevice: byId("btnOpenDevice"),
-    btnCloseDevice: byId("btnCloseDevice"),
-    deviceInfo: byId("deviceInfo"),
-    devHw: byId("devHw"),
-    devFw: byId("devFw"),
-    devSerial: byId("devSerial"),
-    devChannels: byId("devChannels"),
-    /* 通道配置 */
     ch1Check: byId("ch1Check"),
     ch2Check: byId("ch2Check"),
-    baudSelect: byId("baudSelect"),
+    ch1Baud: byId("ch1Baud"),
+    ch2Baud: byId("ch2Baud"),
     btnApplyConfig: byId("btnApplyConfig"),
     btnStopChannels: byId("btnStopChannels"),
     chipCh1: byId("chipCh1"),
@@ -45,7 +36,6 @@
     scanList: byId("scanList"),
     scanEmpty: byId("scanEmpty"),
     scanStates: byId("scanStates"),
-    scanBitrate: byId("scanBitrate"),
     /* 滤波器 */
     filterRangeList: byId("filterRangeList"),
     filterEmpty: byId("filterEmpty"),
@@ -450,9 +440,6 @@
   }
   async function openDevice(index) {
     return statusOf(await api("/api/device/open", "POST", { index }));
-  }
-  async function closeDevice() {
-    return statusOf(await api("/api/device/close", "POST"));
   }
   async function applyConfig(body) {
     return statusOf(await api("/api/config", "POST", body));
@@ -1045,6 +1032,7 @@
     devices: [],
     socketcan: [],
     scanSelected: /* @__PURE__ */ new Set(),
+    scanRates: /* @__PURE__ */ new Map(),
     selectedDevice: null,
     recordings: [],
     ws: null,
@@ -1567,33 +1555,32 @@
     }
     return ranges;
   }
+  function scanBitrate(name) {
+    const value = state.scanRates.get(name) ?? state.socketcan.find((link) => link.name === name)?.bitrate ?? null;
+    return value !== null && Number.isFinite(value) && value >= 1e3 && value <= 1e6 ? value : 5e5;
+  }
   function collectConfig() {
-    const usbSelected = selectedChannels();
-    const usbOpen = state.status?.device.open === true;
-    const channels = usbOpen ? usbSelected : [];
-    const socketcan = [...state.scanSelected];
-    if (channels.length === 0 && socketcan.length === 0) {
-      toast(
-        usbSelected.length > 0 ? "设备未打开，请先打开设备或取消勾选 USB 通道" : "请至少选择一个通道或链路",
-        "warn"
-      );
+    const usb = [];
+    if (els.ch1Check.checked) usb.push({ index: 0, baud: asBaud(els.ch1Baud.value) ?? "500k" });
+    if (els.ch2Check.checked) usb.push({ index: 1, baud: asBaud(els.ch2Baud.value) ?? "500k" });
+    const socketcan = [...state.scanSelected].map((name) => ({
+      name,
+      bitrate: scanBitrate(name)
+    }));
+    if (usb.length === 0 && socketcan.length === 0) {
+      toast("请至少选择一个通道", "warn");
       return null;
     }
-    const baud = asBaud(els.baudSelect.value) ?? "500k";
-    const rawBitrate = Number(els.scanBitrate.value);
-    const socketcan_bitrate = Number.isFinite(rawBitrate) && rawBitrate >= 1e3 && rawBitrate <= 1e6 ? rawBitrate : 5e5;
     const checked = document.querySelector('input[name="mode"]:checked');
     const mode = checked ? asMode(checked.value) ?? "normal" : "normal";
     const software_filters = collectRanges();
     if (software_filters === null) return null;
     return {
-      channels,
-      baud,
+      usb,
+      socketcan,
       mode,
       filter: deriveAcceptanceFilter(software_filters),
-      software_filters,
-      socketcan,
-      socketcan_bitrate
+      software_filters
     };
   }
   function renderHwPrefilter(st) {
@@ -1723,7 +1710,6 @@
   }
   function updateSendControls() {
     const st = state.status;
-    const open = st !== null && st.device.open;
     const channelValue = els.sendChannel.value;
     const channel = channelValue === "" ? null : Number(channelValue);
     const running = channel === null ? null : st?.channels.find((item) => item.index === channel && item.running) ?? null;
@@ -1733,14 +1719,14 @@
     const bytes = remote ? [] : parseSendData(els.sendData.value);
     const dlc = remote ? Number(els.sendDlc.value) : bytes?.length ?? 0;
     let reason = "";
-    if (running === null) reason = open ? "先启动一个通道" : "先打开设备或启动链路";
+    if (running === null) reason = "请先在左侧选择通道并应用配置";
     else if (running.mode === "listen_only") reason = "只听模式不可发送";
     else if (id === null) reason = "ID 无效或超出范围";
     else if (bytes === null) reason = "数据必须是 1–8 个十六进制字节";
     else if (remote && (!Number.isInteger(dlc) || dlc < 0 || dlc > 8)) reason = "DLC 必须在 0–8";
     els.btnSend.disabled = reason !== "";
     els.sendHint.textContent = reason === "" ? remote ? "远程帧不携带数据；DLC 可设 0–8；回车发送。" : "数据支持 11 22 33 / 112233 / 0x11,0x22；回车发送。" : reason;
-    els.sendHint.classList.toggle("error", reason !== "" && open && running !== null);
+    els.sendHint.classList.toggle("error", reason !== "" && running !== null);
   }
   async function sendCurrentFrame(applyStatus2) {
     const channelValue = els.sendChannel.value;
@@ -1800,15 +1786,9 @@
         pillText = ["已连接", info.hw_type].filter((s) => s.length > 0).join(" · ");
       }
       els.devicePillText.textContent = pillText || "设备已连接";
-      els.deviceInfo.hidden = false;
-      els.devHw.textContent = info.hw_type || "—";
-      els.devFw.textContent = info.fw_version || "—";
-      els.devSerial.textContent = info.serial || "—";
-      els.devChannels.textContent = String(info.channel_count);
     } else {
       els.devicePillDot.className = "pill-dot";
       els.devicePillText.textContent = "未连接设备";
-      els.deviceInfo.hidden = true;
     }
     for (const ch of st.channels) {
       const chip = ch.index === 0 ? els.chipCh1 : ch.index === 1 ? els.chipCh2 : null;
@@ -1889,10 +1869,8 @@
     const checkedChannels = selectedChannels();
     const allCheckedRunning = checkedChannels.length > 0 && checkedChannels.every((index) => channels.some((c) => c.index === index && c.running));
     const filterAllowed = checkedChannels.length > 0 ? allCheckedRunning : anyRunning;
-    els.btnOpenDevice.disabled = open || state.devices.length === 0 || state.selectedDevice === null;
-    els.btnCloseDevice.disabled = !open;
-    els.btnApplyConfig.disabled = !(open && anyChannelChecked || state.scanSelected.size > 0);
-    els.btnApplyFilters.disabled = !filterAllowed || checkedChannels.length > 0 && !open;
+    els.btnApplyConfig.disabled = !anyChannelChecked && state.scanSelected.size === 0;
+    els.btnApplyFilters.disabled = !filterAllowed;
     els.btnStopChannels.disabled = !anyRunning;
     els.btnRecStart.disabled = !(open || anyRunning) || recActive;
     els.btnRecStop.disabled = !recActive;
@@ -1901,28 +1879,15 @@
     els.btnAddFilter.disabled = rangeCount >= MAX_RANGE_ROWS;
     els.filterEmpty.hidden = rangeCount > 0;
     for (const b of busy) b.disabled = true;
-    els.deviceList.classList.toggle("locked", open);
     updateSendControls();
   }
   function syncFormOnce(st) {
     if (state.formSynced) return;
     state.formSynced = true;
-    const usb = st.channels.filter((c) => c.source === "usb");
-    const running = usb.filter((c) => c.running);
-    const ref = running.length > 0 ? running[0] : usb.length > 0 ? usb[0] : null;
-    if (ref) {
-      if (ref.baud) els.baudSelect.value = ref.baud;
-      if (ref.mode) {
-        const r = document.querySelector('input[name="mode"][value="' + ref.mode + '"]');
-        if (r) r.checked = true;
-      }
-      if (running.length > 0) {
-        els.ch1Check.checked = running.some((c) => c.index === 0);
-        els.ch2Check.checked = running.some((c) => c.index === 1);
-      } else {
-        els.ch1Check.checked = ref.index === 0;
-        els.ch2Check.checked = ref.index === 1;
-      }
+    const running = st.channels.filter((c) => c.running);
+    if (running.length > 0) {
+      els.ch1Check.checked = running.some((c) => c.index === 0);
+      els.ch2Check.checked = running.some((c) => c.index === 1);
     }
     if (st.software_filters.length > 0) {
       const frag = document.createDocumentFragment();
@@ -1942,7 +1907,6 @@
     els.frameEmpty.hidden = hasRows;
     if (hasRows) return;
     const st = state.status;
-    const open = st !== null && st.device.open;
     const running = st !== null && st.channels.some((c) => c.running);
     if (state.buffer.length > 0 && state.filter) {
       els.emptyTitle.textContent = "没有匹配的报文";
@@ -1950,12 +1914,9 @@
     } else if (running) {
       els.emptyTitle.textContent = "等待 CAN 报文";
       els.emptyHint.textContent = "通道已启动，尚未收到报文；请确认总线波特率一致、滤波器未全部滤除。";
-    } else if (!open) {
-      els.emptyTitle.textContent = "未连接设备";
-      els.emptyHint.textContent = "在左侧「设备连接」中选择设备并点击「打开设备」，或勾选 SocketCAN 链路后启动。";
     } else {
       els.emptyTitle.textContent = "通道未启动";
-      els.emptyHint.textContent = "选择通道、波特率与滤波器，然后点击「应用配置并启动」。";
+      els.emptyHint.textContent = "选择要启动的通道与速率，然后点击「应用配置并启动」。";
     }
   }
   async function runBusy(btn, fn) {
@@ -1996,6 +1957,13 @@
   }
 
   // src/devices.ts
+  var SCAN_BITRATES = [1e4, 2e4, 5e4, 1e5, 125e3, 25e4, 5e5, 8e5, 1e6];
+  function clampScanRate(value) {
+    return value !== null && Number.isFinite(value) && value >= 1e3 && value <= 1e6 ? value : 5e5;
+  }
+  function effectiveScanRate(link) {
+    return clampScanRate(state.scanRates.get(link.name) ?? link.bitrate);
+  }
   function scanMetaText(link) {
     const live = state.status?.channels.find(
       (ch) => ch.source === "socketcan" && ch.name === link.name
@@ -2010,18 +1978,35 @@
   function renderScanList() {
     const frag = document.createDocumentFragment();
     for (const link of state.socketcan) {
-      const item = document.createElement("label");
-      item.className = "scan-item";
+      const item = document.createElement("div");
+      item.className = "scan-item ch-row";
       const checked = state.scanSelected.has(link.name);
       item.classList.toggle("is-on", checked);
+      const pick = document.createElement("label");
+      pick.className = "scan-pick";
       const input = document.createElement("input");
       input.type = "checkbox";
       input.className = "scan-check";
       input.value = link.name;
       input.checked = checked;
+      const src = document.createElement("span");
+      src.className = "src-tag scan-src";
+      src.textContent = "SocketCAN";
       const name = document.createElement("span");
       name.className = "scan-name";
       name.textContent = link.name;
+      pick.append(input, src, name);
+      const rate = document.createElement("select");
+      rate.className = "input ch-rate scan-rate";
+      rate.setAttribute("aria-label", link.name + " 速率");
+      const selectedRate = effectiveScanRate(link);
+      for (const bps of SCAN_BITRATES) {
+        const option = document.createElement("option");
+        option.value = String(bps);
+        option.textContent = bps / 1e3 + " kbps";
+        option.selected = bps === selectedRate;
+        rate.appendChild(option);
+      }
       const meta = document.createElement("span");
       meta.className = "scan-meta";
       meta.textContent = scanMetaText(link);
@@ -2031,60 +2016,28 @@
         item.classList.toggle("is-on", input.checked);
         updateControls();
       });
-      item.append(input, name, meta);
+      rate.addEventListener("change", () => {
+        const bitrate = Number(rate.value);
+        if (Number.isFinite(bitrate) && bitrate >= 1e3 && bitrate <= 1e6) {
+          state.scanRates.set(link.name, bitrate);
+        } else {
+          state.scanRates.delete(link.name);
+        }
+      });
+      item.append(pick, rate, meta);
       frag.appendChild(item);
     }
     els.scanList.replaceChildren(frag);
     els.scanEmpty.hidden = state.socketcan.length > 0;
-  }
-  function renderDevices() {
-    const frag = document.createDocumentFragment();
-    for (const dev of state.devices) {
-      const item = document.createElement("label");
-      item.className = "device-item";
-      const input = document.createElement("input");
-      input.type = "radio";
-      input.name = "device";
-      input.value = String(dev.index);
-      input.id = "dev-radio-" + dev.index;
-      const meta = document.createElement("div");
-      meta.className = "device-meta";
-      const name = document.createElement("span");
-      name.className = "device-name";
-      name.textContent = "USBCAN-II #" + dev.index;
-      const sub = document.createElement("span");
-      sub.className = "device-sub";
-      const subParts = [dev.channel_count + " 通道", dev.hw_type];
-      if (dev.fw_version) subParts.push("固件 " + dev.fw_version);
-      if (dev.serial) subParts.push("S/N " + dev.serial);
-      sub.textContent = subParts.filter((s) => s.length > 0).join(" · ");
-      meta.append(name, sub);
-      item.append(input, meta);
-      const open = state.status !== null && state.status.device.open;
-      input.checked = state.selectedDevice === dev.index;
-      input.disabled = open;
-      item.classList.toggle("selected", input.checked);
-      item.htmlFor = input.id;
-      frag.appendChild(item);
-    }
-    els.deviceList.replaceChildren(frag);
-    els.deviceEmpty.hidden = state.devices.length > 0;
-    renderScanList();
-    updateControls();
   }
   async function loadDevices() {
     try {
       const res = await fetchDevices();
       state.devices = res.devices;
       state.socketcan = res.socketcan;
-      const st = state.status;
-      const openIdx = st !== null && st.device.open && st.device.info ? st.device.info.index : null;
-      if (openIdx !== null) {
-        state.selectedDevice = openIdx;
-      } else if (state.selectedDevice === null || !state.devices.some((d) => d.index === state.selectedDevice)) {
-        state.selectedDevice = state.devices.length > 0 ? state.devices[0].index : null;
-      }
-      renderDevices();
+      state.selectedDevice = state.devices.length > 0 ? state.devices[0].index : null;
+      renderScanList();
+      updateControls();
     } catch (err) {
       toast(errText(err), "error");
     }
@@ -2396,44 +2349,28 @@
     els.btnRefreshDevices.addEventListener("click", () => {
       void runBusy(els.btnRefreshDevices, loadDevices);
     });
-    els.deviceList.addEventListener("change", (e) => {
-      const t = e.target;
-      if (t instanceof HTMLInputElement && t.name === "device") {
-        state.selectedDevice = Number(t.value);
-        renderDevices();
-      }
-    });
-    els.btnOpenDevice.addEventListener("click", () => {
-      void runBusy(els.btnOpenDevice, async () => {
-        if (state.selectedDevice === null) return;
-        const st = await openDevice(state.selectedDevice);
-        if (st) applyStatus(st);
-        toast("设备已打开", "success");
-        await loadDevices();
-      });
-    });
-    els.btnCloseDevice.addEventListener("click", () => {
-      void runBusy(els.btnCloseDevice, async () => {
-        const st = await closeDevice();
-        if (st) applyStatus(st);
-        toast("设备已关闭，通道状态已复位", "success");
-        await loadDevices();
-      });
-    });
     els.ch1Check.addEventListener("change", updateControls);
     els.ch2Check.addEventListener("change", updateControls);
     els.btnApplyConfig.addEventListener("click", () => {
       void runBusy(els.btnApplyConfig, async () => {
         const body = collectConfig();
         if (!body) return;
+        if (body.usb.length > 0 && state.status?.device.open !== true) {
+          const first = state.devices[0];
+          if (!first) {
+            toast("未检测到 USBCAN 设备", "error");
+            return;
+          }
+          const opened = await openDevice(first.index);
+          if (opened) applyStatus(opened);
+        }
         const st = await applyConfig(body);
         if (st) applyStatus(st);
-        const usbNames = body.channels.map(
-          (c) => state.status?.channels.find((ch) => ch.index === c)?.name ?? "CAN" + (c + 1)
+        const usbNames = body.usb.map(
+          (ch) => state.status?.channels.find((c) => c.index === ch.index)?.name ?? "CAN" + (ch.index + 1)
         );
-        const names = [...usbNames, ...body.socketcan].join("、");
-        const baudText = body.channels.length > 0 ? "（" + body.baud + "）" : "";
-        toast("配置已应用，" + names + " 已启动" + baudText, "success");
+        const names = [...usbNames, ...body.socketcan.map((link) => link.name)].join("、");
+        toast("配置已应用，" + names + " 已启动", "success");
       });
     });
     els.btnStopChannels.addEventListener("click", () => {

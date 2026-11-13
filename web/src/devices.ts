@@ -1,5 +1,6 @@
 /**
- * 设备连接卡片：设备列表加载与渲染、单选状态、打开/关闭按钮的可用性联动。
+ * 设备与链路发现：刷新 USB 设备列表（自动打开用）与 SocketCAN 链路列表，
+ * 渲染带来源标记与独立速率下拉的链路行。
  */
 import { fetchDevices } from './api';
 import { els } from './dom';
@@ -8,6 +9,21 @@ import { state } from './state';
 import { updateControls } from './status';
 import { toast } from './toast';
 import type { SocketCanLinkDto } from './types';
+
+/** 链路速率可选项（bps），与后端 1000–1000000 的校验范围一致。 */
+const SCAN_BITRATES = [10000, 20000, 50000, 100000, 125000, 250000, 500000, 800000, 1000000] as const;
+
+/** 速率非法/未知时回退 500000。 */
+function clampScanRate(value: number | null): number {
+  return value !== null && Number.isFinite(value) && value >= 1000 && value <= 1_000_000
+    ? value
+    : 500_000;
+}
+
+/** 用户选择优先，其次链路已知 bitrate，最后 500000。 */
+function effectiveScanRate(link: SocketCanLinkDto): number {
+  return clampScanRate(state.scanRates.get(link.name) ?? link.bitrate);
+}
 
 /** 链路行的附加文案：优先用实时状态判断运行中，避免必须刷新设备列表。 */
 function scanMetaText(link: SocketCanLinkDto): string {
@@ -23,14 +39,17 @@ function scanMetaText(link: SocketCanLinkDto): string {
   );
 }
 
-/** 渲染 SocketCAN 发现列表；勾选写入 scanSelected，刷新时按名字恢复。 */
+/** 渲染 SocketCAN 发现列表；勾选写入 scanSelected、速率写入 scanRates，刷新时按名字恢复。 */
 export function renderScanList(): void {
   const frag = document.createDocumentFragment();
   for (const link of state.socketcan) {
-    const item = document.createElement('label');
-    item.className = 'scan-item';
+    const item = document.createElement('div');
+    item.className = 'scan-item ch-row';
     const checked = state.scanSelected.has(link.name);
     item.classList.toggle('is-on', checked);
+
+    const pick = document.createElement('label');
+    pick.className = 'scan-pick';
 
     const input = document.createElement('input');
     input.type = 'checkbox';
@@ -38,15 +57,33 @@ export function renderScanList(): void {
     input.value = link.name;
     input.checked = checked;
 
+    const src = document.createElement('span');
+    src.className = 'src-tag scan-src';
+    src.textContent = 'SocketCAN';
+
     const name = document.createElement('span');
     name.className = 'scan-name';
     name.textContent = link.name;
+
+    pick.append(input, src, name);
+
+    const rate = document.createElement('select');
+    rate.className = 'input ch-rate scan-rate';
+    rate.setAttribute('aria-label', link.name + ' 速率');
+    const selectedRate = effectiveScanRate(link);
+    for (const bps of SCAN_BITRATES) {
+      const option = document.createElement('option');
+      option.value = String(bps);
+      option.textContent = bps / 1000 + ' kbps';
+      option.selected = bps === selectedRate;
+      rate.appendChild(option);
+    }
 
     const meta = document.createElement('span');
     meta.className = 'scan-meta';
     meta.textContent = scanMetaText(link);
 
-    /* 勾选态只影响本地集合；启动/配置仍由「应用配置并启动」统一提交 */
+    /* 勾选只影响本地集合；启动/配置仍由「应用配置并启动」统一提交 */
     input.addEventListener('change', () => {
       if (input.checked) state.scanSelected.add(link.name);
       else state.scanSelected.delete(link.name);
@@ -54,69 +91,32 @@ export function renderScanList(): void {
       updateControls();
     });
 
-    item.append(input, name, meta);
+    rate.addEventListener('change', () => {
+      const bitrate = Number(rate.value);
+      if (Number.isFinite(bitrate) && bitrate >= 1000 && bitrate <= 1_000_000) {
+        state.scanRates.set(link.name, bitrate);
+      } else {
+        state.scanRates.delete(link.name);
+      }
+    });
+
+    item.append(pick, rate, meta);
     frag.appendChild(item);
   }
   els.scanList.replaceChildren(frag);
   els.scanEmpty.hidden = state.socketcan.length > 0;
 }
 
-export function renderDevices(): void {
-  const frag = document.createDocumentFragment();
-  for (const dev of state.devices) {
-    const item = document.createElement('label');
-    item.className = 'device-item';
-
-    const input = document.createElement('input');
-    input.type = 'radio';
-    input.name = 'device';
-    input.value = String(dev.index);
-    input.id = 'dev-radio-' + dev.index;
-
-    const meta = document.createElement('div');
-    meta.className = 'device-meta';
-
-    const name = document.createElement('span');
-    name.className = 'device-name';
-    name.textContent = 'USBCAN-II #' + dev.index;
-
-    const sub = document.createElement('span');
-    sub.className = 'device-sub';
-    const subParts = [dev.channel_count + ' 通道', dev.hw_type];
-    if (dev.fw_version) subParts.push('固件 ' + dev.fw_version);
-    if (dev.serial) subParts.push('S/N ' + dev.serial);
-    sub.textContent = subParts.filter((s) => s.length > 0).join(' · ');
-
-    meta.append(name, sub);
-    item.append(input, meta);
-
-    const open = state.status !== null && state.status.device.open;
-    input.checked = state.selectedDevice === dev.index;
-    input.disabled = open;
-    item.classList.toggle('selected', input.checked);
-    item.htmlFor = input.id;
-    frag.appendChild(item);
-  }
-  els.deviceList.replaceChildren(frag);
-  els.deviceEmpty.hidden = state.devices.length > 0;
-  renderScanList();
-  updateControls();
-}
-
+/** 刷新 USB 设备与 SocketCAN 链路；USB 设备仅用于配置前自动打开。 */
 export async function loadDevices(): Promise<void> {
   try {
     const res = await fetchDevices();
     state.devices = res.devices;
-    /* 只更新发现结果；scanSelected 保留，已勾选但暂时消失的链路名不丢失 */
+    /* 只更新发现结果；scanSelected/scanRates 保留，暂时消失的链路配置不丢失 */
     state.socketcan = res.socketcan;
-    const st = state.status;
-    const openIdx = st !== null && st.device.open && st.device.info ? st.device.info.index : null;
-    if (openIdx !== null) {
-      state.selectedDevice = openIdx;
-    } else if (state.selectedDevice === null || !state.devices.some((d) => d.index === state.selectedDevice)) {
-      state.selectedDevice = state.devices.length > 0 ? state.devices[0].index : null;
-    }
-    renderDevices();
+    state.selectedDevice = state.devices.length > 0 ? state.devices[0].index : null;
+    renderScanList();
+    updateControls();
   } catch (err) {
     toast(errText(err), 'error');
   }

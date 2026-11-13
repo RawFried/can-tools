@@ -96,7 +96,6 @@ export function updateSendDlc(): void {
 
 export function updateSendControls(): void {
   const st = state.status;
-  const open = st !== null && st.device.open;
   const channelValue = els.sendChannel.value;
   const channel = channelValue === '' ? null : Number(channelValue);
   const running =
@@ -110,7 +109,7 @@ export function updateSendControls(): void {
   const dlc = remote ? Number(els.sendDlc.value) : (bytes?.length ?? 0);
 
   let reason = '';
-  if (running === null) reason = open ? '先启动一个通道' : '先打开设备或启动链路';
+  if (running === null) reason = '请先在左侧选择通道并应用配置';
   else if (running.mode === 'listen_only') reason = '只听模式不可发送';
   else if (id === null) reason = 'ID 无效或超出范围';
   else if (bytes === null) reason = '数据必须是 1–8 个十六进制字节';
@@ -123,7 +122,7 @@ export function updateSendControls(): void {
         ? '远程帧不携带数据；DLC 可设 0–8；回车发送。'
         : '数据支持 11 22 33 / 112233 / 0x11,0x22；回车发送。'
       : reason;
-  els.sendHint.classList.toggle('error', reason !== '' && open && running !== null);
+  els.sendHint.classList.toggle('error', reason !== '' && running !== null);
 }
 
 /**

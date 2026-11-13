@@ -19,6 +19,8 @@ export interface AppState {
   socketcan: SocketCanLinkDto[];
   /** 已勾选的 SocketCAN 接口名；刷新设备时刻意保留，避免暂时消失的链路丢失选择。 */
   scanSelected: Set<string>;
+  /** 用户为各 SocketCAN 链路选择的速率（bps）；未设置时回退链路 bitrate/500000。 */
+  scanRates: Map<string, number>;
   selectedDevice: number | null;
   recordings: RecordingFileDto[];
   ws: WebSocket | null;
@@ -38,6 +40,7 @@ export const state: AppState = {
   devices: [],
   socketcan: [],
   scanSelected: new Set<string>(),
+  scanRates: new Map<string, number>(),
   selectedDevice: null,
   recordings: [],
   ws: null,

@@ -123,17 +123,25 @@ export interface RecordingFileDto {
   modified_ms: number;
 }
 
-/** POST /api/config 请求体 */
-export interface ConfigBody {
-  channels: number[];
+/** 单个 USB 通道的启动配置（v4：每通道独立波特率）。 */
+export interface UsbChannelConfigDto {
+  index: number;
   baud: Baud;
+}
+
+/** 单条 SocketCAN 链路的启动配置。 */
+export interface SocketCanChannelConfigDto {
+  name: string;
+  bitrate: number;
+}
+
+/** POST /api/config 请求体（v4：按通道统一配置）。 */
+export interface ConfigBody {
+  usb: UsbChannelConfigDto[];
+  socketcan: SocketCanChannelConfigDto[];
   mode: CanMode;
   filter: AcceptanceFilterDto;
   software_filters: SoftwareFilterDto[];
-  /** 要启动/重启的 SocketCAN 接口名；channels 与 socketcan 不可同时为空。 */
-  socketcan: string[];
-  /** 启动 SocketCAN 链路时使用的速率（bps，1000–1000000，默认 500000）。 */
-  socketcan_bitrate: number;
 }
 
 /** POST /api/send 请求体 */

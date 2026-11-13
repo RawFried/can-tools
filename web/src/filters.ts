@@ -8,7 +8,13 @@ import { deriveAcceptanceFilter, describeHardwareFilter } from './filters-model'
 import { parseHex } from './format';
 import { state } from './state';
 import { setLastLog, toast } from './toast';
-import type { ConfigBody, SoftwareFilterDto, StatusDto } from './types';
+import type {
+  ConfigBody,
+  SocketCanChannelConfigDto,
+  SoftwareFilterDto,
+  StatusDto,
+  UsbChannelConfigDto,
+} from './types';
 import { asBaud, asMode } from './types';
 
 /** ID 区间行数上限（后端对 software_filters 同样限制 16 条，超出会被拒绝）。 */
@@ -105,30 +111,32 @@ function collectRanges(): SoftwareFilterDto[] | null {
   return ranges;
 }
 
+/** 读取链路速率：用户选择优先，其次已发现链路的 bitrate，非法/缺失回退 500000。 */
+function scanBitrate(name: string): number {
+  const value =
+    state.scanRates.get(name) ??
+    state.socketcan.find((link) => link.name === name)?.bitrate ??
+    null;
+  return value !== null && Number.isFinite(value) && value >= 1000 && value <= 1_000_000
+    ? value
+    : 500_000;
+}
+
 /** 从表单收集 POST /api/config 请求体；校验失败时提示并返回 null。 */
 export function collectConfig(): ConfigBody | null {
-  const usbSelected = selectedChannels();
-  /* USB 通道只有在设备已打开时才可能启动; 设备关闭时只提交 SocketCAN 链路。 */
-  const usbOpen = state.status?.device.open === true;
-  const channels = usbOpen ? usbSelected : [];
-  const socketcan = [...state.scanSelected];
-  if (channels.length === 0 && socketcan.length === 0) {
-    toast(
-      usbSelected.length > 0
-        ? '设备未打开，请先打开设备或取消勾选 USB 通道'
-        : '请至少选择一个通道或链路',
-      'warn'
-    );
+  const usb: UsbChannelConfigDto[] = [];
+  if (els.ch1Check.checked) usb.push({ index: 0, baud: asBaud(els.ch1Baud.value) ?? '500k' });
+  if (els.ch2Check.checked) usb.push({ index: 1, baud: asBaud(els.ch2Baud.value) ?? '500k' });
+
+  const socketcan: SocketCanChannelConfigDto[] = [...state.scanSelected].map((name) => ({
+    name,
+    bitrate: scanBitrate(name),
+  }));
+  if (usb.length === 0 && socketcan.length === 0) {
+    toast('请至少选择一个通道', 'warn');
     return null;
   }
 
-  const baud = asBaud(els.baudSelect.value) ?? '500k';
-  /* 链路速率下拉缺失或值非法时回退默认 500 kbps（后端允许 1000–1000000） */
-  const rawBitrate = Number(els.scanBitrate.value);
-  const socketcan_bitrate =
-    Number.isFinite(rawBitrate) && rawBitrate >= 1000 && rawBitrate <= 1_000_000
-      ? rawBitrate
-      : 500_000;
   const checked = document.querySelector<HTMLInputElement>('input[name="mode"]:checked');
   const mode = checked ? asMode(checked.value) ?? 'normal' : 'normal';
   const software_filters = collectRanges();
@@ -136,13 +144,11 @@ export function collectConfig(): ConfigBody | null {
 
   /* 硬件滤波由区间列表统一推导，用户不再直接编辑验收码/屏蔽码 */
   return {
-    channels,
-    baud,
+    usb,
+    socketcan,
     mode,
     filter: deriveAcceptanceFilter(software_filters),
     software_filters,
-    socketcan,
-    socketcan_bitrate,
   };
 }
 

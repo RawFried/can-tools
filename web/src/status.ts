@@ -26,15 +26,9 @@ export function applyStatus(st: StatusDto): void {
       pillText = ['已连接', info.hw_type].filter((s) => s.length > 0).join(' · ');
     }
     els.devicePillText.textContent = pillText || '设备已连接';
-    els.deviceInfo.hidden = false;
-    els.devHw.textContent = info.hw_type || '—';
-    els.devFw.textContent = info.fw_version || '—';
-    els.devSerial.textContent = info.serial || '—';
-    els.devChannels.textContent = String(info.channel_count);
   } else {
     els.devicePillDot.className = 'pill-dot';
     els.devicePillText.textContent = '未连接设备';
-    els.deviceInfo.hidden = true;
   }
 
   /* 通道状态 */
@@ -138,10 +132,8 @@ export function updateControls(): void {
   /* 滤波：勾选的 USB 通道全部运行；未勾选 USB 但仍有运行中的链路（可为 SocketCAN）时只更新软件滤波 */
   const filterAllowed = checkedChannels.length > 0 ? allCheckedRunning : anyRunning;
 
-  els.btnOpenDevice.disabled = open || state.devices.length === 0 || state.selectedDevice === null;
-  els.btnCloseDevice.disabled = !open;
-  els.btnApplyConfig.disabled = !((open && anyChannelChecked) || state.scanSelected.size > 0);
-  els.btnApplyFilters.disabled = !filterAllowed || (checkedChannels.length > 0 && !open);
+  els.btnApplyConfig.disabled = !anyChannelChecked && state.scanSelected.size === 0;
+  els.btnApplyFilters.disabled = !filterAllowed;
   els.btnStopChannels.disabled = !anyRunning;
   els.btnRecStart.disabled = !(open || anyRunning) || recActive;
   els.btnRecStop.disabled = !recActive;
@@ -155,32 +147,19 @@ export function updateControls(): void {
   /* 异步进行中的按钮保持禁用，避免状态推送期间被重新启用 */
   for (const b of busy) b.disabled = true;
 
-  els.deviceList.classList.toggle('locked', open);
   updateSendControls();
 }
 
-/** 首个状态到达时，把运行中的 USB 通道配置回填到表单（仅一次，不覆盖用户后续编辑）。 */
+/** 首个状态到达时，按运行中通道回填 USB 勾选（仅一次，不覆盖用户后续编辑）。 */
 export function syncFormOnce(st: StatusDto): void {
   if (state.formSynced) return;
   state.formSynced = true;
 
-  /* 只回填 USB：SocketCAN 的速率由接口自身决定，勾选状态不受状态推送影响 */
-  const usb = st.channels.filter((c) => c.source === 'usb');
-  const running = usb.filter((c) => c.running);
-  const ref = running.length > 0 ? running[0] : usb.length > 0 ? usb[0] : null;
-  if (ref) {
-    if (ref.baud) els.baudSelect.value = ref.baud;
-    if (ref.mode) {
-      const r = document.querySelector<HTMLInputElement>('input[name="mode"][value="' + ref.mode + '"]');
-      if (r) r.checked = true;
-    }
-    if (running.length > 0) {
-      els.ch1Check.checked = running.some((c) => c.index === 0);
-      els.ch2Check.checked = running.some((c) => c.index === 1);
-    } else {
-      els.ch1Check.checked = ref.index === 0;
-      els.ch2Check.checked = ref.index === 1;
-    }
+  /* 只回填 ch1/ch2 勾选；每通道速率与 SocketCAN 行由用户控件维持 */
+  const running = st.channels.filter((c) => c.running);
+  if (running.length > 0) {
+    els.ch1Check.checked = running.some((c) => c.index === 0);
+    els.ch2Check.checked = running.some((c) => c.index === 1);
   }
 
   if (st.software_filters.length > 0) {
@@ -204,7 +183,6 @@ export function updateEmpty(): void {
   if (hasRows) return;
 
   const st = state.status;
-  const open = st !== null && st.device.open;
   const running = st !== null && st.channels.some((c) => c.running);
 
   if (state.buffer.length > 0 && state.filter) {
@@ -213,12 +191,9 @@ export function updateEmpty(): void {
   } else if (running) {
     els.emptyTitle.textContent = '等待 CAN 报文';
     els.emptyHint.textContent = '通道已启动，尚未收到报文；请确认总线波特率一致、滤波器未全部滤除。';
-  } else if (!open) {
-    els.emptyTitle.textContent = '未连接设备';
-    els.emptyHint.textContent = '在左侧「设备连接」中选择设备并点击「打开设备」，或勾选 SocketCAN 链路后启动。';
   } else {
     els.emptyTitle.textContent = '通道未启动';
-    els.emptyHint.textContent = '选择通道、波特率与滤波器，然后点击「应用配置并启动」。';
+    els.emptyHint.textContent = '选择要启动的通道与速率，然后点击「应用配置并启动」。';
   }
 }
 

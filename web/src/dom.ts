@@ -24,22 +24,12 @@ export const els = {
   wsText: byId<HTMLElement>('wsText'),
   versionLabel: byId<HTMLElement>('versionLabel'),
 
-  /* 设备连接 */
-  deviceList: byId<HTMLElement>('deviceList'),
-  deviceEmpty: byId<HTMLElement>('deviceEmpty'),
+  /* 设备刷新与通道配置 */
   btnRefreshDevices: byId<HTMLButtonElement>('btnRefreshDevices'),
-  btnOpenDevice: byId<HTMLButtonElement>('btnOpenDevice'),
-  btnCloseDevice: byId<HTMLButtonElement>('btnCloseDevice'),
-  deviceInfo: byId<HTMLElement>('deviceInfo'),
-  devHw: byId<HTMLElement>('devHw'),
-  devFw: byId<HTMLElement>('devFw'),
-  devSerial: byId<HTMLElement>('devSerial'),
-  devChannels: byId<HTMLElement>('devChannels'),
-
-  /* 通道配置 */
   ch1Check: byId<HTMLInputElement>('ch1Check'),
   ch2Check: byId<HTMLInputElement>('ch2Check'),
-  baudSelect: byId<HTMLSelectElement>('baudSelect'),
+  ch1Baud: byId<HTMLSelectElement>('ch1Baud'),
+  ch2Baud: byId<HTMLSelectElement>('ch2Baud'),
   btnApplyConfig: byId<HTMLButtonElement>('btnApplyConfig'),
   btnStopChannels: byId<HTMLButtonElement>('btnStopChannels'),
   chipCh1: byId<HTMLElement>('chipCh1'),
@@ -51,7 +41,6 @@ export const els = {
   scanList: byId<HTMLElement>('scanList'),
   scanEmpty: byId<HTMLElement>('scanEmpty'),
   scanStates: byId<HTMLElement>('scanStates'),
-  scanBitrate: byId<HTMLSelectElement>('scanBitrate'),
 
   /* 滤波器 */
   filterRangeList: byId<HTMLElement>('filterRangeList'),
