@@ -1,0 +1,49 @@
+/* ---------- 响应式 ---------- */
+/* 中等宽度：收窄侧栏，保持报文表与配置同屏可见 */
+@media (max-width: 1180px) {
+  .layout { grid-template-columns: 280px minmax(0, 1fr); gap: 14px; }
+}
+
+/* 窄屏：单列堆叠，侧栏卡片多列铺排 */
+@media (max-width: 880px) {
+  .layout { grid-template-columns: 1fr; }
+  .rail {
+    position: static; max-height: none; overflow: visible;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    align-items: start; gap: 12px; padding-right: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .layout { padding: 12px 12px 24px; gap: 12px; }
+
+  .topbar-inner { flex-wrap: wrap; padding: 8px 12px; gap: 8px 10px; }
+  .topbar-status { margin-left: 0; width: 100%; justify-content: space-between; }
+  .pill { max-width: 100%; }
+
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .stat-val { font-size: 19px; }
+  .stat { padding: 10px 12px; }
+
+  .tools { margin-left: 0; width: 100%; }
+  .search { flex: 1 1 100%; }
+  .search input { width: 100%; }
+
+  .table-area { max-height: 58vh; }
+
+  .grid-2 { grid-template-columns: 1fr; }
+
+  /* 录制文件操作退化为纯图标按钮，保证可达 */
+  .r-act .btn span { display: none; }
+  .r-act .btn { width: 30px; padding: 0; justify-content: center; }
+  .r-act .btn + .btn { margin-left: 4px; }
+  td.r-name { max-width: 40vw; }
+}
+
+@media (max-width: 520px) {
+  .layout { padding: 10px 10px 20px; }
+  .version { display: none; }
+  table.recs-table .r-time, table.recs-table th.c-time { display: none; }
+  td.r-name { max-width: 52vw; }
+  .card-body { padding: 12px; }
+}

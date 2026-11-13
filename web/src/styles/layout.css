@@ -1,0 +1,73 @@
+/* ---------- 布局 ---------- */
+.layout {
+  max-width: 1600px; margin: 0 auto;
+  padding: 18px 20px 30px;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.rail {
+  display: flex; flex-direction: column; gap: 16px; min-width: 0;
+  /* 桌面端：侧栏吸附并独立滚动，长配置不打断主区 */
+  position: sticky; top: 66px; align-self: start;
+  max-height: calc(100vh - 84px);
+  overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
+  padding-right: 2px;
+}
+.rail::-webkit-scrollbar { width: 8px; }
+.rail::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; border: 2px solid var(--surface); }
+.main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* ---------- 卡片 ---------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-l);
+  box-shadow: var(--shadow-card);
+  animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+}
+.rail .card:nth-child(1) { animation-delay: 0.02s; }
+.rail .card:nth-child(2) { animation-delay: 0.06s; }
+.rail .card:nth-child(3) { animation-delay: 0.10s; }
+.rail .card:nth-child(4) { animation-delay: 0.14s; }
+.rail .card:nth-child(5) { animation-delay: 0.18s; }
+.main .stats { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) 0.05s backwards; }
+.main .panel-data { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) 0.10s backwards; }
+.main .panel-recs { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) 0.14s backwards; }
+
+.card-head {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.card-head h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
+
+.card-index {
+  font: 600 10.5px/1 var(--font-mono);
+  color: var(--can1);
+  background: var(--can1-dim);
+  padding: 3px 6px; border-radius: 5px;
+  letter-spacing: 0.05em;
+}
+
+.head-spacer { flex: 1; }
+
+.card-body { padding: 14px; display: grid; gap: 12px; }
+
+/* 卡片内分区：通道与滤波共处一卡，用细分隔线 + 弱化小标题区分；
+   不嵌套卡片，避免叠加边框与内边距 */
+.card-section {
+  display: grid; gap: 12px; min-width: 0;
+  margin-top: 2px; padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* 分区标题：字号小于卡片标题（13px/600），颜色降一档，保持从属关系 */
+.section-head {
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-mid);
+}

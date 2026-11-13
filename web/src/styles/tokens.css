@@ -1,0 +1,116 @@
+/* ============================================================
+   CAN Tools — 仪表工作台风格
+   深色为默认主题，浅色经 prefers-color-scheme 切换；全部使用
+   自定义属性，无外部资源。
+   ============================================================ */
+
+/* ---------- 设计令牌 ---------- */
+:root {
+  color-scheme: dark;
+
+  --bg: #0e1319;
+  --bg-grid: rgba(140, 170, 205, 0.05);
+  --topbar-bg: rgba(14, 19, 25, 0.86);
+  --surface: #151c26;
+  --surface-2: #1a2330;
+  --surface-3: #212c3b;
+  --border: #25303f;
+  --border-soft: rgba(96, 122, 152, 0.16);
+  --border-strong: #33425a;
+  --row-hover: rgba(63, 201, 221, 0.05);
+
+  --text: #dae3ee;
+  --text-mid: #9db0c5;
+  --text-faint: #7e8fa4;
+
+  --can1: #37c5da;               /* CAN1 · 青 */
+  --can1-dim: rgba(55, 197, 218, 0.12);
+  --can1-line: rgba(55, 197, 218, 0.38);
+  --can2: #f0a63a;               /* CAN2 · 琥珀 */
+  --can2-dim: rgba(240, 166, 58, 0.12);
+  --can2-line: rgba(240, 166, 58, 0.38);
+
+  --scan: #3ecf8e;               /* SocketCAN 链路 · 绿 */
+  --scan-dim: rgba(62, 207, 142, 0.12);
+  --scan-line: rgba(62, 207, 142, 0.38);
+
+  --ok: #3ecf8e;
+  --ok-dim: rgba(62, 207, 142, 0.14);
+  --err: #ef6159;
+  --err-dim: rgba(239, 97, 89, 0.10);
+  --warn: #e5b04e;
+  --warn-dim: rgba(229, 176, 78, 0.12);
+  --info: #6db3f9;
+
+  --focus: #45cede;
+  --btn-primary-fg: #04262d;
+
+  --tx: #a995f2;                 /* 发送 TX · 紫 */
+  --tx-dim: rgba(169, 149, 242, 0.13);
+  --tx-line: rgba(169, 149, 242, 0.4);
+  --tx-fg: #171036;
+
+  --shadow-card: 0 1px 2px rgba(3, 8, 14, 0.45), 0 14px 34px -22px rgba(3, 8, 14, 0.7);
+  --shadow-pop: 0 4px 10px rgba(3, 8, 14, 0.35), 0 18px 44px -16px rgba(3, 8, 14, 0.75);
+
+  --r-s: 8px;
+  --r-m: 10px;
+  --r-l: 12px;
+
+  --font-ui: "Segoe UI Variable Text", "Segoe UI", -apple-system, "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC",
+    "Source Han Sans SC", sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", "Fira Code", "SF Mono", Menlo,
+    Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg: #eef1f6;
+    --bg-grid: rgba(30, 58, 95, 0.035);
+    --topbar-bg: rgba(238, 241, 246, 0.88);
+    --surface: #ffffff;
+    --surface-2: #f5f7fa;
+    --surface-3: #ebeff5;
+    --border: #d9dfe9;
+    --border-soft: rgba(52, 74, 102, 0.14);
+    --border-strong: #c2ccda;
+    --row-hover: rgba(11, 150, 171, 0.06);
+
+    --text: #1c2634;
+    --text-mid: #4c5e73;
+    --text-faint: #5f7186;
+
+    --can1: #077187;
+    --can1-dim: rgba(7, 113, 135, 0.09);
+    --can1-line: rgba(7, 113, 135, 0.36);
+    --can2: #8f5803;
+    --can2-dim: rgba(143, 88, 3, 0.09);
+    --can2-line: rgba(143, 88, 3, 0.36);
+
+    --scan: #0b6b45;
+    --scan-dim: rgba(11, 107, 69, 0.10);
+    --scan-line: rgba(11, 107, 69, 0.36);
+
+    --ok: #128053;
+    --ok-dim: rgba(18, 128, 83, 0.12);
+    --err: #c23a3a;
+    --err-dim: rgba(194, 58, 58, 0.09);
+    --warn: #8f6107;
+    --warn-dim: rgba(143, 97, 7, 0.11);
+    --info: #2563c9;
+
+    --focus: #077187;
+    --btn-primary-fg: #ffffff;
+
+    --tx: #6440c9;
+    --tx-dim: rgba(100, 64, 201, 0.09);
+    --tx-line: rgba(100, 64, 201, 0.36);
+    --tx-fg: #ffffff;
+
+    --shadow-card: 0 1px 2px rgba(23, 34, 48, 0.07), 0 14px 30px -24px rgba(23, 34, 48, 0.35);
+    --shadow-pop: 0 4px 12px rgba(23, 34, 48, 0.14), 0 18px 40px -18px rgba(23, 34, 48, 0.4);
+  }
+}

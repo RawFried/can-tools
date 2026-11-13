@@ -1,0 +1,50 @@
+/* ---------- 录制文件 ---------- */
+.count-badge {
+  font: 600 10.5px/1 var(--font-mono);
+  color: var(--text-mid);
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  padding: 3px 7px; border-radius: 999px;
+}
+
+.recs-wrap { overflow-x: auto; }
+
+table.recs-table { width: 100%; border-collapse: collapse; }
+
+table.recs-table th {
+  text-align: left;
+  font: 600 11px/1.2 var(--font-ui);
+  color: var(--text-mid); letter-spacing: 0.05em;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+table.recs-table th.num, table.recs-table td.num { text-align: right; }
+table.recs-table th.right, table.recs-table td.r-act { text-align: right; }
+
+table.recs-table td {
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 12.5px;
+}
+table.recs-table tr:last-child td { border-bottom: 0; }
+table.recs-table tbody tr:hover td { background: var(--row-hover); }
+
+td.r-name {
+  font: 600 12px var(--font-mono);
+  max-width: 42vw;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+td.r-size, td.r-time { font: 400 12px var(--font-mono); color: var(--text-mid); white-space: nowrap; }
+td.r-act { white-space: nowrap; }
+td.r-act .btn { margin-left: 6px; }
+
+@media (max-width: 760px) {
+  table.recs-table .r-size, table.recs-table th.c-size { display: none; }
+  td.r-name { max-width: 46vw; }
+}
+
+.empty-inline {
+  padding: 16px 14px; text-align: center;
+  font-size: 12.5px; color: var(--text-faint); line-height: 1.8;
+}

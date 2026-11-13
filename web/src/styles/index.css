@@ -1,0 +1,18 @@
+/* CSS 入口，esbuild 打包为 web/app.css（后端 include_str! 嵌入）。
+   导入顺序即级联顺序，必须与原 app.css 的分区顺序一致；
+   新增样式请放入对应职责文件，不要在本文件写规则。 */
+@import './tokens.css';
+@import './base.css';
+@import './layout.css';
+@import './controls.css';
+@import './channels.css';
+@import './filters.css';
+@import './recording.css';
+@import './hints.css';
+@import './stats.css';
+@import './data-view.css';
+@import './dbc.css';
+@import './recordings.css';
+@import './overlays.css';
+@import './responsive.css';
+@import './send.css';

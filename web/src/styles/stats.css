@@ -1,0 +1,28 @@
+/* ---------- 统计卡 ---------- */
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 12px 14px;
+  display: grid; gap: 5px;
+  align-content: start;
+}
+.stat-head {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px; letter-spacing: 0.05em; color: var(--text-faint);
+}
+.stat-head svg { flex: none; color: var(--text-faint); }
+.s-rx .stat-head svg { color: var(--can1); }
+.s-rate .stat-head svg { color: var(--ok); }
+.s-filtered .stat-head svg { color: var(--warn); }
+.s-recorded .stat-head svg { color: var(--err); }
+
+.stat-val {
+  display: flex; align-items: baseline; gap: 6px; min-width: 0;
+  font: 600 23px/1.15 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.stat-val .unit { font: 400 11px/1 var(--font-ui); color: var(--text-faint); letter-spacing: 0.02em; }
+.stat-sub { font-size: 11px; color: var(--text-faint); }

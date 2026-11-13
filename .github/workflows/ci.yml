@@ -13,13 +13,15 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Build frontend
+      - name: Build frontend (app.js + app.css)
         working-directory: web
         run: |
           npm ci
           npm run build
           npm run test
-          git diff --exit-code -- web/app.js
+          # 两个产物均由 web/src/** 构建并跟踪提交：app.js 来自 src/main.ts，
+          # app.css 来自 src/styles/index.css；任一不同步即失败。
+          git diff --exit-code -- web/app.js web/app.css
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy

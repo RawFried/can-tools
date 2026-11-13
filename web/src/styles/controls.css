@@ -1,0 +1,98 @@
+/* ---------- 表单 ---------- */
+.field { display: grid; gap: 6px; min-width: 0; }
+.field-label { font-size: 12px; color: var(--text-mid); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.input {
+  width: 100%; height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong); border-radius: var(--r-s);
+  background: var(--surface-2); color: var(--text);
+  font-size: 13px; font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.input:hover { border-color: var(--can1-line); }
+.input:focus { outline: none; border-color: var(--can1); background: var(--surface); }
+.input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.input:disabled {
+  cursor: not-allowed;
+  color: var(--text-mid);
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+  opacity: 0.7;
+}
+
+select.input { cursor: pointer; }
+
+.hex { position: relative; display: block; min-width: 0; }
+.hex::before {
+  content: "0x";
+  position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+  font: 600 12px/1 var(--font-mono);
+  color: var(--text-faint); pointer-events: none;
+}
+.hex .input {
+  padding-left: 27px;
+  font-family: var(--font-mono); font-size: 12.5px;
+  text-transform: uppercase; letter-spacing: 0.02em;
+}
+
+/* 允许换行：三按钮的滤波操作在 306px/266px 卡宽下放不下一行；
+   换行后每行按钮仍按 flex 等分拉满，放得下时行为与不换行一致 */
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn-row .btn { flex: 1; }
+
+/* ---------- 按钮 ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 30px; padding: 0 12px;
+  border: 1px solid var(--border-strong); border-radius: var(--r-s);
+  background: var(--surface-3); color: var(--text);
+  font-size: 12.5px; font-weight: 500;
+  cursor: pointer; user-select: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.06s;
+  text-decoration: none; white-space: nowrap;
+}
+.btn:hover { border-color: var(--can1-line); background: var(--surface-2); }
+.btn:active { transform: translateY(1px); }
+
+/* 统一的禁用态：中性底 + 中等强度文字（两主题下均保持可辨识），主按钮也不例外 */
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+  color: var(--text-mid);
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.btn:disabled:hover { border-color: var(--border-strong); background: var(--surface-2); }
+
+.btn-primary {
+  background: var(--can1); color: var(--btn-primary-fg);
+  border-color: transparent; font-weight: 600;
+}
+.btn-primary:hover { background: var(--can1); filter: brightness(1.08); border-color: transparent; }
+/* 禁用的主按钮退化为中性样式，保证文字可读 */
+.btn-primary:disabled { background: var(--surface-2); color: var(--text-mid); filter: none; }
+
+.btn-danger { color: var(--err); border-color: var(--err-dim); background: transparent; }
+.btn-danger:hover { border-color: var(--err); background: var(--err-dim); }
+
+/* 弱化的次要操作（如“清空”），视觉上低于主操作与暂停/继续 */
+.btn-ghost { color: var(--text-mid); border-color: var(--border); background: transparent; }
+.btn-ghost:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-3); }
+
+.btn-sm { height: 26px; padding: 0 9px; font-size: 11.5px; gap: 5px; }
+
+.btn.icon-only { width: 28px; padding: 0; color: var(--text-faint); flex: none; }
+.btn.icon-only:hover { color: var(--err); border-color: var(--err); background: var(--err-dim); }
+
+.btn.busy { pointer-events: none; color: var(--text-faint); }
+.btn.busy::after {
+  content: "";
+  width: 11px; height: 11px; flex: none;
+  border: 2px solid currentColor; border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.btn-primary.busy { background: var(--can1); opacity: 0.6; }

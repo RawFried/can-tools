@@ -151,7 +151,7 @@ USBCAN/CANalyst-II (04d8:0053)
 - `src/service/`：工作线程、配置/录制命令、CSV 记录器；
 - `src/state.rs`：状态快照、实时帧环形缓冲（5000 帧）、事件广播；
 - `src/server.rs`：REST、WebSocket、静态资源；
-- `web/src/app.ts`：前端唯一 TypeScript 源文件，编译为 `web/app.js` 后嵌入二进制。
+- `web/src/`：前端模块化 TypeScript 源码（`main.ts` 入口，按职责拆分）；`web/src/styles/`：CSS 源码，经 `index.css` 按序 `@import` 后由 esbuild 打包为单个 `web/app.css`，与 `web/app.js` 一并嵌入二进制。
 
 协议字节布局见 [`docs/protocol.md`](docs/protocol.md)，HTTP API 见
 [`docs/api.md`](docs/api.md)。
@@ -170,11 +170,11 @@ cargo test
 ```bash
 cd web
 npm ci
-npm run build     # tsc -> web/app.js
+npm run build     # esbuild -> web/app.js（src/main.ts）与 web/app.css（src/styles/index.css）
 npm run check     # 只做类型检查
 ```
 
-`web/app.js` 是编译产物并纳入版本控制，Rust 构建不依赖 Node。
+`web/app.js` 与 `web/app.css` 都是构建产物并纳入版本控制（`npm run build` 同时生成两者），Rust 构建不依赖 Node。
 
 ## AppImage
 

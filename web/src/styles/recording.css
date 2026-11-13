@@ -1,0 +1,22 @@
+/* ---------- 录制 ---------- */
+.rec-active {
+  display: grid; gap: 6px;
+  border: 1px solid var(--err);
+  background: var(--err-dim);
+  border-radius: 9px; padding: 10px 12px;
+}
+.rec-head { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.rec-dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--err); flex: none;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.rec-file {
+  font: 600 12px/1.3 var(--font-mono);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rec-sub {
+  display: flex; gap: 14px;
+  font: 400 11.5px/1.4 var(--font-mono); color: var(--text-mid);
+  flex-wrap: wrap;
+}

@@ -24,10 +24,15 @@ src/                  Rust 后端（bin + lib）
   service/            worker 线程、录制、状态发布
   server.rs           axum 路由与 HTTP/WS 处理
   paths.rs            数据目录解析（CAN_TOOLS_DATA_DIR → XDG）
-web/                  前端（无框架 TypeScript，源码按职责拆模块于 src/）
+web/                  前端（无框架 TypeScript + CSS，源码按职责拆模块于 src/）
   src/main.ts         启动入口；types/format/dom/state/api/toast/ws/frames/status/
                       devices/recordings/filters(-model)/send/events 各司其职
+  src/styles/         CSS 源码：tokens/base/layout/controls/channels/filters/
+                      recording/hints/stats/data-view/dbc/recordings/overlays/
+                      responsive/send 各司其职，index.css 按序 @import
   app.js              由 esbuild 打包生成的单个 IIFE 脚本，**被后端嵌入并跟踪提交**
+  app.css             由 web/src/styles/** 经 esbuild 打包生成并跟踪提交，
+                      **被后端嵌入**（页面路径仍为 /app.css）
 docs/api.md           HTTP/WebSocket 契约（权威）
 docs/protocol.md      USBCAN 协议摘要
 tests/                集成测试（hw_* 需要真实硬件）
@@ -61,7 +66,8 @@ packaging/            AppImage 打包
 - `strict: true`；禁止 `any`、`@ts-ignore`、非空断言滥用。外部数据一律先按 `unknown` 接收，经类型守卫收窄。
 - DOM 只通过 DOM API 与 `textContent` 构建；**禁止 `innerHTML` 拼接**。所有元素引用集中在 `dom.ts`，模板复用 `web/index.html` 的 `<template>`。
 - 风格：2 空格缩进、单引号、语句带分号、`camelCase` 变量/函数、`PascalCase` 类型。界面文案与注释用中文，标识符用英文。
-- `web/app.js` 是 `esbuild` 产物且被跟踪：**只改 `web/src/**`**，然后 `npm run build` 生成并一起提交。CI 会执行 `git diff --exit-code -- web/app.js` 校验产物同步；构建必须确定性（同源同工具两次构建 md5 相同）。产物中不得出现 `import`/`export`/`require`。
+- `web/app.js` 与 `web/app.css` 都是 `esbuild` 产物且被跟踪：**只改 `web/src/**`**，然后 `npm run build` 生成并一起提交。CI 会执行 `git diff --exit-code -- web/app.js web/app.css` 校验两个产物同步；构建必须确定性（同源同工具两次构建 md5 相同）。`app.js` 中不得出现 `import`/`export`/`require`，`app.css` 中不得残留 `@import`（已内联）。
+- **CSS 同样按职责分文件**（`web/src/styles/**`，`index.css` 为入口）。依赖方向单向：`tokens → base → layout → controls → channels → filters → recording → hints → stats → data-view → dbc → recordings → overlays → responsive → send`；`index.css` 的 `@import` 顺序即级联顺序，调整顺序前先确认选择器优先级与覆盖关系。禁止在 `index.css` 里写规则，也不要直接编辑 `web/app.css`。
 - 纯函数（如滤波推导、解析）放在可测试的位置并配注释说明边界条件；不要在没有依据的情况下改动已实测的位运算。
 
 ## 5. 提交与评审
@@ -77,7 +83,7 @@ packaging/            AppImage 打包
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
 cargo test --all-targets            # hw_* 需要真实硬件；无硬件时至少跑非 hw 用例
-cd web && npm run build             # 产物 web/app.js 必须与源码同步
+cd web && npm run build             # 产物 web/app.js 与 web/app.css 必须与源码同步；CI 校验两者
 ```
 
 需要真机时：`tests/hw_*.rs` 与 `docs/protocol.md` 中的实测结论是基准，失败先怀疑接线/波特率，再怀疑代码。
