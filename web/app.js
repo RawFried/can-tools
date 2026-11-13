@@ -1627,7 +1627,7 @@
       seen.add(key);
       options.push({
         key,
-        label: (ch.source === "usb" ? "USB · " : "socket · ") + ch.name,
+        label: (ch.source === "usb" ? "USB · " : "SOCKET · ") + ch.name,
         channel: ch,
         link: null
       });
@@ -1636,7 +1636,7 @@
       const key = "scan:" + link.name;
       if (seen.has(key)) continue;
       seen.add(key);
-      options.push({ key, label: "socket · " + link.name, channel: null, link });
+      options.push({ key, label: "SOCKET · " + link.name, channel: null, link });
     }
     return options;
   }
