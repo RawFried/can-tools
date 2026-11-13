@@ -1,7 +1,14 @@
+# ---- 构建产物 ----
 /target
 /dist
 /.tools
+
+# ---- Web 依赖 ----
+node_modules/
+
+# ---- 本地数据与运行日志 ----
 /data
 *.log
+
+# ---- 系统 ----
 .DS_Store
-/web/node_modules
