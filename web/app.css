@@ -1098,9 +1098,12 @@ td.r-act .btn { margin-left: 6px; }
 .panel-send { box-shadow: inset 0 0 0 1px var(--tx-line), var(--shadow-card); }
 .panel-send .card-head { border-bottom: 1px solid var(--border-soft); }
 .send-body { padding: 12px 14px 14px; gap: 8px; }
+/* 首列 196px：容纳「SOCKET · CAN-DEBUG9」（15 字符接口名，实测文本 149px）
+   与「USB · CAN2（只听）」（129px），含 20px 内边距与下拉箭头；
+   定宽而非 auto，避免切换通道时列宽跳动 */
 .send-row {
   display: grid;
-  grid-template-columns: 86px 132px 150px minmax(160px, 1fr) 64px auto auto;
+  grid-template-columns: 196px 132px 150px minmax(160px, 1fr) 64px auto auto;
   gap: 10px;
   align-items: end;
 }
@@ -1129,8 +1132,10 @@ td.r-act .btn { margin-left: 6px; }
 }
 .panel-send input[type='checkbox'] { accent-color: var(--tx); }
 
-@media (max-width: 1100px) {
-  .send-row { grid-template-columns: 100px minmax(140px, 1fr) 160px 90px; }
+/* 单行放不下时（7 列最少需要约 916px 内容宽 ≈ 1330px 视口）改为两段式：
+   第一行「通道 · ID · 帧类型 · DLC」，第二行数据占满，第三行远程 + 发送 */
+@media (max-width: 1330px) {
+  .send-row { grid-template-columns: 196px minmax(140px, 1fr) 160px 90px; }
   .send-data { grid-column: 1 / -1; }
   .send-rtr { margin-top: 0; }
   .send-btn { grid-column: 4; }
