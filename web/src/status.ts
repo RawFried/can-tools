@@ -5,7 +5,7 @@
 import { fetchHealthVersion, fetchStatus } from './api';
 import { els } from './dom';
 import { MAX_RANGE_ROWS, buildRangeRow, rangeRowCount, renderHwPrefilter, selectedChannels } from './filters';
-import { errText, fmtBitrateShort, fmtDur, fmtInt, fmtRate, fmtScanMeta, linkStateLabel, MODE_LABELS } from './format';
+import { errText, fmtDur, fmtInt, fmtRate, fmtScanMeta } from './format';
 import { syncSendChannels, updateSendControls } from './send';
 import { BUFFER_CAP, busy, state } from './state';
 import { toast } from './toast';
@@ -31,17 +31,14 @@ export function applyStatus(st: StatusDto): void {
     els.devicePillText.textContent = '未连接设备';
   }
 
-  /* 通道状态 */
+  /* USB 行内状态：运行中 · 500k / 已停止 */
   for (const ch of st.channels) {
-    const chip = ch.index === 0 ? els.chipCh1 : ch.index === 1 ? els.chipCh2 : null;
-    const stateEl = ch.index === 0 ? els.chipCh1State : ch.index === 1 ? els.chipCh2State : null;
-    const subEl = ch.index === 0 ? els.chipCh1Sub : ch.index === 1 ? els.chipCh2Sub : null;
-    if (!chip || !stateEl || !subEl) continue;
-    chip.classList.toggle('running', ch.running);
-    stateEl.textContent = ch.running ? '运行中' : '已停止';
-    subEl.textContent = ch.running && ch.baud ? ch.baud + ' · ' + MODE_LABELS[ch.mode ?? 'normal'] : '—';
+    if (ch.index !== 0 && ch.index !== 1) continue;
+    const meta = ch.index === 0 ? els.ch1Meta : els.ch2Meta;
+    meta.textContent = ch.running ? '运行中' + (ch.baud ? ' · ' + ch.baud : '') : '已停止';
+    meta.classList.toggle('running', ch.running);
   }
-  renderScanStates(st);
+
   refreshScanMeta(st);
 
   /* 录制 */
@@ -74,31 +71,6 @@ export function applyStatus(st: StatusDto): void {
   updateEmpty();
 }
 
-/** 通道状态区的 SocketCAN 徽标：运行中加 .running，副文本显示速率或接口状态。 */
-function renderScanStates(st: StatusDto): void {
-  const links = st.channels.filter((ch) => ch.source === 'socketcan');
-  const frag = document.createDocumentFragment();
-  for (const ch of links) {
-    const chip = document.createElement('span');
-    chip.className = 'scan-chip';
-    chip.classList.toggle('running', ch.running);
-
-    const name = document.createElement('span');
-    name.className = 'scan-chip-name';
-    name.textContent = ch.name;
-
-    const sub = document.createElement('span');
-    sub.className = 'scan-chip-sub';
-    if (ch.bitrate !== null) sub.textContent = fmtBitrateShort(ch.bitrate);
-    else sub.textContent = ch.running ? '运行中' : linkStateLabel(ch.state);
-
-    chip.append(name, sub);
-    frag.appendChild(chip);
-  }
-  els.scanStates.replaceChildren(frag);
-  els.scanStates.hidden = links.length === 0;
-}
-
 /** 状态推送时原地刷新链路列表的运行态文案；不重建复选框，避免打断用户操作。 */
 function refreshScanMeta(st: StatusDto): void {
   for (const item of els.scanList.querySelectorAll<HTMLElement>('.scan-item')) {
@@ -111,9 +83,10 @@ function refreshScanMeta(st: StatusDto): void {
     const running = live !== null ? live.running : known !== null && known.running;
     meta.textContent = fmtScanMeta(
       live?.bitrate ?? known?.bitrate ?? null,
-      live?.state ?? known?.state ?? null,
-      running
+      running,
+      live?.state ?? known?.state ?? null
     );
+    meta.classList.toggle('running', running);
   }
 }
 

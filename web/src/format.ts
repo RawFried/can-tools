@@ -68,12 +68,6 @@ export function hexOf(v: number, width: number): string {
   return '0x' + v.toString(16).toUpperCase().padStart(width, '0');
 }
 
-/** SocketCAN 速率缩写：500000 → "500k"；未知或非正数 → "—"。 */
-export function fmtBitrateShort(bitrate: number | null): string {
-  if (bitrate === null || !Number.isFinite(bitrate) || bitrate <= 0) return '—';
-  return Math.round(bitrate / 1000) + 'k';
-}
-
 /** SocketCAN 速率完整文案：500000 → "500 kbps"；未知 → "速率未知"。 */
 export function fmtBitrateLong(bitrate: number | null): string {
   if (bitrate === null || !Number.isFinite(bitrate) || bitrate <= 0) return '速率未知';
@@ -88,13 +82,23 @@ export function linkStateLabel(state: string | null): string {
   return state;
 }
 
-/** SocketCAN 链路行的状态文案：速率 · 运行中/接口状态。 */
+/**
+ * SocketCAN 链路行状态文案，状态优先：
+ * 运行中 → `运行中 · 500 kbps`（速率未知则仅「运行中」）；未运行 → 接口启用/未启用/未知。
+ */
 export function fmtScanMeta(
   bitrate: number | null,
-  state: string | null,
-  running: boolean
+  running: boolean,
+  state: string | null
 ): string {
-  return fmtBitrateLong(bitrate) + ' · ' + (running ? '运行中' : linkStateLabel(state));
+  if (running) {
+    return bitrate !== null && Number.isFinite(bitrate) && bitrate > 0
+      ? '运行中 · ' + fmtBitrateLong(bitrate)
+      : '运行中';
+  }
+  if (state === 'up') return '已启用 · 未启动';
+  if (state === 'down') return '未启用';
+  return '状态未知';
 }
 
 export function parseHex(raw: string, max: number): number | null {

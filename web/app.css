@@ -374,43 +374,16 @@ select.input { cursor: pointer; }
 }
 .btn-primary.busy { background: var(--can1); opacity: 0.6; }
 
-/* ---------- 通道状态与选择 ---------- */
-.ch-states { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-.ch-state {
-  border: 1px solid var(--border); border-radius: 9px;
-  padding: 9px 11px;
-  background: var(--surface-2);
-  display: grid; gap: 5px;
-  transition: border-color 0.2s, background 0.2s;
-}
-.ch-state .row1 { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.ch-state .st { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-faint); }
-.ch-state .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex: none; }
-.ch-state .sub { font: 400 11.5px/1.4 var(--font-mono); color: var(--text-mid); }
-/* 运行中：绿色描边 + 通道色侧条，通道身份保持醒目 */
-.ch-state.running { border-color: var(--ok); }
-.ch-state.running .st { color: var(--ok); }
-.ch-state.running .dot { background: var(--ok); animation: pulse 2s ease-in-out infinite; }
-.ch-state.running .sub { color: var(--ok); }
-.ch-state.t1 { box-shadow: inset 3px 0 0 var(--can1); }
-.ch-state.t2 { box-shadow: inset 3px 0 0 var(--can2); }
-
-.chip-mini {
-  font: 600 11px/1 var(--font-mono);
-  padding: 4px 8px; border-radius: 5px;
-  border: 1px solid var(--border-strong);
-  color: var(--text-mid); letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-.chip-mini.ch1 { color: var(--can1); border-color: var(--can1-line); background: var(--can1-dim); }
-.chip-mini.ch2 { color: var(--can2); border-color: var(--can2-line); background: var(--can2-dim); }
-
+/* ---------- 通道与速率 ---------- */
 /* 通道列表：每行「勾选（来源 + 名称）」+「独立速率」，速率定宽保证多行下拉右缘对齐；
-   名称区占满剩余宽度并截断，长接口名不撑破卡片 */
+   名称区占满剩余宽度并截断，长接口名不撑破卡片；第二行是行内状态注脚 */
 .ch-list { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 
-.ch-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ch-row {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
+}
 
 .ch-toggle {
   flex: 1 1 auto; min-width: 0;
@@ -461,47 +434,31 @@ select.input { cursor: pointer; }
   box-shadow: inset 0 0 0 1px var(--scan-line);
 }
 
-/* ---------- SocketCAN 链路 ---------- */
-/* 链路状态徽标行：挂在 .ch-states 网格末行（CAN1/CAN2 之下），
-   空时整行隐藏，避免占位 */
-.scan-states {
-  grid-column: 1 / -1;
-  display: flex; flex-wrap: wrap; gap: 8px;
-  min-width: 0;
-}
-.scan-states:empty { display: none; }
-
-/* 胶囊徽标：圆点由 ::before 绘制（DOM 只需 name + sub），运行态与 .ch-state.running 同一语言 */
-.scan-chip {
-  display: inline-flex; align-items: center; gap: 7px;
-  min-width: 0; max-width: 100%;
-  padding: 5px 11px;
-  border: 1px solid var(--border); border-radius: 999px;
-  background: var(--surface-2);
-  transition: border-color 0.2s, background 0.2s;
-}
-.scan-chip::before {
-  content: "";
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--text-faint); flex: none;
-}
-.scan-chip-name {
-  font: 600 11.5px/1.2 var(--font-mono);
-  letter-spacing: 0.03em;
-  color: var(--text-mid);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.scan-chip-sub {
-  font: 400 10.5px/1.2 var(--font-mono);
+/* 行内状态注脚（USB / SocketCAN 共用）：独占第二行，左边距与来源词对齐
+   （9px 内边距 + 13px 复选框 + 6px 间距），单行省略；圆点由 ::before 绘制，
+   运行中为实心绿点并缓慢呼吸，其余为灰点 */
+.ch-meta,
+.scan-meta {
+  flex: 1 1 100%;
+  padding-left: 28px;
+  font: 400 11px/1.45 var(--font-mono);
   color: var(--text-faint);
-  white-space: nowrap; flex: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.scan-chip.running { border-color: var(--scan); background: var(--scan-dim); }
-.scan-chip.running::before { background: var(--scan); animation: pulse 2s ease-in-out infinite; }
-.scan-chip.running .scan-chip-name,
-.scan-chip.running .scan-chip-sub { color: var(--scan); }
+.ch-meta::before,
+.scan-meta::before {
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px; margin-right: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  vertical-align: 1px;
+}
+.ch-meta.running::before { background: var(--ok); animation: pulse 2s ease-in-out infinite; }
+.scan-meta.running::before { background: var(--scan); animation: pulse 2s ease-in-out infinite; }
 
-/* 链路行：与 USB 通道行同规格（勾选胶囊 + 定宽速率），状态文案作第二行右对齐的注脚；
+/* ---------- SocketCAN 链路 ---------- */
+/* 链路行：与 USB 通道行同规格（勾选胶囊 + 定宽速率 + 第二行状态注脚）；
    名称区可收缩并截断，长接口名不撑破侧栏 */
 .scan-list { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .scan-list:empty { display: none; }
@@ -532,22 +489,13 @@ select.input { cursor: pointer; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* 状态文案：独占第二行右对齐，弱化处理（信息与上方状态徽标一致） */
-.scan-meta {
-  flex: 1 1 100%;
-  font: 400 10.5px/1.4 var(--font-mono);
-  color: var(--text-faint);
-  text-align: right;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-
 /* 通道卡按自身宽度自适应：侧栏在 320px（桌面）/ 280px（中等宽度）/ 多列网格下宽度差很大，
-   窄卡时「来源词 + 接口名 + 速率」无法同行，改为接口名独占一行、速率与状态文案在下一行 */
+   窄卡时「来源词 + 名称/接口名 + 速率」无法同行，改为勾选独占一行、速率与状态注脚在下一行 */
 .card-chan { container-type: inline-size; }
 
-@container (max-width: 312px) {
-  .scan-pick { flex: 1 1 100%; }
-  .scan-meta { flex: 0 1 auto; margin-left: auto; }
+@container (max-width: 290px) {
+  .ch-toggle, .scan-pick { flex: 1 1 100%; }
+  .ch-meta, .scan-meta { flex: 0 1 auto; margin-left: auto; padding-left: 0; }
 }
 
 /* 勾选态：绿描边 + 绿底 + 接口名转绿（.is-on 由脚本维护，:has 作无脚本兜底） */
@@ -1201,7 +1149,6 @@ td.r-act .btn { margin-left: 6px; }
 /* 中等宽度：收窄侧栏，保持报文表与配置同屏可见 */
 @media (max-width: 1180px) {
   .layout { grid-template-columns: 280px minmax(0, 1fr); gap: 14px; }
-  .ch-states { grid-template-columns: 1fr; }
 }
 
 /* 窄屏：单列堆叠，侧栏卡片多列铺排 */
@@ -1231,7 +1178,6 @@ td.r-act .btn { margin-left: 6px; }
 
   .table-area { max-height: 58vh; }
 
-  .ch-states { grid-template-columns: 1fr; }
   .grid-2 { grid-template-columns: 1fr; }
 
   /* 录制文件操作退化为纯图标按钮，保证可达 */
@@ -1247,11 +1193,6 @@ td.r-act .btn { margin-left: 6px; }
   table.recs-table .r-time, table.recs-table th.c-time { display: none; }
   td.r-name { max-width: 52vw; }
   .card-body { padding: 12px; }
-
-  /* 通道行窄屏换行：勾选独占一行，速率占满下一行 */
-  .ch-row { flex-wrap: wrap; }
-  .ch-row > .ch-toggle { flex: 1 1 100%; }
-  .ch-toggle + .ch-rate { flex: 1 1 100%; width: 100%; }
 }
 
 /* ---------- 发送报文 ---------- */

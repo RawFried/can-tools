@@ -27,15 +27,10 @@
     ch2Baud: byId("ch2Baud"),
     btnApplyConfig: byId("btnApplyConfig"),
     btnStopChannels: byId("btnStopChannels"),
-    chipCh1: byId("chipCh1"),
-    chipCh1State: byId("chipCh1State"),
-    chipCh1Sub: byId("chipCh1Sub"),
-    chipCh2: byId("chipCh2"),
-    chipCh2State: byId("chipCh2State"),
-    chipCh2Sub: byId("chipCh2Sub"),
+    ch1Meta: byId("ch1Meta"),
+    ch2Meta: byId("ch2Meta"),
     scanList: byId("scanList"),
     scanEmpty: byId("scanEmpty"),
-    scanStates: byId("scanStates"),
     /* 滤波器 */
     filterRangeList: byId("filterRangeList"),
     filterEmpty: byId("filterEmpty"),
@@ -950,11 +945,6 @@
   }
 
   // src/format.ts
-  var MODE_LABELS = {
-    normal: "正常",
-    listen_only: "只听",
-    self_test: "自测"
-  };
   function errText(err) {
     return err instanceof Error ? err.message : String(err);
   }
@@ -1000,22 +990,17 @@
   function hexOf(v, width) {
     return "0x" + v.toString(16).toUpperCase().padStart(width, "0");
   }
-  function fmtBitrateShort(bitrate) {
-    if (bitrate === null || !Number.isFinite(bitrate) || bitrate <= 0) return "—";
-    return Math.round(bitrate / 1e3) + "k";
-  }
   function fmtBitrateLong(bitrate) {
     if (bitrate === null || !Number.isFinite(bitrate) || bitrate <= 0) return "速率未知";
     return Math.round(bitrate / 1e3) + " kbps";
   }
-  function linkStateLabel(state2) {
-    if (state2 === "up") return "已启用";
+  function fmtScanMeta(bitrate, running, state2) {
+    if (running) {
+      return bitrate !== null && Number.isFinite(bitrate) && bitrate > 0 ? "运行中 · " + fmtBitrateLong(bitrate) : "运行中";
+    }
+    if (state2 === "up") return "已启用 · 未启动";
     if (state2 === "down") return "未启用";
-    if (state2 === "unknown" || state2 === null || state2.length === 0) return "状态未知";
-    return state2;
-  }
-  function fmtScanMeta(bitrate, state2, running) {
-    return fmtBitrateLong(bitrate) + " · " + (running ? "运行中" : linkStateLabel(state2));
+    return "状态未知";
   }
   function parseHex(raw, max) {
     const s = raw.trim().toLowerCase().replace(/^0x/, "");
@@ -1791,15 +1776,11 @@
       els.devicePillText.textContent = "未连接设备";
     }
     for (const ch of st.channels) {
-      const chip = ch.index === 0 ? els.chipCh1 : ch.index === 1 ? els.chipCh2 : null;
-      const stateEl = ch.index === 0 ? els.chipCh1State : ch.index === 1 ? els.chipCh2State : null;
-      const subEl = ch.index === 0 ? els.chipCh1Sub : ch.index === 1 ? els.chipCh2Sub : null;
-      if (!chip || !stateEl || !subEl) continue;
-      chip.classList.toggle("running", ch.running);
-      stateEl.textContent = ch.running ? "运行中" : "已停止";
-      subEl.textContent = ch.running && ch.baud ? ch.baud + " · " + MODE_LABELS[ch.mode ?? "normal"] : "—";
+      if (ch.index !== 0 && ch.index !== 1) continue;
+      const meta = ch.index === 0 ? els.ch1Meta : els.ch2Meta;
+      meta.textContent = ch.running ? "运行中" + (ch.baud ? " · " + ch.baud : "") : "已停止";
+      meta.classList.toggle("running", ch.running);
     }
-    renderScanStates(st);
     refreshScanMeta(st);
     els.recActive.hidden = !st.recording.active;
     els.recPill.hidden = !st.recording.active;
@@ -1823,26 +1804,6 @@
     updateControls();
     updateEmpty();
   }
-  function renderScanStates(st) {
-    const links = st.channels.filter((ch) => ch.source === "socketcan");
-    const frag = document.createDocumentFragment();
-    for (const ch of links) {
-      const chip = document.createElement("span");
-      chip.className = "scan-chip";
-      chip.classList.toggle("running", ch.running);
-      const name = document.createElement("span");
-      name.className = "scan-chip-name";
-      name.textContent = ch.name;
-      const sub = document.createElement("span");
-      sub.className = "scan-chip-sub";
-      if (ch.bitrate !== null) sub.textContent = fmtBitrateShort(ch.bitrate);
-      else sub.textContent = ch.running ? "运行中" : linkStateLabel(ch.state);
-      chip.append(name, sub);
-      frag.appendChild(chip);
-    }
-    els.scanStates.replaceChildren(frag);
-    els.scanStates.hidden = links.length === 0;
-  }
   function refreshScanMeta(st) {
     for (const item of els.scanList.querySelectorAll(".scan-item")) {
       const check = item.querySelector(".scan-check");
@@ -1854,9 +1815,10 @@
       const running = live !== null ? live.running : known !== null && known.running;
       meta.textContent = fmtScanMeta(
         live?.bitrate ?? known?.bitrate ?? null,
-        live?.state ?? known?.state ?? null,
-        running
+        running,
+        live?.state ?? known?.state ?? null
       );
+      meta.classList.toggle("running", running);
     }
   }
   function updateControls() {
@@ -1969,11 +1931,7 @@
       (ch) => ch.source === "socketcan" && ch.name === link.name
     ) ?? null;
     const running = live !== null ? live.running : link.running;
-    return fmtScanMeta(
-      live?.bitrate ?? link.bitrate,
-      live?.state ?? link.state,
-      running
-    );
+    return fmtScanMeta(live?.bitrate ?? link.bitrate, running, live?.state ?? link.state);
   }
   function renderScanList() {
     const frag = document.createDocumentFragment();
@@ -1991,7 +1949,7 @@
       input.checked = checked;
       const src = document.createElement("span");
       src.className = "src-tag scan-src";
-      src.textContent = "SocketCAN";
+      src.textContent = "socket";
       const name = document.createElement("span");
       name.className = "scan-name";
       name.textContent = link.name;
@@ -2010,6 +1968,10 @@
       const meta = document.createElement("span");
       meta.className = "scan-meta";
       meta.textContent = scanMetaText(link);
+      const live = state.status?.channels.find(
+        (ch) => ch.source === "socketcan" && ch.name === link.name
+      ) ?? null;
+      meta.classList.toggle("running", live !== null ? live.running : link.running);
       input.addEventListener("change", () => {
         if (input.checked) state.scanSelected.add(link.name);
         else state.scanSelected.delete(link.name);

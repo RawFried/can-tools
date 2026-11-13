@@ -32,15 +32,10 @@ export const els = {
   ch2Baud: byId<HTMLSelectElement>('ch2Baud'),
   btnApplyConfig: byId<HTMLButtonElement>('btnApplyConfig'),
   btnStopChannels: byId<HTMLButtonElement>('btnStopChannels'),
-  chipCh1: byId<HTMLElement>('chipCh1'),
-  chipCh1State: byId<HTMLElement>('chipCh1State'),
-  chipCh1Sub: byId<HTMLElement>('chipCh1Sub'),
-  chipCh2: byId<HTMLElement>('chipCh2'),
-  chipCh2State: byId<HTMLElement>('chipCh2State'),
-  chipCh2Sub: byId<HTMLElement>('chipCh2Sub'),
+  ch1Meta: byId<HTMLElement>('ch1Meta'),
+  ch2Meta: byId<HTMLElement>('ch2Meta'),
   scanList: byId<HTMLElement>('scanList'),
   scanEmpty: byId<HTMLElement>('scanEmpty'),
-  scanStates: byId<HTMLElement>('scanStates'),
 
   /* 滤波器 */
   filterRangeList: byId<HTMLElement>('filterRangeList'),

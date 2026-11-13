@@ -32,11 +32,7 @@ function scanMetaText(link: SocketCanLinkDto): string {
       (ch) => ch.source === 'socketcan' && ch.name === link.name
     ) ?? null;
   const running = live !== null ? live.running : link.running;
-  return fmtScanMeta(
-    live?.bitrate ?? link.bitrate,
-    live?.state ?? link.state,
-    running
-  );
+  return fmtScanMeta(live?.bitrate ?? link.bitrate, running, live?.state ?? link.state);
 }
 
 /** 渲染 SocketCAN 发现列表；勾选写入 scanSelected、速率写入 scanRates，刷新时按名字恢复。 */
@@ -59,7 +55,7 @@ export function renderScanList(): void {
 
     const src = document.createElement('span');
     src.className = 'src-tag scan-src';
-    src.textContent = 'SocketCAN';
+    src.textContent = 'socket';
 
     const name = document.createElement('span');
     name.className = 'scan-name';
@@ -82,6 +78,11 @@ export function renderScanList(): void {
     const meta = document.createElement('span');
     meta.className = 'scan-meta';
     meta.textContent = scanMetaText(link);
+    const live =
+      state.status?.channels.find(
+        (ch) => ch.source === 'socketcan' && ch.name === link.name
+      ) ?? null;
+    meta.classList.toggle('running', live !== null ? live.running : link.running);
 
     /* 勾选只影响本地集合；启动/配置仍由「应用配置并启动」统一提交 */
     input.addEventListener('change', () => {

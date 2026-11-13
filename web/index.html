@@ -58,17 +58,6 @@
         </button>
       </header>
       <div class="card-body">
-        <div class="ch-states">
-          <div class="ch-state t1" id="chipCh1">
-            <div class="row1"><span class="chip-mini ch1">CAN1</span><span class="st"><span class="dot"></span><span id="chipCh1State">已停止</span></span></div>
-            <div class="sub" id="chipCh1Sub">未运行</div>
-          </div>
-          <div class="ch-state t2" id="chipCh2">
-            <div class="row1"><span class="chip-mini ch2">CAN2</span><span class="st"><span class="dot"></span><span id="chipCh2State">已停止</span></span></div>
-            <div class="sub" id="chipCh2Sub">未运行</div>
-          </div>
-          <div class="scan-states" id="scanStates" aria-label="SocketCAN 链路状态"></div>
-        </div>
         <div class="field">
           <span class="field-label" id="lb-ch">通道（至少选择一个，可分别设置速率）</span>
           <div class="ch-list" role="group" aria-labelledby="lb-ch">
@@ -86,6 +75,7 @@
                 <option value="800k">800 kbps</option>
                 <option value="1000k">1000 kbps</option>
               </select>
+              <span class="ch-meta" id="ch1Meta">已停止</span>
             </div>
             <div class="ch-row">
               <label class="ch-toggle t2"><input type="checkbox" id="ch2Check"><span class="src-tag src-usb">USB</span><span class="ch-label ch2">CAN2</span></label>
@@ -101,6 +91,7 @@
                 <option value="800k">800 kbps</option>
                 <option value="1000k">1000 kbps</option>
               </select>
+              <span class="ch-meta" id="ch2Meta">已停止</span>
             </div>
             <div class="scan-list" id="scanList" role="group" aria-label="SocketCAN 链路"></div>
             <div class="scan-empty" id="scanEmpty" hidden>未发现 SocketCAN 接口（需在系统中先创建 canX）</div>
