@@ -62,8 +62,13 @@ USB 之外还能同时接入 Linux SocketCAN 接口（PCAN/`vcan` 等），它�
 
 - 发现：扫描 `/sys/class/net` 中 `type == 280` 的接口，按名字排序；在页面上勾选后
   「应用配置并启动」即可，通道 id 从 2 起分配（0/1 固定给 USB）。
-- 接口必须先启用：`sudo ip link set can0 up type can bitrate 500000`。sysfs 可见但未启用时
-  会返回「SocketCAN 接口 can0 未启用」并给出该命令。
+- 自动启用：未启用的接口会在启动链路时由程序通过 netlink 设置速率并 `UP`
+  （速率取 `/api/config` 的 `socketcan_bitrate`，默认 500000 bps，范围 1000–1000000）。
+  该操作需要 **root 或 `CAP_NET_ADMIN`**；接口已经 UP 时不会执行任何特权操作，普通用户可直接使用。
+  权限不足会返回可操作的错误提示，此时也可以手动执行
+  `sudo ip link set can0 up type can bitrate 500000`。
+- `vcan` 等虚拟接口不支持速率配置，设置速率的 `Operation not supported` 会被忽略，接口仍会启用，
+  状态里的 `bitrate` 保持 `null`。
 - 速率/工作模式由内核接口自身配置，页面中的波特率与硬件滤波只作用于 USB；软件滤波对所有
   链路生效。
 - 关闭 USB 设备不会停止已运行的 SocketCAN 链路，也不需要 USB 设备即可开始录制。

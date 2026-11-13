@@ -382,6 +382,9 @@ pub struct StartConfig {
     /// 要启动/重启的 SocketCAN 接口名。
     #[serde(default)]
     pub socketcan: Vec<String>,
+    /// 自动启用未 UP 的 SocketCAN 链路时使用的速率 (bps); 省略时用默认值。
+    #[serde(default)]
+    pub socketcan_bitrate: Option<u32>,
 }
 
 impl StartConfig {
@@ -389,6 +392,14 @@ impl StartConfig {
     pub const MAX_SOFTWARE_FILTERS: usize = 16;
     /// 单次请求最多启动的 SocketCAN 链路数。
     pub const MAX_SOCKETCAN_LINKS: usize = 8;
+    /// SocketCAN 自动启用速率的默认值 (bps)。
+    pub const DEFAULT_SOCKETCAN_BITRATE: u32 = 500_000;
+
+    /// 实际生效的 SocketCAN 速率 (bps)。
+    pub fn socketcan_bitrate_or_default(&self) -> u32 {
+        self.socketcan_bitrate
+            .unwrap_or(Self::DEFAULT_SOCKETCAN_BITRATE)
+    }
 
     /// 校验请求参数; 通道去重由调用方处理。
     pub fn validate(&self) -> Result<(), String> {
@@ -399,6 +410,9 @@ impl StartConfig {
             if channel > 1 {
                 return Err(format!("非法通道 {channel}; USB 通道合法值为 0 或 1"));
             }
+        }
+        if let Some(bitrate) = self.socketcan_bitrate {
+            crate::can::socketcan::validate_bitrate(bitrate)?;
         }
         let mut unique_names: Vec<&str> = Vec::new();
         for name in &self.socketcan {
@@ -682,6 +696,7 @@ mod tests {
             filter: HardwareFilter::default(),
             software_filters: vec![],
             socketcan: vec![],
+            socketcan_bitrate: None,
         };
         assert!(config.validate().is_err());
     }
@@ -695,6 +710,7 @@ mod tests {
             filter: HardwareFilter::default(),
             software_filters: vec![],
             socketcan: vec![],
+            socketcan_bitrate: None,
         };
         let error = config.validate().unwrap_err();
         assert!(
@@ -712,6 +728,7 @@ mod tests {
             filter: HardwareFilter::default(),
             software_filters: vec![],
             socketcan: vec!["can0".to_string()],
+            socketcan_bitrate: None,
         };
         assert!(config.validate().is_ok());
     }
@@ -725,6 +742,7 @@ mod tests {
             filter: HardwareFilter::default(),
             software_filters: vec![],
             socketcan: vec!["can 0".to_string()],
+            socketcan_bitrate: None,
         };
         assert!(base.validate().is_err());
 
@@ -779,6 +797,34 @@ mod tests {
     }
 
     #[test]
+    fn start_config_bitrate_defaults_and_validation() {
+        let config: StartConfig =
+            serde_json::from_str(r#"{"channels":[],"baud":"500k","socketcan":["can0"]}"#).unwrap();
+        assert_eq!(config.socketcan_bitrate, None);
+        assert_eq!(
+            config.socketcan_bitrate_or_default(),
+            StartConfig::DEFAULT_SOCKETCAN_BITRATE
+        );
+
+        let configured: StartConfig = serde_json::from_str(
+            r#"{"channels":[],"baud":"500k","socketcan":["can0"],"socketcan_bitrate":125000}"#,
+        )
+        .unwrap();
+        assert_eq!(configured.socketcan_bitrate, Some(125_000));
+        assert_eq!(configured.socketcan_bitrate_or_default(), 125_000);
+        assert!(configured.validate().is_ok());
+
+        for bad in [0_u32, 999, 1_000_001] {
+            let invalid = StartConfig {
+                socketcan_bitrate: Some(bad),
+                ..configured.clone()
+            };
+            let error = invalid.validate().unwrap_err();
+            assert!(error.contains("SocketCAN 速率"), "{error}");
+        }
+    }
+
+    #[test]
     fn start_config_rejects_too_many_software_filters() {
         let filter = SoftwareFilter {
             extended: false,
@@ -792,6 +838,7 @@ mod tests {
             filter: HardwareFilter::default(),
             software_filters: vec![filter; StartConfig::MAX_SOFTWARE_FILTERS + 1],
             socketcan: vec![],
+            socketcan_bitrate: None,
         };
         assert!(config.validate().is_err());
     }

@@ -224,9 +224,10 @@ Response: `{"ok": true, "status": { ... }}`
 ### `POST /api/config`
 
 Initializes and starts the selected USB channels with the given baud rate, mode and hardware filter,
-and starts/restarts the listed SocketCAN links. At least one of `channels`/`socketcan` must be
-non-empty. Re-applying while running restarts the selected channels/links; unselected channels stay
-running.
+and starts/restarts the listed SocketCAN links. Down interfaces are enabled automatically at
+`socketcan_bitrate` (requires root or `CAP_NET_ADMIN`); interfaces that are already up are used
+as-is without any privileged operation. At least one of `channels`/`socketcan` must be non-empty.
+Re-applying while running restarts the selected channels/links; unselected channels stay running.
 
 ```json
 {
@@ -235,7 +236,8 @@ running.
   "mode": "normal",
   "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 1},
   "software_filters": [{"extended": false, "start": 256, "end": 511}],
-  "socketcan": ["can0"]
+  "socketcan": ["can0"],
+  "socketcan_bitrate": 500000
 }
 ```
 
@@ -243,13 +245,21 @@ running.
   when only SocketCAN links are being started.
 - `socketcan` is optional (default `[]`); each entry is an interface name (1–15 characters of
   `[A-Za-z0-9_.-]`), duplicates are ignored and at most 8 links may be started per request.
+- `socketcan_bitrate` is optional (bits per second, default `500000`, allowed `1000`–`1000000`).
+  Before opening a link the worker brings the interface up: if it is already up **no privileged
+  operation is attempted** (non-root works), otherwise it sets the bitrate and the `UP` flag via
+  netlink. That requires root or `CAP_NET_ADMIN`.
+- Interfaces that do not support bitrate configuration (e.g. `vcan`) still get enabled; the
+  `EOPNOTSUPP` from setting the bitrate is ignored. Their status keeps `bitrate: null`.
 - `baud`, `mode` and `filter` apply to USB channels only. A SocketCAN link keeps the bitrate
   configured on the interface; `bitrate`/`state` in the status object report it.
 - Error cases: both lists empty → `至少选择一个 USB 通道或 SocketCAN 链路`; unknown interface →
-  `SocketCAN 接口 can9 不存在`; sysfs-visible but not up →
-  `SocketCAN 接口 can0 未启用: 请先执行 ip link set can0 up type can bitrate <速率>`.
-- If any channel/link started by this request fails, all channels and links started by the request
-  are rolled back before the error is returned (previously running links are not restored).
+  `SocketCAN 接口 can9 不存在`; missing privileges →
+  `启用 SocketCAN 接口 can0 需要 root 或 CAP_NET_ADMIN 权限: 请以管理员身份运行，或手动执行 ip link set can0 up type can bitrate 500000`;
+  other netlink failures → `{动作} SocketCAN 接口 can0 失败: {原始错误}`.
+- If any channel/link started by this request fails (including the automatic bring-up), all
+  channels and links started by the request are rolled back before the error is returned
+  (previously running links are not restored).
 
 Response: `{"ok": true, "status": { ... }}`
 

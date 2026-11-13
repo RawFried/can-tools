@@ -1,17 +1,19 @@
-//! SocketCAN 链路: sysfs 接口发现、名称校验与帧收发封装。
+//! SocketCAN 链路: sysfs 接口发现、名称校验、自动启用与帧收发封装。
 //!
-//! 链路与 USB 通道并行工作, 共用一个帧缓冲/录制/统计。所有 socket 细节都走
+//! 链路与 USB 通道并行工作, 共用一个帧缓冲/录制/统计。所有 socket/netlink 细节都走
 //! [`socketcan`] crate, 本模块不直接调用 `libc`, 也不使用 `unsafe`。
 //!
 //! 注意: `/sys/class/net` 的内容跟随**挂载时**的 netns。新建 netns 里的接口
 //! (如 `vcan0`) 通常不在 sysfs 中, 因此"按名字启动链路"只依赖
-//! `if_nametoindex`/bind 的成败, sysfs 仅用于展示与 UP 预检查。
+//! `if_nametoindex`/bind 的成败, sysfs 仅用于展示与状态刷新。
 
 use std::fs;
 use std::io::ErrorKind;
 use std::path::Path;
 
-use socketcan::{CanAddr, CanFrame as SocketFrame, CanSocket, EmbeddedFrame, Frame, Socket};
+use socketcan::{
+    CanAddr, CanFrame as SocketFrame, CanInterface, CanSocket, EmbeddedFrame, Frame, Socket,
+};
 
 use crate::can::types::CanFrame;
 
@@ -21,6 +23,10 @@ pub const SYSFS_NET: &str = "/sys/class/net";
 pub const ARPHRD_CAN: u64 = 280;
 /// Linux 接口名最大长度 (`IFNAMSIZ - 1`)。
 pub const MAX_NAME_LEN: usize = 15;
+/// 自动启用时允许的最小速率 (bps)。
+pub const MIN_BITRATE: u32 = 1_000;
+/// 自动启用时允许的最大速率 (bps)。
+pub const MAX_BITRATE: u32 = 1_000_000;
 /// `IFF_UP` 在 sysfs `flags` 中的位。
 const IFF_UP: u64 = 0x1;
 
@@ -103,6 +109,70 @@ pub fn state_label(up: bool) -> &'static str {
     }
 }
 
+/// 校验自动启用使用的速率范围 (1000–1000000 bps)。
+pub fn validate_bitrate(bitrate: u32) -> Result<(), String> {
+    if !(MIN_BITRATE..=MAX_BITRATE).contains(&bitrate) {
+        return Err(format!(
+            "SocketCAN 速率必须在 {MIN_BITRATE}-{MAX_BITRATE} bps 之间, 实际 {bitrate}"
+        ));
+    }
+    Ok(())
+}
+
+/// 判断 netlink 错误是否为权限不足 (`EPERM`)。
+///
+/// neli 把内核错误渲染成 `Error response received from netlink: <errno 文本>`,
+/// 因此同时匹配 errno 文案与 `(os error N)` 形式。
+pub fn is_permission_error(message: &str) -> bool {
+    message.contains("Operation not permitted") || message.contains("(os error 1)")
+}
+
+/// 判断 netlink 错误是否为"不支持" (`EOPNOTSUPP`)。
+///
+/// 虚拟接口 (vcan) 不支持 `can_bittiming`, 设置速率会返回该错误, 属预期。
+pub fn is_unsupported_error(message: &str) -> bool {
+    message.contains("Operation not supported") || message.contains("(os error 95)")
+}
+
+/// 自动启用 SocketCAN 接口, 并把速率设为 `bitrate` (bps)。
+///
+/// 接口已 UP 时直接返回成功, **不执行任何特权操作** (非 root 也能正常使用);
+/// 未 UP 时依次设置速率与 UP 标志, 需要 root 或 `CAP_NET_ADMIN`。
+/// vcan 等不支持速率配置的接口会忽略 `EOPNOTSUPP` 并继续启用。
+pub fn bring_up(name: &str, bitrate: u32) -> Result<(), String> {
+    validate_name(name)?;
+    validate_bitrate(bitrate)?;
+    let interface = CanInterface::open(name)
+        .map_err(|error| format!("SocketCAN 接口 {name} 不存在: {error}"))?;
+    let details = interface
+        .details()
+        .map_err(|error| format!("读取 SocketCAN 接口 {name} 状态失败: {error}"))?;
+    if details.is_up {
+        return Ok(());
+    }
+    if let Err(error) = interface.set_bitrate(bitrate, None::<u32>) {
+        let message = error.to_string();
+        if !is_unsupported_error(&message) {
+            return Err(enable_error(name, bitrate, "设置速率", &message));
+        }
+    }
+    interface
+        .bring_up()
+        .map_err(|error| enable_error(name, bitrate, "启用", &error.to_string()))
+}
+
+/// 把 netlink 失败转换为可操作的中文错误; 权限不足时附带手动命令。
+fn enable_error(name: &str, bitrate: u32, action: &str, message: &str) -> String {
+    if is_permission_error(message) {
+        format!(
+            "启用 SocketCAN 接口 {name} 需要 root 或 CAP_NET_ADMIN 权限: \
+             请以管理员身份运行，或手动执行 ip link set {name} up type can bitrate {bitrate}"
+        )
+    } else {
+        format!("{action} SocketCAN 接口 {name} 失败: {message}")
+    }
+}
+
 /// 一条已打开的 SocketCAN 链路。
 pub struct SocketCanLink {
     socket: CanSocket,
@@ -114,21 +184,14 @@ pub struct SocketCanLink {
 impl SocketCanLink {
     /// 打开接口并切换到非阻塞模式。
     ///
-    /// sysfs 可见且未 UP 时直接返回可操作的中文错误 (不尝试 bind);
-    /// sysfs 不可见的接口 (例如新建 netns 中的 `vcan0`) 直接按名字打开。
+    /// 调用方应先用 [`bring_up`] 确保接口已启用; 本函数只负责打开 socket,
+    /// 并从 sysfs 读取 `state`/`bitrate` 供界面展示 (sysfs 不可见时为
+    /// `unknown`/`None`)。
     pub fn open(name: &str) -> Result<Self, String> {
         validate_name(name)?;
         let info = list_interfaces(Path::new(SYSFS_NET))
             .into_iter()
             .find(|info| info.name == name);
-        if let Some(info) = info.as_ref() {
-            if !info.up {
-                return Err(format!(
-                    "SocketCAN 接口 {name} 未启用: 请先执行 \
-                     ip link set {name} up type can bitrate <速率>"
-                ));
-            }
-        }
         let address = CanAddr::from_iface(name)
             .map_err(|error| format!("SocketCAN 接口 {name} 不存在: {error}"))?;
         let socket = CanSocket::open_addr(&address)
@@ -384,5 +447,66 @@ mod tests {
             ..Default::default()
         };
         assert!(to_socket_frame(&frame).is_err());
+    }
+
+    #[test]
+    fn validate_bitrate_enforces_documented_range() {
+        assert!(validate_bitrate(1_000).is_ok());
+        assert!(validate_bitrate(500_000).is_ok());
+        assert!(validate_bitrate(1_000_000).is_ok());
+        assert!(validate_bitrate(0).is_err());
+        assert!(validate_bitrate(999).is_err());
+        assert!(validate_bitrate(1_000_001).is_err());
+    }
+
+    #[test]
+    fn classifies_netlink_permission_and_unsupported_errors() {
+        let permission =
+            "Error response received from netlink: Operation not permitted (os error 1)";
+        assert!(is_permission_error(permission));
+        assert!(!is_permission_error(
+            "Error response received from netlink: Operation not supported (os error 95)"
+        ));
+        // 不能把 "os error 10" 误判成 "os error 1"。
+        assert!(!is_permission_error("read failed (os error 10)"));
+
+        let unsupported =
+            "Error response received from netlink: Operation not supported (os error 95)";
+        assert!(is_unsupported_error(unsupported));
+        assert!(is_unsupported_error("Operation not supported"));
+        assert!(!is_unsupported_error(permission));
+    }
+
+    #[test]
+    fn permission_error_message_mentions_cap_net_admin_and_manual_command() {
+        let message = enable_error(
+            "can0",
+            500_000,
+            "设置速率",
+            "Error response received from netlink: Operation not permitted (os error 1)",
+        );
+        assert!(message.contains("CAP_NET_ADMIN"), "{message}");
+        assert!(
+            message.contains("ip link set can0 up type can bitrate 500000"),
+            "{message}"
+        );
+        assert!(!message.contains("设置速率"), "{message}");
+    }
+
+    #[test]
+    fn other_netlink_errors_keep_action_and_interface() {
+        let message = enable_error("can0", 500_000, "设置速率", "No ack received");
+        assert_eq!(
+            message,
+            "设置速率 SocketCAN 接口 can0 失败: No ack received"
+        );
+    }
+
+    #[test]
+    fn bring_up_validates_before_touching_netlink() {
+        let error = bring_up("can0", 999).unwrap_err();
+        assert!(error.contains("SocketCAN 速率"), "{error}");
+        let error = bring_up("can 0", 500_000).unwrap_err();
+        assert!(error.contains("非法字符"), "{error}");
     }
 }

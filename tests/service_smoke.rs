@@ -22,6 +22,7 @@ async fn worker_rejects_operations_without_device_and_shuts_down() {
         filter: HardwareFilter::default(),
         software_filters: vec![],
         socketcan: vec![],
+        socketcan_bitrate: None,
     };
     assert!(service.configure(config).await.is_err());
     let recording_error = service.start_recording().await.unwrap_err();
@@ -69,6 +70,7 @@ async fn worker_reports_missing_socketcan_interface() {
         filter: HardwareFilter::default(),
         software_filters: vec![],
         socketcan: vec!["missingcan0".to_string()],
+        socketcan_bitrate: None,
     };
     let error = service.configure(config).await.unwrap_err();
     assert!(error.contains("不存在"), "{error}");

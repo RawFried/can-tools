@@ -170,20 +170,23 @@ impl Worker {
             Some(device) => vec![device.info().clone()],
             None => self.list_devices_with_retry()?,
         };
-        self.refresh_links();
+        self.refresh_links(true);
         Ok(LinkList {
             devices,
             socketcan: self.link_infos(),
         })
     }
 
-    /// 用 sysfs 结果刷新链路注册表, 并为新发现的接口分配通道 id。
-    fn refresh_links(&mut self) {
+    /// 用 sysfs 结果刷新链路注册表; `add_new` 为真时为新发现的接口分配 id。
+    fn refresh_links(&mut self, add_new: bool) {
         for info in socketcan::list_interfaces(Path::new(socketcan::SYSFS_NET)) {
             let state = socketcan::state_label(info.up).to_string();
             if let Some(slot) = self.links.iter_mut().find(|slot| slot.name == info.name) {
                 slot.bitrate = info.bitrate;
                 slot.state = state;
+                continue;
+            }
+            if !add_new {
                 continue;
             }
             match self.allocate_link_id() {
@@ -397,6 +400,7 @@ impl Worker {
         }
 
         let mut started_links: Vec<usize> = Vec::new();
+        let bitrate = config.socketcan_bitrate_or_default();
         for name in &names {
             let index = match self.ensure_link(name) {
                 Ok(index) => index,
@@ -406,6 +410,15 @@ impl Worker {
                     return Err(error);
                 }
             };
+            // 已 UP 的接口不做任何特权操作; 未 UP 时按请求速率自动启用。
+            if let Err(error) = socketcan::bring_up(name, bitrate) {
+                self.rollback_config(&started_usb, &started_links);
+                self.publish_status();
+                return Err(error);
+            }
+            // 接口可能刚被启用: 尽力刷新 sysfs 可见链路的 state/bitrate (不新增注册项),
+            // 这样即使随后打开 socket 失败, 注册表状态也反映真实接口状态。
+            self.refresh_links(false);
             // 已运行的链路重新出现在请求中 = 关闭后重开。
             self.links[index].socket = None;
             match SocketCanLink::open(name) {

@@ -4,9 +4,11 @@
 //! 本机运行方式:
 //!
 //! ```text
-//! unshare -Urn sh -c 'ip link add dev vcan0 type vcan; ip link set vcan0 up; \
+//! unshare -Urn sh -c 'ip link set lo up; ip link add dev vcan0 type vcan; \
 //!   CAN_TOOLS_TEST_IFACE=vcan0 cargo test --test hw_socketcan -- --ignored --nocapture'
 //! ```
+//!
+//! 用例在 root/netns 内可自动 `bring_up` 接口; 两个用例共用一个接口, 用进程内互斥锁串行。
 
 use std::time::{Duration, Instant};
 
@@ -16,7 +18,14 @@ use can_tools::can::types::{
 };
 use can_tools::service::CanService;
 use can_tools::state::{ServerInfo, SharedState};
-use socketcan::{CanFrame, CanSocket, EmbeddedFrame, ExtendedId, Frame, Socket, StandardId};
+use socketcan::{
+    CanFrame, CanInterface, CanSocket, EmbeddedFrame, ExtendedId, Frame, Socket, StandardId,
+};
+
+/// 两个用例共用同一个接口, 串行执行避免互相把接口置 down / 影响收发。
+///
+/// 用 tokio 的异步互斥锁, 以免阻塞 runtime 线程 (用例本身是 `#[tokio::test]`)。
+static IFACE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 fn interface() -> String {
     std::env::var("CAN_TOOLS_TEST_IFACE").unwrap_or_else(|_| "vcan0".to_string())
@@ -45,6 +54,7 @@ fn drain(socket: &CanSocket) -> Vec<CanFrame> {
 #[tokio::test]
 #[ignore = "requires a real SocketCAN interface (default vcan0), run with --ignored"]
 async fn socketcan_link_receives_sends_records_and_stops() {
+    let _guard = IFACE_LOCK.lock().await;
     let iface = interface();
     let shared = SharedState::new(ServerInfo {
         version: "test".to_string(),
@@ -62,6 +72,7 @@ async fn socketcan_link_receives_sends_records_and_stops() {
             filter: HardwareFilter::default(),
             software_filters: vec![],
             socketcan: vec![iface.clone()],
+            socketcan_bitrate: None,
         })
         .await
         .expect("configure socketcan only");
@@ -224,6 +235,75 @@ async fn socketcan_link_receives_sends_records_and_stops() {
     // 7) 停止录制仍然可用 (仅链路运行过的会话)。
     let summary = service.stop_recording().await.expect("stop recording");
     assert!(summary.frames >= 2);
+
+    service.shutdown().await;
+}
+
+#[tokio::test]
+#[ignore = "requires a real SocketCAN interface and root/CAP_NET_ADMIN (vcan in unshare)"]
+async fn socketcan_link_is_brought_up_automatically() {
+    let _guard = IFACE_LOCK.lock().await;
+    let iface = interface();
+
+    // 先确保接口是 down: 这正是需要程序自动启用的场景。
+    let netlink = CanInterface::open(&iface).expect("open netlink interface");
+    netlink.bring_down().expect("bring interface down");
+    let details = netlink.details().expect("interface details");
+    assert!(!details.is_up, "interface should start down");
+
+    let shared = SharedState::new(ServerInfo {
+        version: "test".to_string(),
+        data_dir: "/tmp/can-tools-socketcan-test".to_string(),
+    });
+    let directory = tempfile::tempdir().unwrap();
+    let service = CanService::spawn(shared.clone(), directory.path().join("recordings")).unwrap();
+
+    service
+        .configure(StartConfig {
+            channels: vec![],
+            baud: BaudRate::Kbps500,
+            mode: CanMode::Normal,
+            filter: HardwareFilter::default(),
+            software_filters: vec![],
+            socketcan: vec![iface.clone()],
+            socketcan_bitrate: Some(500_000),
+        })
+        .await
+        .expect("configure should bring the interface up");
+
+    let status = shared.status();
+    let channel = status
+        .channels
+        .iter()
+        .find(|channel| channel.name == iface)
+        .expect("socketcan status entry");
+    assert_eq!(channel.index, 2);
+    assert!(channel.running);
+
+    // 接口已由程序启用 (vcan 不支持 bps, 但 UP 必须成功)。
+    let details = CanInterface::open(&iface)
+        .expect("reopen netlink interface")
+        .details()
+        .expect("interface details after configure");
+    assert!(details.is_up, "interface should be up after configure");
+
+    // 启用后能收到帧。
+    let peer = CanSocket::open(&iface).expect("open peer socket");
+    peer.set_nonblocking(true).expect("nonblocking peer");
+    let standard_id = StandardId::new(0x456).unwrap();
+    peer.write_frame(&CanFrame::new(standard_id, &[0xDE, 0xAD]).unwrap())
+        .expect("send frame after auto bring-up");
+    let received = wait_until(
+        || {
+            shared
+                .frames()
+                .iter()
+                .any(|frame| frame.channel == 2 && frame.id == 0x456 && frame.data == "DE AD")
+        },
+        Duration::from_secs(2),
+    )
+    .await;
+    assert!(received, "frame never reached the live buffer");
 
     service.shutdown().await;
 }
