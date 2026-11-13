@@ -8,17 +8,24 @@
   clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 .view-tab {
+  position: relative;
   display: inline-flex; align-items: center;
   height: 26px; padding: 0 12px;
-  border: 1px solid transparent; border-radius: 7px;
-  font-size: 12.5px; font-weight: 500; color: var(--text-mid);
+  border: 1px solid transparent; border-radius: 6px 6px 0 0;
+  font-size: 12.5px; font-weight: 500; color: var(--text-faint);
   cursor: pointer; user-select: none; white-space: nowrap;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
+  transition: color 0.15s, background 0.15s;
 }
-.view-tab:hover { color: var(--text); background: var(--surface-3); }
+.view-tab:hover { color: var(--text); background: var(--row-hover); }
 .view-radio:checked + .view-tab {
-  color: var(--can1); background: var(--can1-dim);
-  border-color: var(--can1-line); font-weight: 600;
+  color: var(--can1); background: transparent; border-color: transparent;
+  font-weight: 600;
+}
+/* 选中态：青色下划线 */
+.view-radio:checked + .view-tab::after {
+  content: "";
+  position: absolute; left: 8px; right: 8px; bottom: 1px; height: 1px;
+  background: var(--can1);
 }
 .view-radio:focus-visible + .view-tab { outline: 2px solid var(--focus); outline-offset: 2px; }
 
@@ -44,12 +51,16 @@
   width: 236px; height: 30px;
   padding: 0 10px 0 30px;
   border: 1px solid var(--border-strong); border-radius: var(--r-s);
-  background: var(--surface-2); color: var(--text);
+  background: var(--input-bg); color: var(--text);
   font-size: 12.5px; font-family: inherit;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 .search input:hover { border-color: var(--can1-line); }
-.search input:focus { outline: none; border-color: var(--can1); background: var(--surface); }
+.search input:focus {
+  outline: none; border-color: var(--can1);
+  background: var(--input-bg);
+  box-shadow: var(--focus-ring);
+}
 .search input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .search input::-webkit-search-cancel-button { cursor: pointer; }
 .search input::placeholder { color: var(--text-faint); }
@@ -63,8 +74,9 @@
 .switch input { position: absolute; opacity: 0; }
 .switch .track {
   width: 30px; height: 17px; border-radius: 999px;
-  background: var(--surface-3); border: 1px solid var(--border-strong);
+  background: var(--input-bg); border: 1px solid var(--border-strong);
   position: relative; transition: 0.15s; flex: none;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 .switch .track::after {
   content: "";
@@ -72,8 +84,12 @@
   width: 11px; height: 11px; border-radius: 50%;
   background: var(--text-faint); transition: 0.15s;
 }
-.switch input:checked + .track { background: var(--can1-dim); border-color: var(--can1); }
-.switch input:checked + .track::after { left: 15px; background: var(--can1); }
+.switch input:checked + .track {
+  background: var(--can1-dim); border-color: var(--can1);
+}
+.switch input:checked + .track::after {
+  left: 15px; background: var(--can1);
+}
 .switch input:focus-visible + .track { outline: 2px solid var(--focus); outline-offset: 2px; }
 .switch:has(input:disabled) { opacity: 0.6; cursor: not-allowed; }
 
@@ -98,11 +114,12 @@ table.frames { width: 100%; min-width: 760px; border-collapse: separate; border-
 table.frames th {
   position: sticky; top: 0; z-index: 2;
   background: var(--surface-2);
-  color: var(--text-mid);
-  font: 600 11px/1.2 var(--font-ui);
-  letter-spacing: 0.05em; text-align: left;
+  color: var(--text-faint);
+  font: 600 11px/1.2 var(--font-mono);
+  letter-spacing: 0.08em; text-align: left;
   padding: 8px 10px;
   border-bottom: 1px solid var(--border-strong);
+  box-shadow: inset 0 -1px 0 var(--can1-dim);
   white-space: nowrap;
 }
 table.frames th.num { text-align: right; }
@@ -129,15 +146,27 @@ tr.remote td.c-type { font-style: italic; color: var(--warn); }
 tr.remote td.c-data { color: var(--text-faint); }
 
 .ch-badge {
-  display: inline-block;
+  display: inline-flex; align-items: center; gap: 5px;
   font: 600 10.5px/1 var(--font-mono);
-  padding: 3px 7px; border-radius: 5px;
-  letter-spacing: 0.04em;
+  padding: 3px 7px; border-radius: 4px;
+  letter-spacing: 0.06em;
+}
+.ch-badge::before {
+  content: "";
+  width: 5px; height: 5px; border-radius: 50%;
+  background: currentColor; box-shadow: 0 0 6px currentColor;
+  flex: none;
 }
 .ch-badge.ch0 { color: var(--can1); background: var(--can1-dim); box-shadow: inset 0 0 0 1px var(--can1-line); }
 .ch-badge.ch1 { color: var(--can2); background: var(--can2-dim); box-shadow: inset 0 0 0 1px var(--can2-line); }
 .ch-badge.ch-scan { color: var(--scan); background: var(--scan-dim); box-shadow: inset 0 0 0 1px var(--scan-line); }
 .ch-badge.chx { color: var(--text-mid); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--border-strong); }
+
+/* 浅色下徽标底为淡色轨道，文字再压深一档以保证小字号 4.5:1 */
+@media (prefers-color-scheme: light) {
+  .ch-badge.ch0 { color: #00647f; }
+  .ch-badge.ch1 { color: #8a5000; }
+}
 
 .empty {
   position: absolute; inset: 0;
@@ -151,11 +180,11 @@ tr.remote td.c-data { color: var(--text-faint); }
 .paused-badge {
   position: absolute; top: 44px; right: 14px; z-index: 3;
   display: inline-flex; align-items: center; gap: 4px;
-  background: var(--warn-dim); border: 1px solid var(--warn);
+  background: var(--warn-dim); border: 1px solid var(--warn-line);
   color: var(--warn);
-  font: 600 11.5px/1.2 var(--font-mono);
+  font: 600 11px/1.2 var(--font-mono);
+  letter-spacing: 0.03em;
   padding: 5px 10px; border-radius: 999px;
-  animation: pulse 2s ease-in-out infinite;
 }
 
 .strip {

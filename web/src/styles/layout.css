@@ -23,12 +23,40 @@
 
 /* ---------- 卡片 ---------- */
 .card {
-  background: var(--surface);
+  position: relative;
+  background-color: var(--surface);
+  background-image: var(--panel-grad);
   border: 1px solid var(--border);
   border-radius: var(--r-l);
   box-shadow: var(--shadow-card);
   animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
+/* HUD 角标：左上 / 右下 12px L 形细线，只作装饰，不占内容空间 */
+.card::before,
+.card::after {
+  content: "";
+  position: absolute; z-index: 0;
+  width: 12px; height: 12px;
+  border: 1px solid var(--hud-corner);
+  pointer-events: none;
+  opacity: 0.8;
+  transition: border-color 0.18s ease, opacity 0.18s ease;
+}
+.card::before {
+  top: 2px; left: 2px;
+  border-right: 0; border-bottom: 0;
+  border-top-left-radius: 5px;
+}
+.card::after {
+  bottom: 2px; right: 2px;
+  border-left: 0; border-top: 0;
+  border-bottom-right-radius: 5px;
+}
+.card:hover { border-color: var(--border-strong); }
+.card:hover::before,
+.card:hover::after { border-color: var(--hud-corner-strong); opacity: 1; }
+
 .rail .card:nth-child(1) { animation-delay: 0.02s; }
 .rail .card:nth-child(2) { animation-delay: 0.06s; }
 .rail .card:nth-child(3) { animation-delay: 0.10s; }
@@ -39,19 +67,38 @@
 .main .panel-recs { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) 0.14s backwards; }
 
 .card-head {
+  position: relative;
   display: flex; align-items: center; gap: 9px;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid transparent;
 }
-.card-head h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
+/* 1px 渐变强调线替代实线分隔，弱化「盒子感」 */
+.card-head::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: var(--head-line);
+  pointer-events: none;
+}
+.card-head h2 {
+  font-size: 13px; font-weight: 600;
+  letter-spacing: 0.04em;
+}
 
 .card-index {
-  font: 600 10.5px/1 var(--font-mono);
+  font: 600 10px/1 var(--font-mono);
   color: var(--can1);
-  background: var(--can1-dim);
-  padding: 3px 6px; border-radius: 5px;
-  letter-spacing: 0.05em;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  letter-spacing: 0.1em;
 }
+.card-index::before,
+.card-index::after {
+  content: "[" / "";
+  color: var(--can1);
+  opacity: 0.5;
+}
+.card-index::after { content: "]" / ""; }
 
 .head-spacer { flex: 1; }
 

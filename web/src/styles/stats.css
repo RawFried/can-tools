@@ -2,16 +2,26 @@
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 
 .stat {
-  background: var(--surface);
+  position: relative;
+  background-color: var(--surface);
+  background-image: var(--panel-grad);
   border: 1px solid var(--border);
-  border-radius: 11px;
+  border-radius: 9px;
   padding: 12px 14px;
   display: grid; gap: 5px;
   align-content: start;
 }
+/* 顶部细扫描线：把四个数字块串成一条 HUD 读数带 */
+.stat::before {
+  content: "";
+  position: absolute; left: 10px; right: 10px; top: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--can1-line), transparent);
+  opacity: 0.75;
+  pointer-events: none;
+}
 .stat-head {
   display: flex; align-items: center; gap: 7px;
-  font-size: 11px; letter-spacing: 0.05em; color: var(--text-faint);
+  font-size: 11px; letter-spacing: 0.06em; color: var(--text-faint);
 }
 .stat-head svg { flex: none; color: var(--text-faint); }
 .s-rx .stat-head svg { color: var(--can1); }
@@ -21,8 +31,9 @@
 
 .stat-val {
   display: flex; align-items: baseline; gap: 6px; min-width: 0;
-  font: 600 23px/1.15 var(--font-mono);
+  font: 600 24px/1.15 var(--font-mono);
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 .stat-val .unit { font: 400 11px/1 var(--font-ui); color: var(--text-faint); letter-spacing: 0.02em; }
 .stat-sub { font-size: 11px; color: var(--text-faint); }

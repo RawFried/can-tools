@@ -13,8 +13,8 @@ table.recs-table { width: 100%; border-collapse: collapse; }
 
 table.recs-table th {
   text-align: left;
-  font: 600 11px/1.2 var(--font-ui);
-  color: var(--text-mid); letter-spacing: 0.05em;
+  font: 600 11px/1.2 var(--font-mono);
+  color: var(--text-faint); letter-spacing: 0.08em;
   padding: 8px 14px;
   border-bottom: 1px solid var(--border-strong);
   white-space: nowrap;
