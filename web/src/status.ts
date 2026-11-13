@@ -45,7 +45,10 @@ export function applyStatus(st: StatusDto): void {
       els.recActiveElapsed.textContent = fmtDur(Date.now() - st.recording.started_at_ms);
     }
   }
-  els.dataDirLabel.textContent = st.server.data_dir || '—';
+  /* 录制目录：输入框聚焦时不回填，避免打断正在编辑的内容 */
+  if (document.activeElement !== els.dataDirInput) {
+    els.dataDirInput.value = st.server.recordings_dir;
+  }
 
   /* 统计 */
   els.statRx.textContent = fmtInt(st.stats.rx_frames);

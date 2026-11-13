@@ -128,3 +128,8 @@ export async function stopRecording(): Promise<RecordingStopResult> {
 export async function deleteRecordingFile(name: string): Promise<void> {
   await api('/api/recordings/' + encodeURIComponent(name), 'DELETE');
 }
+
+/** 设置录制 CSV 保存目录；path 为空串时恢复后端默认目录。 */
+export async function setRecordingDir(path: string): Promise<StatusDto | null> {
+  return statusOf(await api('/api/recording/dir', 'POST', { path }));
+}

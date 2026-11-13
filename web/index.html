@@ -354,7 +354,13 @@
           <span class="rec-stat">已录 <span class="rec-num" id="recActiveFrames">0</span> 帧</span>
           <span class="rec-stat">时长 <span class="rec-num" id="recActiveElapsed">00:00</span></span>
         </div>
-        <span class="rec-dir">CSV 目录<code class="rec-path" id="dataDirLabel">—</code></span>
+        <div class="rec-dir">
+          <label class="field-label" for="dataDirInput">CSV 目录</label>
+          <div class="rec-dir-row">
+            <input class="input rec-path-input" id="dataDirInput" type="text" spellcheck="false" autocomplete="off" placeholder="留空使用默认目录" aria-label="CSV 保存目录（绝对路径，清空恢复默认）">
+            <button class="btn btn-sm" id="btnApplyDir" type="button">应用</button>
+          </div>
+        </div>
       </div>
       <div class="recs-wrap">
         <table class="recs-table">

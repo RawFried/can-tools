@@ -3,6 +3,7 @@
  */
 import {
   clearFrames,
+  setRecordingDir,
   startRecording,
   stopRecording,
 } from './api';
@@ -68,6 +69,15 @@ export function bindEvents(): void {
       const frameText = frames === null ? '—' : fmtInt(frames);
       toast('已保存 ' + file + ' （' + frameText + ' 帧）', 'success');
       await loadRecordings();
+    });
+  });
+
+  els.btnApplyDir.addEventListener('click', () => {
+    void runBusy(els.btnApplyDir, async () => {
+      const path = els.dataDirInput.value.trim();
+      const status = await setRecordingDir(path);
+      if (status) applyStatus(status);
+      toast(path === '' ? '已恢复默认录制目录' : '录制目录已更新', 'success');
     });
   });
 

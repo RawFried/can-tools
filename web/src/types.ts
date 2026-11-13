@@ -96,6 +96,8 @@ export interface StatsDto {
 export interface ServerDto {
   version: string;
   data_dir: string;
+  /** 当前录制 CSV 的保存目录（空串表示后端默认目录）。 */
+  recordings_dir: string;
 }
 
 export interface StatusDto {
@@ -322,7 +324,11 @@ export function parseStatusDto(v: unknown): StatusDto | null {
       recorded_frames: numOr(stats['recorded_frames'], 0),
       tx_frames: numOr(stats['tx_frames'], 0),
     },
-    server: { version: strOr(srv['version'], ''), data_dir: strOr(srv['data_dir'], '') },
+    server: {
+      version: strOr(srv['version'], ''),
+      data_dir: strOr(srv['data_dir'], ''),
+      recordings_dir: strOr(srv['recordings_dir'], ''),
+    },
   };
 }
 

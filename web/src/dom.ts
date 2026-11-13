@@ -48,7 +48,8 @@ export const els = {
   recActiveFile: byId<HTMLElement>('recActiveFile'),
   recActiveFrames: byId<HTMLElement>('recActiveFrames'),
   recActiveElapsed: byId<HTMLElement>('recActiveElapsed'),
-  dataDirLabel: byId<HTMLElement>('dataDirLabel'),
+  dataDirInput: byId<HTMLInputElement>('dataDirInput'),
+  btnApplyDir: byId<HTMLButtonElement>('btnApplyDir'),
 
   /* 统计 */
   statRx: byId<HTMLElement>('statRx'),
