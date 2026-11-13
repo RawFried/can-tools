@@ -62,8 +62,12 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
   `acc_code = id << 21` with `acc_mask = 0x001FFFFF`; extended frames use
   `acc_code = id << 3` with `acc_mask = 0x00000007`. A frame passes when
   `(normalized & !acc_mask) == (acc_code & !acc_mask)`. `acc_code = 0` and
-  `acc_mask = 0xFFFFFFFF` accept every frame. The web UI's "按 ID 生成" helper performs
-  this conversion; ranges/multiple IDs belong in `software_filters`.
+  `acc_mask = 0xFFFFFFFF` accept every frame. The web UI exposes **ID ranges only**: it derives a
+  hardware filter that is a *superset* of the ranges (the smallest power-of-two aligned block
+  covering them) so the controller can pre-drop frames, and sends the exact ranges as
+  `software_filters` for precise matching. An empty range list, or ranges mixing standard and
+  extended frames, falls back to accept-all. Range semantics therefore live in `software_filters`;
+  clients that need an exact hardware filter still set `filter` directly.
 - `software_filters` are applied by the application after the hardware filter. An empty list
   accepts every frame. Otherwise a frame passes when at least one record matches both its
   standard/extended flag and `start <= id <= end`.

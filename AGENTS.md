@@ -1,0 +1,90 @@
+# AGENTS.md
+
+本文件是 `can-tools` 的工程约束。所有人类贡献者与 AI agent 在改动本仓库前必读。
+
+## 1. 总原则（遵循 Google 工程实践）
+
+参考 Google Engineering Practices 与 Google Style Guides，取其可执行部分：
+
+- **小步、单一目的。** 一个提交只做一件事；顺手重构请单独提交。评审者应能在几分钟内读完 diff。
+- **改动必须自带验证。** 行为变化要附测试或可复现的验证步骤；"能编译"不等于"已验证"。
+- **契约先于实现。** 修改 HTTP/WebSocket 形状、CSV 列、协议字节布局时，先改文档再改代码，二者同一提交。
+- **可读性优先于聪明。** 命名表达意图；注释解释「为什么」，不解释「是什么」。不保留注释掉的代码与调试输出。
+- **错误必须显式处理。** 禁止吞掉 `Err`/异常；面向用户的错误信息需可操作（说明发生了什么、能做什么）。
+- **格式与静态检查自动化。** 不手工对齐格式；格式问题一律交给 `cargo fmt` / `tsc`。
+- **不提交生成物之外的垃圾。** 构建产物、日志、运行数据、临时脚本不得入库（见 `.gitignore`）。
+
+## 2. 仓库结构与职责
+
+```
+src/                  Rust 后端（bin + lib）
+  can/protocol.rs     USBCAN 字节级协议编解码（改动需硬件实测）
+  can/device.rs       USB 设备打开/初始化/收发
+  can/types.rs        API DTO、滤波类型、校验
+  service/            worker 线程、录制、状态发布
+  server.rs           axum 路由与 HTTP/WS 处理
+  paths.rs            数据目录解析（CAN_TOOLS_DATA_DIR → XDG）
+web/                  前端（无框架 TypeScript，源码按职责拆模块于 src/）
+  src/main.ts         启动入口；types/format/dom/state/api/toast/ws/frames/status/
+                      devices/recordings/filters(-model)/send/events 各司其职
+  app.js              由 esbuild 打包生成的单个 IIFE 脚本，**被后端嵌入并跟踪提交**
+docs/api.md           HTTP/WebSocket 契约（权威）
+docs/protocol.md      USBCAN 协议摘要
+tests/                集成测试（hw_* 需要真实硬件）
+packaging/            AppImage 打包
+```
+
+## 3. Rust 约束
+
+- 版本：`edition 2021`，`rust-version 1.82`。
+- **禁止 `unsafe`**（`Cargo.toml` 已 `forbid`），不要用 `#[allow]` 绕过。
+- 格式：`rustfmt.toml` 固定 `max_width = 100`；提交前跑 `cargo fmt --all`。
+- Lint：`[lints.clippy] all = "warn"`，CI 以 `-D warnings` 执行；不要新增 `#[allow(clippy::…)]` 除非在紧邻注释里说明原因。
+- 命名与文档：类型 `CamelCase`，函数/变量 `snake_case`，常量 `SCREAMING_SNAKE_CASE`。公开项写 `///` 文档注释（中文，说明约束与失败条件）。
+- 错误：库内用 `Result<_, String>` / `thiserror`；不要 `panic!` 处理可恢复错误。面向用户的错误文案为中文且包含实际值。
+- 协议常量（`acc_code`/`acc_mask` 位布局、帧头、端点）不得凭猜测修改；改动必须附硬件复现记录。
+- 单元测试放在源文件末尾 `#[cfg(test)] mod tests`，测试名描述行为（`software_filter_matches_range_and_frame_kind`）。
+
+## 4. TypeScript / 前端约束
+
+- **运行时无框架、无依赖**；`web/devDependencies` 只允许类型检查（`typescript`）与打包（`esbuild`）这类构建期工具。打包器把 `web/src/**` 打成单个 IIFE 经典脚本 `web/app.js`，由后端 `include_str!` 嵌入分发。
+- **按职责分模块，禁止单文件膨胀**。目录职责与依赖方向（单向，禁止反向/循环）：
+
+  ```
+  types → format → dom → {state, toast} → api → ws → frames → status
+        → {devices, recordings, filters} → send → events → main
+  ```
+
+  - `filters-model.ts` 必须是纯函数（零 DOM、零 state），便于独立测试；
+  - `filters.ts` 与 `status.ts` 之间不得互相 import：跨模块回调用注入（`setRangeRowsChangedHandler`）或放在 `events.ts` 汇总；
+  - 单模块建议 ≤ 350 行，超过 500 行视为拆分不彻底。
+- `strict: true`；禁止 `any`、`@ts-ignore`、非空断言滥用。外部数据一律先按 `unknown` 接收，经类型守卫收窄。
+- DOM 只通过 DOM API 与 `textContent` 构建；**禁止 `innerHTML` 拼接**。所有元素引用集中在 `dom.ts`，模板复用 `web/index.html` 的 `<template>`。
+- 风格：2 空格缩进、单引号、语句带分号、`camelCase` 变量/函数、`PascalCase` 类型。界面文案与注释用中文，标识符用英文。
+- `web/app.js` 是 `esbuild` 产物且被跟踪：**只改 `web/src/**`**，然后 `npm run build` 生成并一起提交。CI 会执行 `git diff --exit-code -- web/app.js` 校验产物同步；构建必须确定性（同源同工具两次构建 md5 相同）。产物中不得出现 `import`/`export`/`require`。
+- 纯函数（如滤波推导、解析）放在可测试的位置并配注释说明边界条件；不要在没有依据的情况下改动已实测的位运算。
+
+## 5. 提交与评审
+
+- 提交信息遵循 Conventional Commits：`<type>(<scope>): <description>`，type ∈ `feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert`；描述用祈使句、不超 72 字符；破坏性变更用 `!` 或 `BREAKING CHANGE:` 脚注。
+- 一个提交 = 一个逻辑改动；不把格式化 diff 混进功能提交。
+- 评审关注：正确性、边界条件、错误路径、是否补了文档与测试、是否引入未使用代码。
+- 禁止跳过钩子（`--no-verify`）、禁止 `push --force` 到 `main`。
+
+## 6. 提交前必跑（顺序固定）
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --all-targets -- -D warnings
+cargo test --all-targets            # hw_* 需要真实硬件；无硬件时至少跑非 hw 用例
+cd web && npm run build             # 产物 web/app.js 必须与源码同步
+```
+
+需要真机时：`tests/hw_*.rs` 与 `docs/protocol.md` 中的实测结论是基准，失败先怀疑接线/波特率，再怀疑代码。
+
+## 7. 禁止事项
+
+- 提交 `.env`、密钥、设备序列号等敏感信息。
+- 提交 `target/`、`dist/`、`.tools/`、`node_modules/`、运行日志与采集数据。
+- 在文档中写入未经验证的"已修复/已通过"结论。
+- 修改 `docs/api.md` 未同步更新前端类型守卫或后端 DTO。
