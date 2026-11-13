@@ -18,6 +18,7 @@ jobs:
         run: |
           npm ci
           npm run build
+          npm run test
           git diff --exit-code -- web/app.js
       - name: Format
         run: cargo fmt --all -- --check

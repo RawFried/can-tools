@@ -5,7 +5,8 @@
   "description": "CAN Tools 前端（TypeScript 源码；编译产物 app.js 由 Rust 后端嵌入并分发）",
   "scripts": {
     "build": "esbuild src/main.ts --bundle --format=iife --target=es2021 --charset=utf8 --legal-comments=none --log-level=warning --outfile=app.js",
-    "check": "tsc -p tsconfig.json --noEmit"
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "esbuild test/dbc-model.test.ts --bundle --format=iife --platform=node --log-level=warning --outfile=../target/web-tests/dbc-model.test.js && node ../target/web-tests/dbc-model.test.js"
   },
   "devDependencies": {
     "esbuild": "0.28.2",

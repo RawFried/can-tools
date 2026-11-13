@@ -2,6 +2,7 @@
  * WebSocket 数据链路：连接/指数退避重连、心跳、WS 消息分发（status/frames/log/cleared）。
  */
 import { els } from './dom';
+import { applyDbc, seedDbcFrames } from './dbc';
 import { acceptFrames, clearLocalFrames, rebuildTable } from './frames';
 import { BUFFER_CAP, state } from './state';
 import { applyStatus } from './status';
@@ -113,6 +114,8 @@ function handleWsText(text: string): void {
       state.pending.length = 0;
       state.pausedHidden = 0;
       els.pausedCount.textContent = '0';
+      applyDbc(msg.dbc);
+      seedDbcFrames(msg.frames);
       rebuildTable();
       break;
     case 'frames':
@@ -120,6 +123,9 @@ function handleWsText(text: string): void {
       break;
     case 'status':
       applyStatus(msg.status);
+      break;
+    case 'dbc':
+      applyDbc(msg.dbc);
       break;
     case 'log':
       if (msg.level === 'error') toast(msg.message, 'error');

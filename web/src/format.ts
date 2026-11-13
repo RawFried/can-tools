@@ -56,6 +56,14 @@ export function fmtDur(ms: number): string {
   return h > 0 ? h + ':' + p2(m) + ':' + p2(sec) : p2(m) + ':' + p2(sec);
 }
 
+/** 物理值显示：最多三位小数，特大/特小用科学计数法，非有限值显示 —。 */
+export function fmtSignal(v: number): string {
+  if (!Number.isFinite(v)) return '—';
+  const abs = Math.abs(v);
+  if (abs !== 0 && (abs >= 1e6 || abs < 1e-3)) return v.toExponential(2);
+  return v.toLocaleString('zh-CN', { maximumFractionDigits: 3 });
+}
+
 export function hexOf(v: number, width: number): string {
   return '0x' + v.toString(16).toUpperCase().padStart(width, '0');
 }

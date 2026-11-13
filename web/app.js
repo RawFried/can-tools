@@ -94,6 +94,23 @@
     recordingsEmpty: byId("recordingsEmpty"),
     recordingsCount: byId("recordingsCount"),
     btnRefreshRecordings: byId("btnRefreshRecordings"),
+    /* DBC 信号曲线 */
+    dbcPanel: byId("dbcPanel"),
+    dbcName: byId("dbcName"),
+    dbcSummary: byId("dbcSummary"),
+    btnDbcLoad: byId("btnDbcLoad"),
+    dbcFileInput: byId("dbcFileInput"),
+    btnDbcRemove: byId("btnDbcRemove"),
+    dbcEmpty: byId("dbcEmpty"),
+    dbcBody: byId("dbcBody"),
+    dbcMsgList: byId("dbcMsgList"),
+    dbcSignalBar: byId("dbcSignalBar"),
+    signalChart: byId("signalChart"),
+    signalLegend: byId("signalLegend"),
+    dbcWindowSelect: byId("dbcWindowSelect"),
+    btnChartClear: byId("btnChartClear"),
+    signalEmpty: byId("signalEmpty"),
+    dbcHint: byId("dbcHint"),
     /* 其它 */
     toasts: byId("toasts"),
     rowTpl: byId("rowTpl"),
@@ -249,6 +266,83 @@
     }
     return out;
   }
+  var DBC_VALUE_KINDS = ["unsigned", "signed", "float", "double"];
+  function asValueKind(v) {
+    return isStr(v) && DBC_VALUE_KINDS.includes(v) ? v : "unsigned";
+  }
+  function parseDbcValues(v) {
+    if (!Array.isArray(v)) return [];
+    const out = [];
+    for (const it of v) {
+      if (!isObj(it)) continue;
+      out.push({ raw: numOr(it["raw"], 0), label: strOr(it["label"], "") });
+    }
+    return out;
+  }
+  function parseDbcMux(v) {
+    if (!isObj(v)) return null;
+    return {
+      is_multiplexer: v["is_multiplexer"] === true,
+      value: isNum(v["value"]) ? v["value"] : null
+    };
+  }
+  function parseDbcSignal(v) {
+    if (!isObj(v)) return null;
+    return {
+      name: strOr(v["name"], ""),
+      start_bit: numOr(v["start_bit"], 0),
+      length: numOr(v["length"], 0),
+      little_endian: v["little_endian"] !== false,
+      signed: v["signed"] === true,
+      factor: numOr(v["factor"], 1),
+      offset: numOr(v["offset"], 0),
+      min: numOr(v["min"], 0),
+      max: numOr(v["max"], 0),
+      unit: strOr(v["unit"], ""),
+      receivers: Array.isArray(v["receivers"]) ? v["receivers"].filter(isStr) : [],
+      value_kind: asValueKind(v["value_kind"]),
+      mux: parseDbcMux(v["mux"]),
+      values: parseDbcValues(v["values"])
+    };
+  }
+  function parseDbcMessage(v) {
+    if (!isObj(v)) return null;
+    const signals = [];
+    if (Array.isArray(v["signals"])) {
+      for (const s of v["signals"]) {
+        const parsed = parseDbcSignal(s);
+        if (parsed) signals.push(parsed);
+      }
+    }
+    return {
+      id: numOr(v["id"], 0),
+      extended: v["extended"] === true,
+      name: strOr(v["name"], ""),
+      dlc: numOr(v["dlc"], 8),
+      sender: strOr(v["sender"], ""),
+      signals
+    };
+  }
+  function parseDbcDto(v) {
+    if (!isObj(v)) return null;
+    const messages = [];
+    if (Array.isArray(v["messages"])) {
+      for (const m of v["messages"]) {
+        const parsed = parseDbcMessage(m);
+        if (parsed) messages.push(parsed);
+      }
+    }
+    return {
+      name: strOr(v["name"], ""),
+      loaded_at_ms: numOr(v["loaded_at_ms"], 0),
+      messages
+    };
+  }
+  function parseNullableDbc(v) {
+    if (v === null) return null;
+    if (v === void 0) return void 0;
+    return parseDbcDto(v) ?? void 0;
+  }
   function parseWsMessage(v) {
     if (!isObj(v)) return null;
     const t = isStr(v["type"]) ? v["type"] : "";
@@ -256,13 +350,19 @@
       case "snapshot": {
         const st = parseStatusDto(v["status"]);
         if (!st) return null;
-        return { type: "snapshot", status: st, frames: parseFrames(v["frames"]) };
+        const dbcRaw = v["dbc"];
+        const dbc = dbcRaw === void 0 ? null : parseNullableDbc(dbcRaw) ?? null;
+        return { type: "snapshot", status: st, frames: parseFrames(v["frames"]), dbc };
       }
       case "frames":
         return { type: "frames", frames: parseFrames(v["frames"]) };
       case "status": {
         const st = parseStatusDto(v["status"]);
         return st ? { type: "status", status: st } : null;
+      }
+      case "dbc": {
+        const dbc = parseNullableDbc(v["dbc"]);
+        return dbc === void 0 ? null : { type: "dbc", dbc };
       }
       case "log": {
         const lvl = v["level"];
@@ -354,6 +454,481 @@
     await api("/api/recordings/" + encodeURIComponent(name), "DELETE");
   }
 
+  // src/chart.ts
+  var SERIES_COLORS = [
+    "#35b8d6",
+    // 青
+    "#e89b2c",
+    // 琥珀
+    "#2fb47c",
+    // 绿
+    "#e85b53",
+    // 珊瑚
+    "#9a86ec",
+    // 紫
+    "#5b9df3",
+    // 蓝
+    "#d96cb2",
+    // 品红
+    "#8fae25"
+    // 黄绿
+  ];
+  var TICK_STEPS_MS = [
+    1e3,
+    2e3,
+    5e3,
+    1e4,
+    15e3,
+    3e4,
+    6e4,
+    12e4,
+    3e5,
+    6e5,
+    18e5
+  ];
+  var AXIS_H = 22;
+  var GUTTER = 58;
+  var PAD_R = 10;
+  var STRIP = 20;
+  function fmtVal(v) {
+    if (!Number.isFinite(v)) return "—";
+    const a = Math.abs(v);
+    if (a >= 1e5) return (v / 1e3).toFixed(0) + "k";
+    if (a >= 1e4) return (v / 1e3).toFixed(1) + "k";
+    if (a >= 100) return v.toFixed(0);
+    if (a >= 10) return v.toFixed(1);
+    if (a >= 1) return v.toFixed(2);
+    if (a >= 0.01) return v.toFixed(3);
+    return a === 0 ? "0" : v.toExponential(1);
+  }
+  function fmtRel(ms) {
+    if (ms === 0) return "0";
+    const sec = Math.round(Math.abs(ms) / 1e3);
+    const txt = sec >= 60 && sec % 60 === 0 ? sec / 60 + "m" : sec + "s";
+    return "-" + txt;
+  }
+  function hexToRgba(hex, alpha) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+    if (m === null) return null;
+    const n = parseInt(m[1], 16);
+    return "rgba(" + (n >> 16 & 255) + ", " + (n >> 8 & 255) + ", " + (n & 255) + ", " + alpha + ")";
+  }
+  var SignalChart = class {
+    constructor(canvas) {
+      this.raf = 0;
+      this.cssW = 0;
+      this.cssH = 0;
+      this.series = [];
+      this.windowMs = 3e4;
+      this.canvas = canvas;
+      const ctx = canvas.getContext("2d");
+      if (ctx === null) throw new Error("无法创建 2D 绘图上下文");
+      this.ctx = ctx;
+      this.ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => this.schedule());
+      if (this.ro !== null) this.ro.observe(canvas);
+      this.schedule();
+    }
+    /** 用最新数据整体重绘（内部合并到 rAF）。 */
+    update(series2, windowMs) {
+      this.series = series2;
+      if (windowMs > 0) this.windowMs = windowMs;
+      this.schedule();
+    }
+    setWindowMs(windowMs) {
+      if (windowMs <= 0 || windowMs === this.windowMs) return;
+      this.windowMs = windowMs;
+      this.schedule();
+    }
+    /** 立即重绘（取消挂起的 rAF，避免同一帧重复绘制）。 */
+    render() {
+      this.cancelFrame();
+      this.draw();
+    }
+    destroy() {
+      this.cancelFrame();
+      if (this.ro !== null) this.ro.disconnect();
+    }
+    cancelFrame() {
+      if (this.raf !== 0) {
+        cancelAnimationFrame(this.raf);
+        this.raf = 0;
+      }
+    }
+    schedule() {
+      if (this.raf !== 0) return;
+      this.raf = requestAnimationFrame(() => {
+        this.raf = 0;
+        this.draw();
+      });
+    }
+    theme() {
+      const cs = getComputedStyle(this.canvas);
+      const pick = (name, fb) => {
+        const raw = cs.getPropertyValue(name).trim();
+        return raw !== "" ? raw : fb;
+      };
+      return {
+        faint: pick("--text-faint", "#7e8fa4"),
+        mid: pick("--text-mid", "#9db0c5"),
+        grid: pick("--border-soft", "rgba(96, 122, 152, 0.16)"),
+        border: pick("--border", "#25303f"),
+        mono: pick("--font-mono", "Menlo, Consolas, monospace"),
+        ui: pick("--font-ui", "system-ui, sans-serif")
+      };
+    }
+    /** 同步 CSS 尺寸与物理像素（devicePixelRatio 适配）；不可见过小则跳过。 */
+    syncSize() {
+      const rect = this.canvas.getBoundingClientRect();
+      const w = Math.floor(rect.width);
+      const h = Math.floor(rect.height);
+      if (w < 10 || h < 10) return false;
+      const dpr = window.devicePixelRatio || 1;
+      const bw = Math.round(w * dpr);
+      const bh = Math.round(h * dpr);
+      if (this.canvas.width !== bw || this.canvas.height !== bh) {
+        this.canvas.width = bw;
+        this.canvas.height = bh;
+      }
+      this.cssW = w;
+      this.cssH = h;
+      this.ctx.setTransform(bw / w, 0, 0, bh / h, 0, 0);
+      return true;
+    }
+    draw() {
+      if (!this.syncSize()) return;
+      const ctx = this.ctx;
+      const th = this.theme();
+      const w = this.cssW;
+      const h = this.cssH;
+      ctx.clearRect(0, 0, w, h);
+      const list = this.series.filter((s) => s !== null && Array.isArray(s.samples));
+      const axisY = h - AXIS_H;
+      const plotL = GUTTER;
+      const plotR = w - PAD_R;
+      const span = plotR - plotL;
+      let tRight = 0;
+      for (const s of list) {
+        const n = s.samples.length;
+        if (n > 0 && s.samples[n - 1].t > tRight) tRight = s.samples[n - 1].t;
+      }
+      const tLeft = tRight - this.windowMs;
+      ctx.strokeStyle = th.grid;
+      ctx.lineWidth = 1;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.font = "400 10px " + th.mono;
+      ctx.fillStyle = th.mid;
+      const step = this.tickStepMs();
+      for (let k = Math.floor(this.windowMs / step); k >= 0; k--) {
+        const x = Math.round(plotR - k * step * span / this.windowMs) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, axisY);
+        ctx.stroke();
+        ctx.fillText(k === 0 ? "0" : fmtRel(-k * step), x, axisY + 15);
+      }
+      ctx.strokeStyle = th.border;
+      ctx.beginPath();
+      ctx.moveTo(0.5, Math.round(axisY) + 0.5);
+      ctx.lineTo(w - 0.5, Math.round(axisY) + 0.5);
+      ctx.stroke();
+      if (list.length === 0) {
+        this.drawEmptyGrid(plotL, plotR, axisY, th);
+        this.drawMessage(w / 2, axisY / 2, "暂无曲线数据", "开启信号开关后，曲线将绘制在这里", th);
+        return;
+      }
+      const bandH = axisY / list.length;
+      for (let i = 0; i < list.length; i++) {
+        this.drawBand(list[i], i, bandH, tLeft, tRight, plotL, plotR, axisY, th);
+      }
+    }
+    tickStepMs() {
+      const target = this.windowMs / 6;
+      for (const s of TICK_STEPS_MS) if (s >= target) return s;
+      return this.windowMs;
+    }
+    drawEmptyGrid(plotL, plotR, axisY, th) {
+      const ctx = this.ctx;
+      ctx.strokeStyle = th.grid;
+      for (const f of [0.25, 0.5, 0.75]) {
+        const y = Math.round(axisY * f) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(plotL, y);
+        ctx.lineTo(plotR, y);
+        ctx.stroke();
+      }
+    }
+    drawMessage(cx, cy, main, sub, th) {
+      const ctx = this.ctx;
+      ctx.textAlign = "center";
+      ctx.fillStyle = th.mid;
+      ctx.font = "600 12.5px " + th.ui;
+      ctx.fillText(main, cx, cy - 3);
+      ctx.fillStyle = th.faint;
+      ctx.font = "400 11px " + th.ui;
+      ctx.fillText(sub, cx, cy + 14);
+    }
+    drawBand(s, i, bandH, tLeft, tRight, plotL, plotR, axisY, th) {
+      const ctx = this.ctx;
+      const top = i * bandH;
+      const innerTop = top + STRIP;
+      const innerBottom = Math.min(top + bandH - 6, axisY);
+      if (innerBottom - innerTop < 6) return;
+      const span = plotR - plotL;
+      ctx.strokeStyle = th.grid;
+      if (i > 0) {
+        const y = Math.round(top) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(GUTTER - 26, y);
+        ctx.lineTo(plotR, y);
+        ctx.stroke();
+      }
+      for (const f of [0.25, 0.5, 0.75]) {
+        const y = Math.round(innerTop + f * (innerBottom - innerTop)) + 0.5;
+        ctx.beginPath();
+        ctx.moveTo(plotL, y);
+        ctx.lineTo(plotR, y);
+        ctx.stroke();
+      }
+      const labelY = top + 14;
+      ctx.textAlign = "left";
+      ctx.font = "600 11px " + th.ui;
+      ctx.fillStyle = th.mid;
+      ctx.fillText(s.label, plotL + 6, labelY);
+      if (s.unit !== "" && bandH >= 30) {
+        const nameW = ctx.measureText(s.label).width;
+        ctx.font = "400 10px " + th.ui;
+        ctx.fillStyle = th.faint;
+        ctx.fillText("· " + s.unit, plotL + 6 + nameW + 4, labelY);
+      }
+      const samples = s.samples;
+      let first = samples.length;
+      let last = -1;
+      for (let j = 0; j < samples.length; j++) {
+        const t = samples[j].t;
+        if (t < tLeft) continue;
+        if (t > tRight) break;
+        if (first === samples.length) first = j;
+        last = j;
+      }
+      ctx.textAlign = "right";
+      ctx.font = "600 11px " + th.mono;
+      if (last < first) {
+        ctx.fillStyle = th.faint;
+        ctx.fillText("—", plotR - 6, labelY);
+        ctx.font = "400 11px " + th.ui;
+        ctx.fillText("暂无数据", (plotL + plotR) / 2, (innerTop + innerBottom) / 2 + 4);
+        return;
+      }
+      const latest = samples[last].v;
+      ctx.fillStyle = s.color;
+      ctx.fillText(fmtVal(latest), plotR - 6, labelY);
+      let dLo = Infinity;
+      let dHi = -Infinity;
+      for (let j = first; j <= last; j++) {
+        const v = samples[j].v;
+        if (!Number.isFinite(v)) continue;
+        if (v < dLo) dLo = v;
+        if (v > dHi) dHi = v;
+      }
+      if (dLo > dHi) return;
+      let lo = dLo;
+      let hi = dHi;
+      if (lo === hi) {
+        const d = Math.max(Math.abs(lo) * 0.1, 0.5);
+        lo -= d;
+        hi += d;
+      } else {
+        const pad = (hi - lo) * 0.12;
+        lo -= pad;
+        hi += pad;
+      }
+      const yOf = (v) => innerTop + (1 - (v - lo) / (hi - lo)) * (innerBottom - innerTop);
+      const xOf = (t) => plotL + (t - tLeft) / this.windowMs * span;
+      ctx.textAlign = "right";
+      ctx.font = "400 9.5px " + th.mono;
+      ctx.fillStyle = th.mid;
+      ctx.fillText(fmtVal(dHi), plotL - 6, innerTop + 8);
+      ctx.fillText(fmtVal(dLo), plotL - 6, innerBottom - 1);
+      const cols = [];
+      let lastX = -1;
+      for (let j = first; j <= last; j++) {
+        const smp = samples[j];
+        if (!Number.isFinite(smp.v)) continue;
+        const x = Math.min(plotR - 1, Math.max(plotL, Math.round(xOf(smp.t))));
+        const c = cols.length > 0 && x === lastX ? cols[cols.length - 1] : null;
+        if (c === null) {
+          cols.push({ tF: smp.t, vF: smp.v, tL: smp.t, vL: smp.v, tLo: smp.t, vLo: smp.v, tHi: smp.t, vHi: smp.v });
+          lastX = x;
+        } else {
+          c.tL = smp.t;
+          c.vL = smp.v;
+          if (smp.v < c.vLo) {
+            c.tLo = smp.t;
+            c.vLo = smp.v;
+          }
+          if (smp.v > c.vHi) {
+            c.tHi = smp.t;
+            c.vHi = smp.v;
+          }
+        }
+      }
+      if (cols.length === 0) return;
+      const fillTop = hexToRgba(s.color, 0.22);
+      if (fillTop !== null && cols.length > 1) {
+        const grad = ctx.createLinearGradient(0, innerTop, 0, innerBottom);
+        grad.addColorStop(0, fillTop);
+        grad.addColorStop(1, hexToRgba(s.color, 0) ?? fillTop);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        this.pathColumns(cols, xOf, yOf);
+        ctx.lineTo(xOf(cols[cols.length - 1].tL), innerBottom);
+        ctx.lineTo(xOf(cols[0].tF), innerBottom);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = 1.5;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      this.pathColumns(cols, xOf, yOf);
+      ctx.stroke();
+      if (cols.length === 1) {
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(xOf(cols[0].tF), yOf(cols[0].vF), 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    /** 依时间顺序把抽稀列连成折线路径（每列至多首/末/最小/最大 4 点）。 */
+    pathColumns(cols, xOf, yOf) {
+      const ctx = this.ctx;
+      const pts = [];
+      let started = false;
+      for (const c of cols) {
+        pts.length = 0;
+        pts.push([c.tF, c.vF], [c.tLo, c.vLo], [c.tHi, c.vHi], [c.tL, c.vL]);
+        pts.sort((a, b) => a[0] - b[0]);
+        let prevT = Number.NaN;
+        for (const p of pts) {
+          if (p[0] === prevT) continue;
+          prevT = p[0];
+          const x = xOf(p[0]);
+          const y = yOf(p[1]);
+          if (started) ctx.lineTo(x, y);
+          else {
+            ctx.moveTo(x, y);
+            started = true;
+          }
+        }
+      }
+    }
+  };
+
+  // src/dbc-model.ts
+  function parseFrameData(frame) {
+    if (frame.remote) return new Uint8Array(0);
+    const raw = frame.data.trim();
+    if (raw.length === 0) return new Uint8Array(0);
+    let tokens = raw.split(/\s+/);
+    if (tokens.length === 1 && tokens[0].length > 2) {
+      const joined = tokens[0];
+      const parts = [];
+      for (let i = 0; i + 1 < joined.length; i += 2) parts.push(joined.slice(i, i + 2));
+      tokens = parts;
+    }
+    const dlc = Number.isFinite(frame.dlc) ? Math.max(0, Math.trunc(frame.dlc)) : tokens.length;
+    const count = Math.min(dlc, tokens.length);
+    const out = new Uint8Array(count);
+    for (let i = 0; i < count; i++) {
+      const b = parseInt(tokens[i], 16);
+      out[i] = Number.isFinite(b) && b >= 0 && b <= 255 ? b : 0;
+    }
+    return out;
+  }
+  function extractRaw(data, sig) {
+    const len = sig.length;
+    const start = sig.start_bit;
+    if (!Number.isInteger(len) || len < 1 || len > 64) return null;
+    if (!Number.isInteger(start) || start < 0) return null;
+    const totalBits = data.length * 8;
+    if (sig.little_endian) {
+      if (start + len > totalBits) return null;
+      let raw2 = 0n;
+      for (let i = 0; i < len; i++) {
+        const abs = start + i;
+        const bit = data[abs >> 3] >> (abs & 7) & 1;
+        if (bit === 1) raw2 |= 1n << BigInt(i);
+      }
+      return raw2;
+    }
+    let raw = 0n;
+    let pos = start;
+    for (let i = 0; i < len; i++) {
+      if (pos < 0 || pos >= totalBits) return null;
+      const bit = data[pos >> 3] >> (pos & 7) & 1;
+      raw = raw << 1n | BigInt(bit);
+      pos = pos % 8 === 0 ? pos + 15 : pos - 1;
+    }
+    return raw;
+  }
+  function toSigned(raw, len) {
+    const sign = 1n << BigInt(len - 1);
+    return raw >= sign ? raw - (sign << 1n) : raw;
+  }
+  function extractInteger(data, sig) {
+    const raw = extractRaw(data, sig);
+    if (raw === null) return null;
+    return sig.value_kind === "signed" ? toSigned(raw, sig.length) : raw;
+  }
+  function decodeSignal(data, sig) {
+    const raw = extractRaw(data, sig);
+    if (raw === null) return null;
+    const len = sig.length;
+    if (sig.value_kind === "float" || sig.value_kind === "double") {
+      const bytes = sig.value_kind === "float" ? 4 : 8;
+      if (len !== bytes * 8) return null;
+      const view = new DataView(new ArrayBuffer(bytes));
+      const factor2 = Number.isFinite(sig.factor) ? sig.factor : 1;
+      const offset2 = Number.isFinite(sig.offset) ? sig.offset : 0;
+      if (bytes === 4) {
+        view.setUint32(0, Number(raw & 0xffffffffn), false);
+        return view.getFloat32(0, false) * factor2 + offset2;
+      }
+      view.setBigUint64(0, raw & 0xffffffffffffffffn, false);
+      return view.getFloat64(0, false) * factor2 + offset2;
+    }
+    const int = sig.value_kind === "signed" ? toSigned(raw, len) : raw;
+    const factor = Number.isFinite(sig.factor) ? sig.factor : 1;
+    const offset = Number.isFinite(sig.offset) ? sig.offset : 0;
+    return Number(int) * factor + offset;
+  }
+  function decodeMessage(message, data) {
+    let hasMux = false;
+    let muxValue = null;
+    for (const sig of message.signals) {
+      if (sig.mux?.is_multiplexer === true) {
+        hasMux = true;
+        muxValue = extractInteger(data, sig);
+        break;
+      }
+    }
+    const out = [];
+    for (const sig of message.signals) {
+      if (sig.mux !== null && !sig.mux.is_multiplexer) {
+        if (!hasMux || muxValue === null || sig.mux.value === null) continue;
+        if (BigInt(Math.trunc(sig.mux.value)) !== muxValue) continue;
+      }
+      const value = decodeSignal(data, sig);
+      if (value !== null) out.push({ signal: sig, value });
+    }
+    return out;
+  }
+  function signalKey(message, signal) {
+    return (message.extended ? "x" : "s") + message.id.toString(16) + ":" + signal.name;
+  }
+
   // src/format.ts
   var MODE_LABELS = {
     normal: "正常",
@@ -396,6 +971,12 @@
     const sec = s % 60;
     return h > 0 ? h + ":" + p2(m) + ":" + p2(sec) : p2(m) + ":" + p2(sec);
   }
+  function fmtSignal(v) {
+    if (!Number.isFinite(v)) return "—";
+    const abs = Math.abs(v);
+    if (abs !== 0 && (abs >= 1e6 || abs < 1e-3)) return v.toExponential(2);
+    return v.toLocaleString("zh-CN", { maximumFractionDigits: 3 });
+  }
   function hexOf(v, width) {
     return "0x" + v.toString(16).toUpperCase().padStart(width, "0");
   }
@@ -426,57 +1007,6 @@
     formSynced: false
   };
   var busy = /* @__PURE__ */ new Set();
-
-  // src/filters-model.ts
-  function rangeBlock(ranges) {
-    if (ranges.length === 0) return null;
-    const hasStd = ranges.some((r) => !r.extended);
-    const hasExt = ranges.some((r) => r.extended);
-    if (hasStd && hasExt) return null;
-    let lo = ranges[0].start;
-    let hi = ranges[0].end;
-    for (const r of ranges) {
-      if (r.start < lo) lo = r.start;
-      if (r.end > hi) hi = r.end;
-    }
-    const span = lo ^ hi;
-    const blockSize = span === 0 ? 1 : 2 ** (32 - Math.clz32(span));
-    const blockStart = lo - lo % blockSize;
-    return {
-      kind: hasExt ? "扩展" : "标准",
-      extended: hasExt,
-      blockStart,
-      blockEnd: blockStart + blockSize - 1
-    };
-  }
-  function deriveAcceptanceFilter(ranges) {
-    const block = rangeBlock(ranges);
-    if (block === null) {
-      return { acc_code: 0, acc_mask: 4294967295, mode: 0 };
-    }
-    const shift = block.extended ? 3 : 21;
-    const baseMask = block.extended ? 7 : 2097151;
-    const blockSize = block.blockEnd - block.blockStart + 1;
-    return {
-      acc_code: block.blockStart << shift >>> 0,
-      acc_mask: (blockSize - 1 << shift | baseMask) >>> 0,
-      mode: 1
-    };
-  }
-  function describeHardwareFilter(filter, ranges) {
-    if (filter === null) return "未设置";
-    const count = ranges.length;
-    if (filter.mode === 0 || filter.acc_mask === 4294967295) {
-      return count > 0 ? "接收全部（软件精筛 " + count + " 条）" : "接收全部";
-    }
-    const block = rangeBlock(ranges);
-    const derived = deriveAcceptanceFilter(ranges);
-    const matches = block !== null && filter.mode === derived.mode && filter.acc_code === derived.acc_code && filter.acc_mask === derived.acc_mask;
-    if (!matches) return "自定义";
-    const width = block.extended ? 8 : 3;
-    const range = block.blockStart === block.blockEnd ? hexOf(block.blockStart, width) : hexOf(block.blockStart, width) + "–" + hexOf(block.blockEnd, width);
-    return block.kind + " " + range + "（单滤波器）";
-  }
 
   // src/toast.ts
   var lastToast = null;
@@ -548,6 +1078,366 @@
   }
   function setLastLog(message) {
     els.lastLogMsg.textContent = fmtClockShort(Date.now()) + " · " + message;
+  }
+
+  // src/dbc.ts
+  var SAMPLE_CAP = 2e4;
+  var MAX_SERIES = 8;
+  var DEFAULT_WINDOW_MS = 3e4;
+  var MAX_DBC_BYTES = 1024 * 1024;
+  var def = null;
+  var activeMsg = null;
+  var chart = null;
+  var rafId = null;
+  var series = /* @__PURE__ */ new Map();
+  var seriesIndex = /* @__PURE__ */ new Map();
+  function msgKey(extended, id) {
+    return (extended ? "x" : "s") + id.toString(16);
+  }
+  function rebuildSeriesIndex() {
+    seriesIndex = /* @__PURE__ */ new Map();
+    for (const s of series.values()) {
+      const key = msgKey(s.message.extended, s.message.id);
+      const entry = seriesIndex.get(key) ?? { message: s.message, byKey: /* @__PURE__ */ new Map() };
+      entry.byKey.set(signalKey(s.message, s.signal), s);
+      seriesIndex.set(key, entry);
+    }
+  }
+  function currentWindowMs() {
+    const n = Number(els.dbcWindowSelect.value);
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_WINDOW_MS;
+  }
+  function activeMessage() {
+    const active = activeMsg;
+    if (!def || !active) return null;
+    return def.messages.find((m) => m.id === active.id && m.extended === active.extended) ?? null;
+  }
+  function mk(tag, cls) {
+    const el = document.createElement(tag);
+    el.className = cls;
+    return el;
+  }
+  function text(tag, cls, value) {
+    const el = mk(tag, cls);
+    el.textContent = value;
+    return el;
+  }
+  function scheduleRender() {
+    if (rafId !== null) return;
+    rafId = window.requestAnimationFrame(() => {
+      rafId = null;
+      renderChart();
+    });
+  }
+  function renderChart() {
+    const out = [];
+    for (const [key, s] of series) {
+      out.push({ key, label: s.signal.name, unit: s.signal.unit, color: s.color, samples: s.samples });
+    }
+    if (chart) chart.update(out, currentWindowMs());
+    renderLegend();
+  }
+  function renderLegend() {
+    if (series.size === 0) {
+      els.signalLegend.replaceChildren();
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    for (const s of series.values()) {
+      const row = mk("div", "sig-legend");
+      const dot = mk("span", "sig-dot");
+      dot.style.background = s.color;
+      const last = s.samples[s.samples.length - 1];
+      const shown = last ? fmtSignal(last.v) + (s.signal.unit ? " " + s.signal.unit : "") : "—";
+      row.append(dot, text("span", "sig-legend-name", s.signal.name), text("span", "sig-legend-value", shown));
+      frag.appendChild(row);
+    }
+    els.signalLegend.replaceChildren(frag);
+  }
+  function renderHeader() {
+    const count = def ? def.messages.reduce((n, m) => n + m.signals.length, 0) : 0;
+    els.dbcName.textContent = def ? def.name : "未加载 DBC";
+    els.dbcSummary.textContent = def ? def.messages.length + " 条报文 · " + count + " 个信号" : "";
+    els.btnDbcRemove.disabled = def === null;
+    els.dbcEmpty.hidden = def !== null;
+    els.dbcBody.hidden = def === null;
+  }
+  function renderMessageList() {
+    if (!def) return void els.dbcMsgList.replaceChildren();
+    const sorted = def.messages.slice().sort((a, b) => a.id - b.id || Number(a.extended) - Number(b.extended));
+    const frag = document.createDocumentFragment();
+    for (const m of sorted) {
+      const active = activeMsg !== null && activeMsg.id === m.id && activeMsg.extended === m.extended;
+      const btn = mk("button", "dbc-msg");
+      btn.type = "button";
+      btn.dataset["id"] = String(m.id);
+      btn.dataset["extended"] = m.extended ? "1" : "0";
+      btn.setAttribute("aria-pressed", String(active));
+      if (active) btn.classList.add("is-active");
+      btn.append(
+        text("span", "dbc-msg-id", hexOf(m.id, m.extended ? 8 : 3)),
+        text("span", "dbc-msg-name", m.name),
+        text("span", "dbc-msg-count", String(m.signals.length))
+      );
+      frag.appendChild(btn);
+    }
+    els.dbcMsgList.replaceChildren(frag);
+  }
+  function renderSignalBar() {
+    const msg = activeMessage();
+    if (!msg) return void els.dbcSignalBar.replaceChildren();
+    const frag = document.createDocumentFragment();
+    for (const sig of msg.signals) {
+      const s = series.get(signalKey(msg, sig));
+      const btn = mk("button", "sig-chip");
+      btn.type = "button";
+      btn.dataset["signal"] = sig.name;
+      btn.setAttribute("aria-pressed", String(s !== void 0));
+      if (s) btn.classList.add("is-on");
+      const dot = mk("span", "sig-dot");
+      if (s) dot.style.background = s.color;
+      btn.append(dot, text("span", "sig-chip-name", sig.name));
+      frag.appendChild(btn);
+    }
+    els.dbcSignalBar.replaceChildren(frag);
+  }
+  function updateSignalEmpty() {
+    const msg = activeMessage();
+    let hint = null;
+    if (!def) hint = "加载 DBC 后可选择信号并绘制曲线。";
+    else if (def.messages.length === 0) hint = "DBC 中没有报文，无法绘制曲线。";
+    else if (!activeMsg) hint = "选择左侧报文以查看可绘制的信号。";
+    else if (!msg || msg.signals.length === 0) hint = "该报文没有可解码信号。";
+    else if (series.size === 0) hint = "点击信号开关，将信号加入曲线。";
+    els.signalEmpty.textContent = hint ?? "";
+    els.signalEmpty.hidden = hint === null;
+  }
+  function sameShape(a, b) {
+    if (a === null || b === null) return a === b;
+    const right = b;
+    return a.name === right.name && a.messages.length === right.messages.length && a.messages.every((m, i) => m.signals.length === right.messages[i].signals.length);
+  }
+  function applyDbc(next) {
+    const changed = !sameShape(def, next);
+    def = next;
+    if (changed) {
+      series.clear();
+      activeMsg = null;
+      rebuildSeriesIndex();
+    }
+    renderHeader();
+    renderMessageList();
+    renderSignalBar();
+    updateSignalEmpty();
+    if (changed) {
+      setHint(
+        next ? "已加载 " + next.name + "：选择报文与信号后开始绘制。" : "未加载 DBC：点击「加载 DBC」选择 .dbc 文件，信号曲线将在此显示。",
+        false
+      );
+    }
+    if (changed) renderChart();
+  }
+  function pushSample(s, t, v) {
+    if (!Number.isFinite(t) || !Number.isFinite(v)) return;
+    const last = s.samples[s.samples.length - 1];
+    if (last && t < last.t) return;
+    s.samples.push({ t, v });
+    if (s.samples.length > SAMPLE_CAP + 1024) {
+      s.samples.splice(0, s.samples.length - SAMPLE_CAP);
+    }
+  }
+  function backfill(target) {
+    const msg = target.message;
+    for (const f of state.buffer) {
+      if (f.id !== msg.id || f.extended !== msg.extended) continue;
+      for (const decoded of decodeMessage(msg, parseFrameData(f))) {
+        if (decoded.signal.name === target.signal.name) {
+          pushSample(target, f.time_ms, decoded.value);
+          break;
+        }
+      }
+    }
+  }
+  function toggleSignal(sig) {
+    const msg = activeMessage();
+    if (!msg) return;
+    const key = signalKey(msg, sig);
+    if (series.has(key)) {
+      series.delete(key);
+      rebuildSeriesIndex();
+    } else if (series.size >= MAX_SERIES) {
+      toast("最多同时显示 " + MAX_SERIES + " 个信号曲线", "warn");
+      return;
+    } else {
+      const used = /* @__PURE__ */ new Set();
+      for (const s of series.values()) used.add(s.color);
+      const color = SERIES_COLORS.find((c) => !used.has(c)) ?? SERIES_COLORS[series.size % SERIES_COLORS.length];
+      const item = { message: msg, signal: sig, color, samples: [] };
+      series.set(key, item);
+      rebuildSeriesIndex();
+      backfill(item);
+    }
+    renderSignalBar();
+    updateSignalEmpty();
+    scheduleRender();
+  }
+  function feedDbcFrames(frames) {
+    if (frames.length === 0 || seriesIndex.size === 0) return;
+    let touched = false;
+    for (const f of frames) {
+      const entry = seriesIndex.get(msgKey(f.extended, f.id));
+      if (!entry) continue;
+      for (const d of decodeMessage(entry.message, parseFrameData(f))) {
+        const s = entry.byKey.get(signalKey(entry.message, d.signal));
+        if (s) pushSample(s, f.time_ms, d.value);
+      }
+      touched = true;
+    }
+    if (touched) scheduleRender();
+  }
+  function seedDbcFrames(frames) {
+    for (const s of series.values()) s.samples.length = 0;
+    feedDbcFrames(frames);
+    scheduleRender();
+  }
+  function clearDbcSamples() {
+    for (const s of series.values()) s.samples.length = 0;
+    scheduleRender();
+  }
+  function setHint(msg, isError) {
+    els.dbcHint.textContent = msg;
+    els.dbcHint.classList.toggle("is-error", isError);
+  }
+  function reportError(err) {
+    const msg = errText(err);
+    setHint(msg, true);
+    toast(msg, "error");
+  }
+  async function loadDbcFile(file) {
+    const bad = !file.name.toLowerCase().endsWith(".dbc") ? "仅支持 .dbc 文件：" + file.name : file.size > MAX_DBC_BYTES ? "DBC 文件不能超过 1 MiB（当前 " + file.size + " 字节）" : "";
+    if (bad) {
+      setHint(bad, true);
+      return;
+    }
+    setHint("正在加载 " + file.name + "…", false);
+    try {
+      const content = await file.text();
+      const res = await api("/api/dbc", "POST", { name: file.name, content });
+      const parsed = isObj(res) ? parseDbcDto(res["dbc"]) : null;
+      if (!parsed) {
+        setHint("服务器返回的 DBC 定义不完整，已忽略", true);
+        return;
+      }
+      applyDbc(parsed);
+      setHint("已加载 " + parsed.name + "（" + parsed.messages.length + " 条报文）", false);
+      toast("DBC 已加载：" + parsed.name, "success");
+    } catch (err) {
+      reportError(err);
+    }
+  }
+  async function removeDbc() {
+    try {
+      await api("/api/dbc", "DELETE");
+      applyDbc(null);
+      setHint("已移除 DBC 定义", false);
+      toast("已移除 DBC", "success");
+    } catch (err) {
+      reportError(err);
+    }
+  }
+  function onMessageClick(e) {
+    const target = e.target;
+    const btn = target instanceof Element ? target.closest("button.dbc-msg") : null;
+    if (!(btn instanceof HTMLButtonElement)) return;
+    const id = Number(btn.dataset["id"]);
+    if (!Number.isFinite(id)) return;
+    const extended = btn.dataset["extended"] === "1";
+    const same = activeMsg !== null && activeMsg.id === id && activeMsg.extended === extended;
+    activeMsg = same ? null : { id, extended };
+    renderMessageList();
+    renderSignalBar();
+    updateSignalEmpty();
+  }
+  function onSignalClick(e) {
+    const target = e.target;
+    const btn = target instanceof Element ? target.closest("button.sig-chip") : null;
+    if (!(btn instanceof HTMLButtonElement)) return;
+    const name = btn.dataset["signal"];
+    const msg = activeMessage();
+    if (!msg || name === void 0) return;
+    const sig = msg.signals.find((s) => s.name === name);
+    if (sig) toggleSignal(sig);
+  }
+  function onWindowChange() {
+    if (chart) chart.setWindowMs(currentWindowMs());
+    renderChart();
+  }
+  function initDbc() {
+    chart = new SignalChart(els.signalChart);
+    els.btnDbcLoad.addEventListener("click", () => els.dbcFileInput.click());
+    els.dbcFileInput.addEventListener("change", () => {
+      const file = els.dbcFileInput.files?.[0] ?? null;
+      els.dbcFileInput.value = "";
+      if (file) void loadDbcFile(file);
+    });
+    els.btnDbcRemove.addEventListener("click", () => void removeDbc());
+    els.dbcMsgList.addEventListener("click", onMessageClick);
+    els.dbcSignalBar.addEventListener("click", onSignalClick);
+    els.dbcWindowSelect.addEventListener("change", onWindowChange);
+    els.btnChartClear.addEventListener("click", clearDbcSamples);
+    chart.setWindowMs(currentWindowMs());
+    applyDbc(null);
+  }
+
+  // src/filters-model.ts
+  function rangeBlock(ranges) {
+    if (ranges.length === 0) return null;
+    const hasStd = ranges.some((r) => !r.extended);
+    const hasExt = ranges.some((r) => r.extended);
+    if (hasStd && hasExt) return null;
+    let lo = ranges[0].start;
+    let hi = ranges[0].end;
+    for (const r of ranges) {
+      if (r.start < lo) lo = r.start;
+      if (r.end > hi) hi = r.end;
+    }
+    const span = lo ^ hi;
+    const blockSize = span === 0 ? 1 : 2 ** (32 - Math.clz32(span));
+    const blockStart = lo - lo % blockSize;
+    return {
+      kind: hasExt ? "扩展" : "标准",
+      extended: hasExt,
+      blockStart,
+      blockEnd: blockStart + blockSize - 1
+    };
+  }
+  function deriveAcceptanceFilter(ranges) {
+    const block = rangeBlock(ranges);
+    if (block === null) {
+      return { acc_code: 0, acc_mask: 4294967295, mode: 0 };
+    }
+    const shift = block.extended ? 3 : 21;
+    const baseMask = block.extended ? 7 : 2097151;
+    const blockSize = block.blockEnd - block.blockStart + 1;
+    return {
+      acc_code: block.blockStart << shift >>> 0,
+      acc_mask: (blockSize - 1 << shift | baseMask) >>> 0,
+      mode: 1
+    };
+  }
+  function describeHardwareFilter(filter, ranges) {
+    if (filter === null) return "未设置";
+    const count = ranges.length;
+    if (filter.mode === 0 || filter.acc_mask === 4294967295) {
+      return count > 0 ? "接收全部（软件精筛 " + count + " 条）" : "接收全部";
+    }
+    const block = rangeBlock(ranges);
+    const derived = deriveAcceptanceFilter(ranges);
+    const matches = block !== null && filter.mode === derived.mode && filter.acc_code === derived.acc_code && filter.acc_mask === derived.acc_mask;
+    if (!matches) return "自定义";
+    const width = block.extended ? 8 : 3;
+    const range = block.blockStart === block.blockEnd ? hexOf(block.blockStart, width) : hexOf(block.blockStart, width) + "–" + hexOf(block.blockEnd, width);
+    return block.kind + " " + range + "（单滤波器）";
   }
 
   // src/filters.ts
@@ -1082,6 +1972,7 @@
   // src/frames.ts
   function acceptFrames(frames) {
     if (frames.length === 0) return;
+    feedDbcFrames(frames);
     for (const f of frames) state.buffer.push(f);
     if (state.buffer.length > BUFFER_CAP) {
       state.buffer.splice(0, state.buffer.length - BUFFER_CAP);
@@ -1186,6 +2077,7 @@
     state.pending.length = 0;
     state.pausedHidden = 0;
     els.pausedCount.textContent = "0";
+    clearDbcSamples();
     rebuildTable();
   }
   function setAutoscroll(on) {
@@ -1287,10 +2179,10 @@
       connectWs();
     }, delay);
   }
-  function handleWsText(text) {
+  function handleWsText(text2) {
     let raw;
     try {
-      raw = JSON.parse(text);
+      raw = JSON.parse(text2);
     } catch {
       return;
     }
@@ -1303,6 +2195,8 @@
         state.pending.length = 0;
         state.pausedHidden = 0;
         els.pausedCount.textContent = "0";
+        applyDbc(msg.dbc);
+        seedDbcFrames(msg.frames);
         rebuildTable();
         break;
       case "frames":
@@ -1310,6 +2204,9 @@
         break;
       case "status":
         applyStatus(msg.status);
+        break;
+      case "dbc":
+        applyDbc(msg.dbc);
         break;
       case "log":
         if (msg.level === "error") toast(msg.message, "error");
@@ -1470,6 +2367,7 @@
   function init() {
     setRangeRowsChangedHandler(updateControls);
     bindEvents();
+    initDbc();
     renderRecordings();
     updateStrip();
     updateEmpty();

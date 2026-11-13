@@ -1,6 +1,7 @@
 /**
  * 报文管线：收帧入缓冲、rAF 批量上屏、快速过滤、表格裁剪与滚动钉底、暂停/清空视图。
  */
+import { feedDbcFrames, clearDbcSamples } from './dbc';
 import { els, rowTplRow } from './dom';
 import { fmtClock, fmtInt, hexOf } from './format';
 import { BUFFER_CAP, state } from './state';
@@ -10,6 +11,8 @@ import type { FrameDto } from './types';
 /** 收帧入缓冲（上限 BUFFER_CAP）；未暂停时并入待渲染队列，交由 rAF 批量上屏。 */
 export function acceptFrames(frames: FrameDto[]): void {
   if (frames.length === 0) return;
+  /* 先喂 DBC 曲线：暂停表格显示时曲线仍需继续更新 */
+  feedDbcFrames(frames);
   for (const f of frames) state.buffer.push(f);
   if (state.buffer.length > BUFFER_CAP) {
     state.buffer.splice(0, state.buffer.length - BUFFER_CAP);
@@ -132,6 +135,7 @@ export function clearLocalFrames(): void {
   state.pending.length = 0;
   state.pausedHidden = 0;
   els.pausedCount.textContent = '0';
+  clearDbcSamples();
   rebuildTable();
 }
 
