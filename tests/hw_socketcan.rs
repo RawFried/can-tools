@@ -13,7 +13,7 @@
 use std::time::{Duration, Instant};
 
 use can_tools::can::types::{
-    BaudRate, CanMode, ChannelSource, FilterUpdateRequest, HardwareFilter, SendFrameRequest,
+    CanMode, ChannelSource, FilterUpdateRequest, HardwareFilter, SendFrameRequest, SocketCanConfig,
     SoftwareFilter, StartConfig,
 };
 use can_tools::service::CanService;
@@ -66,13 +66,14 @@ async fn socketcan_link_receives_sends_records_and_stops() {
     // 1) 不打开 USB 设备, 只配置 SocketCAN 链路。
     service
         .configure(StartConfig {
-            channels: vec![],
-            baud: BaudRate::Kbps500,
+            usb: vec![],
+            socketcan: vec![SocketCanConfig {
+                name: iface.clone(),
+                bitrate: None,
+            }],
             mode: CanMode::Normal,
             filter: HardwareFilter::default(),
             software_filters: vec![],
-            socketcan: vec![iface.clone()],
-            socketcan_bitrate: None,
         })
         .await
         .expect("configure socketcan only");
@@ -260,13 +261,14 @@ async fn socketcan_link_is_brought_up_automatically() {
 
     service
         .configure(StartConfig {
-            channels: vec![],
-            baud: BaudRate::Kbps500,
+            usb: vec![],
+            socketcan: vec![SocketCanConfig {
+                name: iface.clone(),
+                bitrate: Some(500_000),
+            }],
             mode: CanMode::Normal,
             filter: HardwareFilter::default(),
             software_filters: vec![],
-            socketcan: vec![iface.clone()],
-            socketcan_bitrate: Some(500_000),
         })
         .await
         .expect("configure should bring the interface up");

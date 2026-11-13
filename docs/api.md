@@ -223,40 +223,47 @@ Response: `{"ok": true, "status": { ... }}`
 
 ### `POST /api/config`
 
-Initializes and starts the selected USB channels with the given baud rate, mode and hardware filter,
-and starts/restarts the listed SocketCAN links. Down interfaces are enabled automatically at
-`socketcan_bitrate` (requires root or `CAP_NET_ADMIN`); interfaces that are already up are used
-as-is without any privileged operation. At least one of `channels`/`socketcan` must be non-empty.
-Re-applying while running restarts the selected channels/links; unselected channels stay running.
+Configures and starts channels, each with its own rate. USB entries are initialized with their own
+baud rate; SocketCAN entries are started (or restarted) and down interfaces are enabled
+automatically at the entry's `bitrate` (requires root or `CAP_NET_ADMIN`); interfaces that are
+already up are used as-is without any privileged operation. At least one of `usb`/`socketcan` must
+be non-empty. Re-applying while running restarts the selected channels/links; unselected channels
+stay running.
 
 ```json
 {
-  "channels": [0, 1],
-  "baud": "500k",
+  "usb": [
+    {"index": 0, "baud": "500k"},
+    {"index": 1, "baud": "250k"}
+  ],
+  "socketcan": [
+    {"name": "can0", "bitrate": 500000}
+  ],
   "mode": "normal",
   "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 1},
-  "software_filters": [{"extended": false, "start": 256, "end": 511}],
-  "socketcan": ["can0"],
-  "socketcan_bitrate": 500000
+  "software_filters": [{"extended": false, "start": 256, "end": 511}]
 }
 ```
 
-- `channels` accepts only USB ids `0`/`1` and requires the USB device to be open; it may be empty
-  when only SocketCAN links are being started.
-- `socketcan` is optional (default `[]`); each entry is an interface name (1–15 characters of
-  `[A-Za-z0-9_.-]`), duplicates are ignored and at most 8 links may be started per request.
-- `socketcan_bitrate` is optional (bits per second, default `500000`, allowed `1000`–`1000000`).
-  Before opening a link the worker brings the interface up: if it is already up **no privileged
-  operation is attempted** (non-root works), otherwise it sets the bitrate and the `UP` flag via
-  netlink. That requires root or `CAP_NET_ADMIN`.
+- `usb` is optional (default `[]`). Each entry is `{"index": 0|1, "baud": "<rate>"}`; `baud` is
+  required per entry (one of `5k`, `10k`, `20k`, `50k`, `100k`, `125k`, `250k`, `500k`, `800k`,
+  `1000k`), indexes must be unique, and the USB device must be open. The list may be empty when
+  only SocketCAN links are being started.
+- `socketcan` is optional (default `[]`). Each entry is `{"name": "<iface>", "bitrate": <bps>}`
+  where `name` is 1–15 characters of `[A-Za-z0-9_.-]`, `bitrate` is optional (default `500000`,
+  allowed `1000`–`1000000`), duplicate names are ignored (first entry wins) and at most 8 links may
+  be started per request.
+- `mode` and `filter` apply to **all** USB channels; SocketCAN links have no hardware acceptance
+  filter and keep the timing configured on the kernel interface (`bitrate`/`state` in the status
+  object report it).
 - Interfaces that do not support bitrate configuration (e.g. `vcan`) still get enabled; the
   `EOPNOTSUPP` from setting the bitrate is ignored. Their status keeps `bitrate: null`.
-- `baud`, `mode` and `filter` apply to USB channels only. A SocketCAN link keeps the bitrate
-  configured on the interface; `bitrate`/`state` in the status object report it.
-- Error cases: both lists empty → `至少选择一个 USB 通道或 SocketCAN 链路`; unknown interface →
-  `SocketCAN 接口 can9 不存在`; missing privileges →
+- Error cases: both lists empty → `至少选择一个 USB 通道或 SocketCAN 链路`; duplicate USB index →
+  `USB 通道 0 重复配置`; unknown interface → `SocketCAN 接口 can9 不存在`; missing privileges →
   `启用 SocketCAN 接口 can0 需要 root 或 CAP_NET_ADMIN 权限: 请以管理员身份运行，或手动执行 ip link set can0 up type can bitrate 500000`;
   other netlink failures → `{动作} SocketCAN 接口 can0 失败: {原始错误}`.
+- The v4 shape replaces the old `channels`/`baud`/`socketcan_bitrate` fields; those names are
+  ignored by the deserializer (an old-style `socketcan: ["can0"]` string array is rejected).
 - If any channel/link started by this request fails (including the automatic bring-up), all
   channels and links started by the request are rolled back before the error is returned
   (previously running links are not restored).

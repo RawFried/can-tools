@@ -1,7 +1,8 @@
 //! 无硬件场景下的工作线程冒烟测试: 命令通道、错误路径与关闭流程。
 
 use can_tools::can::types::{
-    BaudRate, CanMode, FilterUpdateRequest, HardwareFilter, SendFrameRequest, StartConfig,
+    BaudRate, CanMode, FilterUpdateRequest, HardwareFilter, SendFrameRequest, SocketCanConfig,
+    StartConfig, UsbChannelConfig,
 };
 use can_tools::service::CanService;
 use can_tools::state::{ServerInfo, SharedState};
@@ -16,13 +17,14 @@ async fn worker_rejects_operations_without_device_and_shuts_down() {
     let service = CanService::spawn(shared.clone(), dir.path().join("recordings")).unwrap();
 
     let config = StartConfig {
-        channels: vec![0],
-        baud: BaudRate::Kbps500,
+        usb: vec![UsbChannelConfig {
+            index: 0,
+            baud: BaudRate::Kbps500,
+        }],
+        socketcan: vec![],
         mode: CanMode::Normal,
         filter: HardwareFilter::default(),
         software_filters: vec![],
-        socketcan: vec![],
-        socketcan_bitrate: None,
     };
     assert!(service.configure(config).await.is_err());
     let recording_error = service.start_recording().await.unwrap_err();
@@ -64,13 +66,14 @@ async fn worker_reports_missing_socketcan_interface() {
     let service = CanService::spawn(shared.clone(), dir.path().join("recordings")).unwrap();
 
     let config = StartConfig {
-        channels: vec![],
-        baud: BaudRate::Kbps500,
+        usb: vec![],
+        socketcan: vec![SocketCanConfig {
+            name: "missingcan0".to_string(),
+            bitrate: None,
+        }],
         mode: CanMode::Normal,
         filter: HardwareFilter::default(),
         software_filters: vec![],
-        socketcan: vec!["missingcan0".to_string()],
-        socketcan_bitrate: None,
     };
     let error = service.configure(config).await.unwrap_err();
     assert!(error.contains("不存在"), "{error}");

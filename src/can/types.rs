@@ -88,6 +88,22 @@ impl BaudRate {
             Self::Kbps1000 => "1000 kbit/s",
         }
     }
+
+    /// 短名称 (与 JSON 取值一致), 如 `500k`。
+    pub const fn short_label(self) -> &'static str {
+        match self {
+            Self::Kbps5 => "5k",
+            Self::Kbps10 => "10k",
+            Self::Kbps20 => "20k",
+            Self::Kbps50 => "50k",
+            Self::Kbps100 => "100k",
+            Self::Kbps125 => "125k",
+            Self::Kbps250 => "250k",
+            Self::Kbps500 => "500k",
+            Self::Kbps800 => "800k",
+            Self::Kbps1000 => "1000k",
+        }
+    }
 }
 
 /// 通道工作模式, 对应固件 `Mode` 字段。
@@ -363,13 +379,42 @@ pub struct LinkList {
     pub socketcan: Vec<SocketCanLinkInfo>,
 }
 
-/// `/api/config` 请求体。
+/// `/api/config` 中的一个 USB 通道及其波特率。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+pub struct UsbChannelConfig {
+    /// USB 通道索引 (`0` = CAN1, `1` = CAN2)。
+    pub index: u8,
+    /// 该通道使用的波特率。
+    pub baud: BaudRate,
+}
+
+/// `/api/config` 中的一条 SocketCAN 链路。
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct SocketCanConfig {
+    /// 接口名, 如 `can0`。
+    pub name: String,
+    /// 自动启用未 UP 接口时使用的速率 (bps); 省略时用默认值。
+    #[serde(default)]
+    pub bitrate: Option<u32>,
+}
+
+impl SocketCanConfig {
+    /// 实际生效的速率 (bps)。
+    pub fn bitrate_or_default(&self) -> u32 {
+        self.bitrate
+            .unwrap_or(StartConfig::DEFAULT_SOCKETCAN_BITRATE)
+    }
+}
+
+/// `/api/config` 请求体 (v4: 每个通道独立配置)。
 #[derive(Debug, Clone, Deserialize)]
 pub struct StartConfig {
-    /// 要配置并启动的 USB 通道, 如 `[0, 1]`; 可以为空 (只启动 SocketCAN)。
-    pub channels: Vec<u8>,
-    /// 波特率 (仅作用于 USB 通道)。
-    pub baud: BaudRate,
+    /// 要配置并启动的 USB 通道 (各带自己的波特率); 可以为空 (只启动 SocketCAN)。
+    #[serde(default)]
+    pub usb: Vec<UsbChannelConfig>,
+    /// 要启动/重启的 SocketCAN 链路 (各带可选速率)。
+    #[serde(default)]
+    pub socketcan: Vec<SocketCanConfig>,
     /// 工作模式 (仅作用于 USB 通道)。
     #[serde(default)]
     pub mode: CanMode,
@@ -379,12 +424,6 @@ pub struct StartConfig {
     /// 应用层 ID 滤波 (对所有链路生效)。
     #[serde(default)]
     pub software_filters: Vec<SoftwareFilter>,
-    /// 要启动/重启的 SocketCAN 接口名。
-    #[serde(default)]
-    pub socketcan: Vec<String>,
-    /// 自动启用未 UP 的 SocketCAN 链路时使用的速率 (bps); 省略时用默认值。
-    #[serde(default)]
-    pub socketcan_bitrate: Option<u32>,
 }
 
 impl StartConfig {
@@ -395,30 +434,29 @@ impl StartConfig {
     /// SocketCAN 自动启用速率的默认值 (bps)。
     pub const DEFAULT_SOCKETCAN_BITRATE: u32 = 500_000;
 
-    /// 实际生效的 SocketCAN 速率 (bps)。
-    pub fn socketcan_bitrate_or_default(&self) -> u32 {
-        self.socketcan_bitrate
-            .unwrap_or(Self::DEFAULT_SOCKETCAN_BITRATE)
-    }
-
-    /// 校验请求参数; 通道去重由调用方处理。
+    /// 校验请求参数; 重复的 USB 通道/链路名由调用方去重 (保留首次出现)。
     pub fn validate(&self) -> Result<(), String> {
-        if self.channels.is_empty() && self.socketcan.is_empty() {
+        if self.usb.is_empty() && self.socketcan.is_empty() {
             return Err("至少选择一个 USB 通道或 SocketCAN 链路".to_string());
         }
-        for &channel in &self.channels {
-            if channel > 1 {
-                return Err(format!("非法通道 {channel}; USB 通道合法值为 0 或 1"));
+        let mut usb_indices: Vec<u8> = Vec::new();
+        for entry in &self.usb {
+            if entry.index > 1 {
+                return Err(format!("非法通道 {}; USB 通道合法值为 0 或 1", entry.index));
             }
-        }
-        if let Some(bitrate) = self.socketcan_bitrate {
-            crate::can::socketcan::validate_bitrate(bitrate)?;
+            if usb_indices.contains(&entry.index) {
+                return Err(format!("USB 通道 {} 重复配置", entry.index));
+            }
+            usb_indices.push(entry.index);
         }
         let mut unique_names: Vec<&str> = Vec::new();
-        for name in &self.socketcan {
-            crate::can::socketcan::validate_name(name)?;
-            if !unique_names.contains(&name.as_str()) {
-                unique_names.push(name);
+        for entry in &self.socketcan {
+            crate::can::socketcan::validate_name(&entry.name)?;
+            if let Some(bitrate) = entry.bitrate {
+                crate::can::socketcan::validate_bitrate(bitrate)?;
+            }
+            if !unique_names.contains(&entry.name.as_str()) {
+                unique_names.push(&entry.name);
             }
         }
         if unique_names.len() > Self::MAX_SOCKETCAN_LINKS {
@@ -644,6 +682,8 @@ mod tests {
         assert_eq!(json, "\"500k\"");
         let parsed: BaudRate = serde_json::from_str("\"1000k\"").unwrap();
         assert_eq!(parsed, BaudRate::Kbps1000);
+        assert_eq!(BaudRate::Kbps250.short_label(), "250k");
+        assert_eq!(BaudRate::Kbps1000.short_label(), "1000k");
     }
 
     #[test]
@@ -687,31 +727,64 @@ mod tests {
         assert!(extended_ok.validate().is_ok());
     }
 
-    #[test]
-    fn start_config_rejects_unknown_channel() {
-        let config = StartConfig {
-            channels: vec![2],
-            baud: BaudRate::Kbps500,
+    fn usb_channel(index: u8, baud: BaudRate) -> UsbChannelConfig {
+        UsbChannelConfig { index, baud }
+    }
+
+    fn link(name: &str, bitrate: Option<u32>) -> SocketCanConfig {
+        SocketCanConfig {
+            name: name.to_string(),
+            bitrate,
+        }
+    }
+
+    fn request(usb: Vec<UsbChannelConfig>, socketcan: Vec<SocketCanConfig>) -> StartConfig {
+        StartConfig {
+            usb,
+            socketcan,
             mode: CanMode::Normal,
             filter: HardwareFilter::default(),
             software_filters: vec![],
-            socketcan: vec![],
-            socketcan_bitrate: None,
-        };
-        assert!(config.validate().is_err());
+        }
+    }
+
+    #[test]
+    fn start_config_rejects_unknown_channel() {
+        let config = request(vec![usb_channel(2, BaudRate::Kbps500)], vec![]);
+        let error = config.validate().unwrap_err();
+        assert!(error.contains("非法通道 2"), "{error}");
+    }
+
+    #[test]
+    fn start_config_rejects_duplicate_usb_channel() {
+        let config = request(
+            vec![
+                usb_channel(0, BaudRate::Kbps500),
+                usb_channel(0, BaudRate::Kbps250),
+            ],
+            vec![],
+        );
+        let error = config.validate().unwrap_err();
+        assert_eq!(error, "USB 通道 0 重复配置");
+    }
+
+    #[test]
+    fn start_config_allows_independent_usb_baud_rates() {
+        let config = request(
+            vec![
+                usb_channel(0, BaudRate::Kbps500),
+                usb_channel(1, BaudRate::Kbps250),
+            ],
+            vec![],
+        );
+        assert!(config.validate().is_ok());
+        assert_eq!(config.usb[0].baud, BaudRate::Kbps500);
+        assert_eq!(config.usb[1].baud, BaudRate::Kbps250);
     }
 
     #[test]
     fn start_config_requires_usb_or_socketcan() {
-        let config = StartConfig {
-            channels: vec![],
-            baud: BaudRate::Kbps500,
-            mode: CanMode::Normal,
-            filter: HardwareFilter::default(),
-            software_filters: vec![],
-            socketcan: vec![],
-            socketcan_bitrate: None,
-        };
+        let config = request(vec![], vec![]);
         let error = config.validate().unwrap_err();
         assert!(
             error.contains("至少选择一个 USB 通道或 SocketCAN 链路"),
@@ -721,44 +794,46 @@ mod tests {
 
     #[test]
     fn start_config_accepts_socketcan_without_usb_channels() {
-        let config = StartConfig {
-            channels: vec![],
-            baud: BaudRate::Kbps500,
-            mode: CanMode::Normal,
-            filter: HardwareFilter::default(),
-            software_filters: vec![],
-            socketcan: vec!["can0".to_string()],
-            socketcan_bitrate: None,
-        };
+        let config = request(vec![], vec![link("can0", None)]);
         assert!(config.validate().is_ok());
     }
 
     #[test]
     fn start_config_validates_socketcan_names_and_count() {
-        let base = StartConfig {
-            channels: vec![],
-            baud: BaudRate::Kbps500,
-            mode: CanMode::Normal,
-            filter: HardwareFilter::default(),
-            software_filters: vec![],
-            socketcan: vec!["can 0".to_string()],
-            socketcan_bitrate: None,
-        };
-        assert!(base.validate().is_err());
+        let base = request(vec![], vec![link("can 0", None)]);
+        let error = base.validate().unwrap_err();
+        assert!(error.contains("非法字符"), "{error}");
 
-        let duplicated = StartConfig {
-            socketcan: vec!["can0".to_string(); StartConfig::MAX_SOCKETCAN_LINKS + 1],
-            ..base
-        };
+        let duplicated = request(
+            vec![],
+            vec![link("can0", None); StartConfig::MAX_SOCKETCAN_LINKS + 1],
+        );
         assert!(duplicated.validate().is_ok());
 
-        let too_many = StartConfig {
-            socketcan: (0..StartConfig::MAX_SOCKETCAN_LINKS + 1)
-                .map(|index| format!("can{index}"))
+        let too_many = request(
+            vec![],
+            (0..StartConfig::MAX_SOCKETCAN_LINKS + 1)
+                .map(|index| link(&format!("can{index}"), None))
                 .collect(),
-            ..duplicated
-        };
+        );
         assert!(too_many.validate().is_err());
+    }
+
+    #[test]
+    fn start_config_validates_socketcan_bitrate() {
+        for bad in [0_u32, 999, 1_000_001] {
+            let config = request(vec![], vec![link("can0", Some(bad))]);
+            let error = config.validate().unwrap_err();
+            assert!(error.contains("SocketCAN 速率"), "{error}");
+        }
+        assert!(request(vec![], vec![link("can0", Some(1_000))])
+            .validate()
+            .is_ok());
+        assert!(request(vec![], vec![link("can0", Some(1_000_000))])
+            .validate()
+            .is_ok());
+        assert_eq!(link("can0", None).bitrate_or_default(), 500_000);
+        assert_eq!(link("can0", Some(125_000)).bitrate_or_default(), 125_000);
     }
 
     #[test]
@@ -777,51 +852,46 @@ mod tests {
     #[test]
     fn start_config_deserializes_defaults() {
         let config: StartConfig =
-            serde_json::from_str(r#"{"channels":[0],"baud":"500k"}"#).unwrap();
+            serde_json::from_str(r#"{"usb":[{"index":0,"baud":"500k"}]}"#).unwrap();
         assert_eq!(config.mode, CanMode::Normal);
         assert_eq!(config.filter, HardwareFilter::default());
         assert!(config.software_filters.is_empty());
         assert!(config.socketcan.is_empty());
+        assert_eq!(config.usb.len(), 1);
+        assert_eq!(config.usb[0].index, 0);
+        assert_eq!(config.usb[0].baud, BaudRate::Kbps500);
     }
 
     #[test]
-    fn start_config_deserializes_socketcan_links() {
-        let config: StartConfig =
-            serde_json::from_str(r#"{"channels":[],"baud":"500k","socketcan":["can0","vcan0"]}"#)
-                .unwrap();
-        assert_eq!(
-            config.socketcan,
-            vec!["can0".to_string(), "vcan0".to_string()]
-        );
-        assert!(config.channels.is_empty());
-    }
-
-    #[test]
-    fn start_config_bitrate_defaults_and_validation() {
-        let config: StartConfig =
-            serde_json::from_str(r#"{"channels":[],"baud":"500k","socketcan":["can0"]}"#).unwrap();
-        assert_eq!(config.socketcan_bitrate, None);
-        assert_eq!(
-            config.socketcan_bitrate_or_default(),
-            StartConfig::DEFAULT_SOCKETCAN_BITRATE
-        );
-
-        let configured: StartConfig = serde_json::from_str(
-            r#"{"channels":[],"baud":"500k","socketcan":["can0"],"socketcan_bitrate":125000}"#,
+    fn start_config_deserializes_per_channel_rates() {
+        let config: StartConfig = serde_json::from_str(
+            r#"{
+                "usb": [{"index": 0, "baud": "500k"}, {"index": 1, "baud": "250k"}],
+                "socketcan": [{"name": "can0", "bitrate": 125000}, {"name": "vcan0"}],
+                "mode": "listen_only"
+            }"#,
         )
         .unwrap();
-        assert_eq!(configured.socketcan_bitrate, Some(125_000));
-        assert_eq!(configured.socketcan_bitrate_or_default(), 125_000);
-        assert!(configured.validate().is_ok());
+        assert_eq!(config.usb[0].baud, BaudRate::Kbps500);
+        assert_eq!(config.usb[1].baud, BaudRate::Kbps250);
+        assert_eq!(config.socketcan[0].bitrate, Some(125_000));
+        assert_eq!(config.socketcan[1].bitrate, None);
+        assert_eq!(config.socketcan[1].bitrate_or_default(), 500_000);
+        assert_eq!(config.mode, CanMode::ListenOnly);
+        assert!(config.validate().is_ok());
+    }
 
-        for bad in [0_u32, 999, 1_000_001] {
-            let invalid = StartConfig {
-                socketcan_bitrate: Some(bad),
-                ..configured.clone()
-            };
-            let error = invalid.validate().unwrap_err();
-            assert!(error.contains("SocketCAN 速率"), "{error}");
-        }
+    #[test]
+    fn start_config_ignores_legacy_fields() {
+        // 旧字段被 serde 忽略: 解析成功, 但没有任何 usb/socketcan 条目, 校验失败。
+        let legacy: StartConfig =
+            serde_json::from_str(r#"{"channels":[0],"baud":"500k","socketcan_bitrate":500000}"#)
+                .unwrap();
+        assert!(legacy.usb.is_empty() && legacy.socketcan.is_empty());
+        assert!(legacy.validate().is_err());
+
+        // 旧式字符串数组不再是合法的 socketcan 形状。
+        assert!(serde_json::from_str::<StartConfig>(r#"{"socketcan":["can0"]}"#).is_err());
     }
 
     #[test]
@@ -832,13 +902,8 @@ mod tests {
             end: 0x7FF,
         };
         let config = StartConfig {
-            channels: vec![0],
-            baud: BaudRate::Kbps500,
-            mode: CanMode::Normal,
-            filter: HardwareFilter::default(),
             software_filters: vec![filter; StartConfig::MAX_SOFTWARE_FILTERS + 1],
-            socketcan: vec![],
-            socketcan_bitrate: None,
+            ..request(vec![usb_channel(0, BaudRate::Kbps500)], vec![])
         };
         assert!(config.validate().is_err());
     }

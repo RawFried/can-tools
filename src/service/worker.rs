@@ -9,7 +9,8 @@ use crate::can::error::Error;
 use crate::can::socketcan::{self, SocketCanLink};
 use crate::can::types::{
     BaudRate, CanFrame, CanMode, ChannelSource, FilterUpdateRequest, HardwareFilter, LinkList,
-    SendFrameRequest, SocketCanLinkInfo, SoftwareFilter, StartConfig, MAX_CHANNEL,
+    SendFrameRequest, SocketCanConfig, SocketCanLinkInfo, SoftwareFilter, StartConfig,
+    UsbChannelConfig, MAX_CHANNEL,
 };
 use crate::can::UsbCan;
 use crate::service::recorder::{Recorder, RecordingSummary};
@@ -351,23 +352,28 @@ impl Worker {
 
     fn configure(&mut self, config: &StartConfig) -> Result<(), String> {
         config.validate()?;
-        let mut channels = config.channels.clone();
-        channels.sort_unstable();
-        channels.dedup();
-        let mut names: Vec<String> = Vec::new();
-        for name in &config.socketcan {
-            if !names.contains(name) {
-                names.push(name.clone());
+        // 去重并在请求顺序内保留首次出现的配置 (validate 已拒绝重复的 USB 通道)。
+        let mut usb_channels: Vec<UsbChannelConfig> = Vec::new();
+        for entry in &config.usb {
+            if !usb_channels.iter().any(|seen| seen.index == entry.index) {
+                usb_channels.push(*entry);
+            }
+        }
+        let mut links: Vec<&SocketCanConfig> = Vec::new();
+        for entry in &config.socketcan {
+            if !links.iter().any(|seen| seen.name == entry.name) {
+                links.push(entry);
             }
         }
         // USB 通道只在本次请求真的要配置时才要求设备已打开; SocketCAN 可独立启动。
-        if !channels.is_empty() && self.device.is_none() {
+        if !usb_channels.is_empty() && self.device.is_none() {
             return Err("设备未打开, 请先打开设备".to_string());
         }
 
         // 先停止本次要重配的 USB 通道; 未选中的通道保持原配置继续运行。
         if let Some(device) = self.device.as_ref() {
-            for &channel in &channels {
+            for entry in &usb_channels {
+                let channel = entry.index;
                 if self.channels[channel as usize].is_some() {
                     if let Err(error) = device.reset_can(channel) {
                         self.shared
@@ -376,14 +382,18 @@ impl Worker {
                 }
             }
         }
-        for &channel in &channels {
-            self.channels[channel as usize] = None;
+        for entry in &usb_channels {
+            self.channels[entry.index as usize] = None;
         }
 
         let mut started_usb: Vec<u8> = Vec::new();
-        for &channel in &channels {
+        for entry in &usb_channels {
+            let channel = entry.index;
+            // 每个 USB 通道使用自己的波特率初始化。
             let result = match self.device.as_mut() {
-                Some(device) => init_and_start(device, channel, config),
+                Some(device) => {
+                    init_and_start(device, channel, entry.baud, config.mode, &config.filter)
+                }
                 None => Err(Error::NotOpen),
             };
             if let Err(error) = result {
@@ -392,7 +402,7 @@ impl Worker {
                 return Err(format!("启动 CAN{} 失败: {error}", channel + 1));
             }
             self.channels[channel as usize] = Some(ChannelRuntime {
-                baud: config.baud,
+                baud: entry.baud,
                 mode: config.mode,
                 filter: config.filter,
             });
@@ -400,8 +410,9 @@ impl Worker {
         }
 
         let mut started_links: Vec<usize> = Vec::new();
-        let bitrate = config.socketcan_bitrate_or_default();
-        for name in &names {
+        for entry in &links {
+            let name = entry.name.as_str();
+            let bitrate = entry.bitrate_or_default();
             let index = match self.ensure_link(name) {
                 Ok(index) => index,
                 Err(error) => {
@@ -410,7 +421,7 @@ impl Worker {
                     return Err(error);
                 }
             };
-            // 已 UP 的接口不做任何特权操作; 未 UP 时按请求速率自动启用。
+            // 已 UP 的接口不做任何特权操作; 未 UP 时按该条目自己的速率自动启用。
             if let Err(error) = socketcan::bring_up(name, bitrate) {
                 self.rollback_config(&started_usb, &started_links);
                 self.publish_status();
@@ -441,28 +452,22 @@ impl Worker {
         self.rate_frames = 0;
         self.rate_start = Instant::now();
         self.publish_status();
-        if !channels.is_empty() {
-            let usb_names = channels
+        if !usb_channels.is_empty() {
+            self.shared.log(
+                "info",
+                usb_start_message(&usb_channels, config.mode, config.software_filters.len()),
+            );
+        }
+        if !links.is_empty() {
+            let link_names = links
                 .iter()
-                .map(|channel| format!("CAN{}", channel + 1))
+                .map(|entry| entry.name.as_str())
                 .collect::<Vec<_>>()
                 .join(", ");
             self.shared.log(
                 "info",
                 format!(
-                    "已启动 {usb_names}: {baud}, {mode}, 滤波 {} 条",
-                    config.software_filters.len(),
-                    baud = config.baud.label(),
-                    mode = mode_label(config.mode)
-                ),
-            );
-        }
-        if !names.is_empty() {
-            self.shared.log(
-                "info",
-                format!(
-                    "已启用 SocketCAN 链路 {} (软件滤波 {} 条)",
-                    names.join(", "),
+                    "已启用 SocketCAN 链路 {link_names} (软件滤波 {} 条)",
                     config.software_filters.len()
                 ),
             );
@@ -981,8 +986,14 @@ fn link_status(slot: &SocketCanSlot) -> ChannelStatus {
     }
 }
 
-fn init_and_start(device: &mut UsbCan, channel: u8, config: &StartConfig) -> Result<(), Error> {
-    device.init_can(channel, config.baud, config.mode, &config.filter)?;
+fn init_and_start(
+    device: &mut UsbCan,
+    channel: u8,
+    baud: BaudRate,
+    mode: CanMode,
+    filter: &HardwareFilter,
+) -> Result<(), Error> {
+    device.init_can(channel, baud, mode, filter)?;
     device.start_can(channel)?;
     let _ = device.clear_buffer(channel);
     Ok(())
@@ -994,6 +1005,19 @@ fn mode_label(mode: CanMode) -> &'static str {
         CanMode::ListenOnly => "只听模式",
         CanMode::SelfTest => "自测模式",
     }
+}
+
+/// USB 启动日志: 按通道列出各自的速率, 如 `已启动 USB CAN1 (500k), CAN2 (250k)`。
+fn usb_start_message(channels: &[UsbChannelConfig], mode: CanMode, filter_count: usize) -> String {
+    let names = channels
+        .iter()
+        .map(|entry| format!("CAN{} ({})", entry.index + 1, entry.baud.short_label()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "已启动 USB {names}: {}, 滤波 {filter_count} 条",
+        mode_label(mode)
+    )
 }
 
 fn send<T>(reply: Reply<T>, result: Result<T, String>) {
@@ -1117,5 +1141,27 @@ mod tests {
         assert_eq!(worker.channel_name(0), "CAN1");
         assert_eq!(worker.channel_name(1), "CAN2");
         assert_eq!(worker.channel_name(7), "CH7");
+    }
+
+    #[test]
+    fn usb_start_log_lists_each_channel_rate() {
+        let message = usb_start_message(
+            &[
+                UsbChannelConfig {
+                    index: 0,
+                    baud: BaudRate::Kbps500,
+                },
+                UsbChannelConfig {
+                    index: 1,
+                    baud: BaudRate::Kbps250,
+                },
+            ],
+            CanMode::Normal,
+            3,
+        );
+        assert_eq!(
+            message,
+            "已启动 USB CAN1 (500k), CAN2 (250k): 正常模式, 滤波 3 条"
+        );
     }
 }
