@@ -128,68 +128,33 @@
       </div>
     </section>
 
-    <section class="card" aria-labelledby="h-hwfilter">
-      <header class="card-head"><span class="card-index">03</span><h2 id="h-hwfilter">硬件验收滤波</h2></header>
+    <section class="card" aria-labelledby="h-filter">
+      <header class="card-head"><span class="card-index">03</span><h2 id="h-filter">滤波器</h2></header>
       <div class="card-body">
-        <div class="grid-2">
-          <div class="field">
-            <label class="field-label" for="accCodeInput">验收码</label>
-            <span class="hex"><input class="input" id="accCodeInput" type="text" autocomplete="off" spellcheck="false" value="0"></span>
-          </div>
-          <div class="field">
-            <label class="field-label" for="accMaskInput">屏蔽码</label>
-            <span class="hex"><input class="input" id="accMaskInput" type="text" autocomplete="off" spellcheck="false" value="FFFFFFFF"></span>
-          </div>
-        </div>
+        <p class="hint">按 ID 区间过滤要接收的报文（十六进制）：可添加多条，命中任一区间即保留；列表为空表示接收全部，运行中应用立即生效。</p>
         <div class="field">
-          <span class="field-label" id="lb-gen">ID 精确匹配（按 ID 生成单滤波器）</span>
-          <div class="gen-row" role="group" aria-labelledby="lb-gen">
-            <span class="hex"><input class="input" id="filterIdInput" type="text" placeholder="123" autocomplete="off" spellcheck="false" aria-label="帧 ID（十六进制）"></span>
-            <div class="seg seg-mini" role="radiogroup" aria-label="帧类型">
-              <label><input type="radio" name="gen-ext" value="std" checked><span>标准</span></label>
-              <label><input type="radio" name="gen-ext" value="ext" id="filterIdExtended"><span>扩展</span></label>
-            </div>
-            <button class="btn" id="btnFilterById" type="button"><span>按 ID 生成</span></button>
-          </div>
+          <span class="field-label" id="lb-ranges">ID 区间（最多 16 条）</span>
+          <div id="filterRangeList" role="group" aria-labelledby="lb-ranges"></div>
+          <div class="empty-inline filter-empty" id="filterEmpty">未添加 ID 区间 —— 将接收全部帧。</div>
         </div>
-        <div class="field">
-          <label class="field-label" for="filterModeSelect">滤波器模式</label>
-          <select class="input" id="filterModeSelect">
-            <option value="0" selected>0 · 接收全部</option>
-            <option value="1">1 · 单滤波器</option>
-            <option value="2">2 · 双滤波器</option>
-          </select>
+        <div class="hw-state">
+          <span class="hw-label">硬件预过滤</span>
+          <span class="hw-val" id="hwFilterState">—</span>
         </div>
-        <div class="btn-row">
-          <button class="btn" id="btnAcceptAll" type="button"><span>接受全部</span></button>
-          <button class="btn" id="btnApplyFilters" type="button" disabled><span>实时应用滤波</span></button>
-        </div>
-        <p class="hint">
-          由 CAN 控制器在接收前执行；验收码/屏蔽码为控制器级数值，通过条件：<code class="nobreak">(归一化值 &amp; ~屏蔽码) == (验收码 &amp; ~屏蔽码)</code><br>
-          按 ID 生成（模式 1）——标准帧：<code class="nobreak">验收码 = ID&lt;&lt;21 · 屏蔽码 = 001FFFFF</code><br>
-          扩展帧：<code class="nobreak">验收码 = ID&lt;&lt;3 · 屏蔽码 = 00000007</code><br>
-          需要匹配 ID 区间或多个 ID 时，请改用「04 软件过滤器」。<br>
-          通道运行中点击「实时应用滤波」：同时应用本卡与软件过滤器，不会停止通道；硬件滤波变化会快速热重初始化。
-        </p>
-      </div>
-    </section>
-
-    <section class="card" aria-labelledby="h-swfilter">
-      <header class="card-head"><span class="card-index">04</span><h2 id="h-swfilter">软件过滤器</h2></header>
-      <div class="card-body">
-        <div id="swFilterList" aria-label="ID 区间过滤规则"></div>
         <div class="btn-row">
           <button class="btn" id="btnAddFilter" type="button">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
             <span>添加 ID 区间</span>
           </button>
+          <button class="btn" id="btnAcceptAll" type="button" title="清空全部区间（应用后接收所有帧）"><span>接收全部</span></button>
+          <button class="btn" id="btnApplyFilters" type="button" disabled><span>实时应用滤波</span></button>
         </div>
-        <p class="hint">在报文接收后由上位机执行：标准/扩展标志需匹配，且 <code class="nobreak">起始 ≤ ID ≤ 结束</code>（十六进制）。列表为空表示全部接收。</p>
+        <p class="hint">硬件滤波是粗筛，会放行覆盖全部区间的整段范围；范围最终由软件滤波精筛（帧类型一致且「起始 ≤ ID ≤ 结束」）。运行中应用滤波不会停止通道。</p>
       </div>
     </section>
 
     <section class="card" aria-labelledby="h-rec">
-      <header class="card-head"><span class="card-index">05</span><h2 id="h-rec">保存报文（CSV）</h2></header>
+      <header class="card-head"><span class="card-index">04</span><h2 id="h-rec">保存报文（CSV）</h2></header>
       <div class="card-body">
         <div class="rec-active" id="recActive" hidden aria-live="polite">
           <div class="rec-head"><span class="rec-dot"></span><span class="rec-file" id="recActiveFile">—</span></div>
@@ -297,7 +262,7 @@
 
     <section class="card panel-frames" id="framesPanel" aria-labelledby="h-frames">
       <header class="card-head frames-head">
-        <span class="card-index">06</span><h2 id="h-frames">实时报文</h2>
+        <span class="card-index">05</span><h2 id="h-frames">实时报文</h2>
         <div class="tools">
           <div class="search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
@@ -349,7 +314,7 @@
 
     <section class="card panel-recs" aria-labelledby="h-files">
       <header class="card-head">
-        <span class="card-index">07</span><h2 id="h-files">录制文件</h2>
+        <span class="card-index">06</span><h2 id="h-files">录制文件</h2>
         <span class="count-badge" id="recordingsCount">0</span>
         <span class="head-spacer"></span>
         <button class="btn btn-sm" id="btnRefreshRecordings" type="button">
@@ -399,15 +364,22 @@
   </tr>
 </template>
 
-<template id="swRowTpl">
-  <div class="sw-row">
-    <label class="check-mini"><input type="checkbox" class="sw-ext"><span>扩展</span></label>
-    <span class="hex"><input class="input sw-start" type="text" autocomplete="off" spellcheck="false" value="100"></span>
-    <span class="sw-sep">–</span>
-    <span class="hex"><input class="input sw-end" type="text" autocomplete="off" spellcheck="false" value="7FF"></span>
-    <button class="btn icon-only sw-del" type="button" aria-label="删除此过滤规则">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
-    </button>
+<template id="filterRowTpl">
+  <div class="filter-row">
+    <div class="f-line f-kind">
+      <div class="seg seg-mini" role="radiogroup" aria-label="帧类型">
+        <label><input type="radio" value="std" checked><span>标准</span></label>
+        <label><input type="radio" value="ext"><span>扩展</span></label>
+      </div>
+      <button class="btn icon-only f-del" type="button" aria-label="删除此 ID 区间">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="f-line f-range">
+      <span class="hex"><input class="input f-start" type="text" autocomplete="off" spellcheck="false" value="100" aria-label="起始 ID（十六进制）"></span>
+      <span class="f-sep">–</span>
+      <span class="hex"><input class="input f-end" type="text" autocomplete="off" spellcheck="false" value="7FF" aria-label="结束 ID（十六进制）"></span>
+    </div>
   </div>
 </template>
 

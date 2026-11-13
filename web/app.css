@@ -306,7 +306,9 @@ select.input { cursor: pointer; }
   text-transform: uppercase; letter-spacing: 0.02em;
 }
 
-.btn-row { display: flex; gap: 8px; }
+/* 允许换行：三按钮的滤波操作在 306px/266px 卡宽下放不下一行；
+   换行后每行按钮仍按 flex 等分拉满，放得下时行为与不换行一致 */
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .btn-row .btn { flex: 1; }
 
 /* ---------- 按钮 ---------- */
@@ -476,24 +478,56 @@ select.input { cursor: pointer; }
 }
 .seg input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 1px; }
 
-/* 按 ID 生成行 */
-.gen-row { display: flex; gap: 8px; align-items: center; min-width: 0; }
-.gen-row .hex { flex: 1; min-width: 0; }
-.gen-row .hex .input { width: 100%; }
+/* 分段选择（mini 尺寸，用于发送面板与滤波器区间行） */
 .seg-mini { flex: none; }
 .seg-mini span { padding: 4px 8px; font-size: 11.5px; }
-.gen-row .btn { flex: none; }
 
-/* ---------- 软件过滤器行 ---------- */
-#swFilterList { display: grid; gap: 8px; }
+/* ---------- 滤波器区间行 ---------- */
+/* minmax(0,1fr)：输入框有内在最小宽度（size 属性），auto 轨道会被撑开进而推破卡片；
+   margin-top 让「标签 → 首行」与「行 → 行」的间距一致（否则标签会贴住第一行） */
+#filterRangeList {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px;
+  margin-top: 2px;
+}
 
-.sw-row {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px; border: 1px solid var(--border); border-radius: 9px;
+/* 两行式区间行：第一行「帧类型分段 + 删除」，第二行「起始 – 结束」等分。
+   原因：卡片内容宽在中档宽度下仅 266px，单行时两个输入各剩约 50px，
+   扣除 0x 前缀后放不下扩展帧的 8 位十六进制 ID，不可读也无法收窄；
+   拆两行后每个输入 ≥ 110px，且阅读顺序「帧类型 → ID 范围」与卡片说明一致。 */
+.filter-row {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px;
+  padding: 7px 8px; border: 1px solid var(--border); border-radius: 9px;
   background: var(--surface-2);
 }
-.sw-row .hex { flex: 1; min-width: 0; }
-.sw-row .hex .input { width: 100%; }
+.f-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+/* 第一行：分段选择占满整行（与 02 卡「工作模式」一致），删除按钮 28px 锚定右缘；
+   gap 加大到 8px，避免误触右侧时点到相邻的分段选项（反向误触会删行） */
+.f-kind { gap: 8px; }
+.f-kind .seg { flex: 1; min-width: 0; }
+/* 纵向加大点击区（≥28px），宽度不受影响 */
+.f-kind .seg span { padding: 6px 8px; }
+/* 第二行：两个输入等分剩余空间，允许收缩到 0，避免内在宽度撑破容器 */
+.f-range .hex { flex: 1 1 0; min-width: 0; }
+.f-range .hex .input { width: 100%; min-width: 0; }
+
+.f-sep { color: var(--text-faint); font-family: var(--font-mono); flex: none; }
+
+.filter-empty { padding: 10px 8px; font-size: 12px; }
+
+/* 硬件预过滤只读状态：虚线框与 .kv 一致的“回显”语言，不接受编辑 */
+.hw-state {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.hw-state .hw-label { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; flex: none; }
+.hw-state .hw-val {
+  font: 500 11.5px/1.5 var(--font-mono);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
 
 .check-mini {
   display: inline-flex; align-items: center; gap: 5px;
@@ -501,8 +535,6 @@ select.input { cursor: pointer; }
   white-space: nowrap; cursor: pointer; user-select: none;
 }
 .check-mini input { accent-color: var(--can1); margin: 0; }
-
-.sw-sep { color: var(--text-faint); font-family: var(--font-mono); flex: none; }
 
 /* ---------- 录制 ---------- */
 .rec-active {
@@ -880,7 +912,6 @@ td.r-act .btn { margin-left: 6px; }
   table.recs-table .r-time, table.recs-table th.c-time { display: none; }
   td.r-name { max-width: 52vw; }
   .card-body { padding: 12px; }
-  .btn-row { flex-wrap: wrap; }
 }
 
 /* ---------- 发送报文 ---------- */
