@@ -5,16 +5,19 @@
 //!
 //! ```text
 //! unshare -Urn sh -c 'ip link set lo up; ip link add dev vcan0 type vcan; \
-//!   CAN_TOOLS_TEST_IFACE=vcan0 cargo test --test hw_socketcan -- --ignored --nocapture'
+//!   ip link add dev vcan1 type vcan; \
+//!   CAN_TOOLS_TEST_IFACE=vcan0 CAN_TOOLS_TEST_IFACE2=vcan1 \
+//!   cargo test --test hw_socketcan -- --ignored --nocapture'
 //! ```
 //!
-//! 用例在 root/netns 内可自动 `bring_up` 接口; 两个用例共用一个接口, 用进程内互斥锁串行。
+//! `CAN_TOOLS_TEST_IFACE` 默认 `vcan0`, `CAN_TOOLS_TEST_IFACE2` 默认 `vcan1`;
+//! 用例在 root/netns 内可自动 `bring_up` 接口。所有用例共用一个进程内互斥锁串行执行。
 
 use std::time::{Duration, Instant};
 
 use can_tools::can::types::{
-    CanMode, ChannelSource, FilterUpdateRequest, HardwareFilter, SendFrameRequest, SocketCanConfig,
-    SoftwareFilter, StartConfig,
+    CanMode, ChannelFilterUpdate, ChannelSource, FilterUpdateRequest, HardwareFilter,
+    SendFrameRequest, SocketCanConfig, SoftwareFilter, StartConfig,
 };
 use can_tools::service::CanService;
 use can_tools::state::{ServerInfo, SharedState};
@@ -29,6 +32,10 @@ static IFACE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 fn interface() -> String {
     std::env::var("CAN_TOOLS_TEST_IFACE").unwrap_or_else(|_| "vcan0".to_string())
+}
+
+fn second_interface() -> String {
+    std::env::var("CAN_TOOLS_TEST_IFACE2").unwrap_or_else(|_| "vcan1".to_string())
 }
 
 async fn wait_until(mut predicate: impl FnMut() -> bool, timeout: Duration) -> bool {
@@ -70,10 +77,9 @@ async fn socketcan_link_receives_sends_records_and_stops() {
             socketcan: vec![SocketCanConfig {
                 name: iface.clone(),
                 bitrate: None,
+                software_filters: vec![],
             }],
             mode: CanMode::Normal,
-            filter: HardwareFilter::default(),
-            software_filters: vec![],
         })
         .await
         .expect("configure socketcan only");
@@ -87,6 +93,7 @@ async fn socketcan_link_receives_sends_records_and_stops() {
         .expect("socketcan status entry");
     // 第一个注册的链路固定拿通道 2 (0/1 属于 USB)。
     assert_eq!(channel.index, 2);
+    let link_channel = channel.index;
     assert!(channel.running);
     assert_eq!(channel.source, ChannelSource::SocketCan);
     assert!(channel.baud.is_none() && channel.mode.is_none() && channel.filter.is_none());
@@ -178,31 +185,58 @@ async fn socketcan_link_receives_sends_records_and_stops() {
     let sent = sent.expect("peer never received the frame sent by the service");
     assert_eq!(sent.data(), &[0xDE, 0xAD, 0xBE, 0xEF]);
 
-    // 5) 软件滤波是全局的; SocketCAN 不接受硬件滤波更新。
-    let error = service
-        .update_filters(FilterUpdateRequest {
-            channels: vec![2],
-            filter: HardwareFilter::default(),
-            software_filters: vec![],
-        })
-        .await
-        .unwrap_err();
-    assert_eq!(error, "SocketCAN 链路只支持软件滤波");
+    // 5) 实时滤波按通道生效; SocketCAN 忽略硬件滤波字段。
+    service.clear_frames().await.expect("clear frames");
     service
         .update_filters(FilterUpdateRequest {
-            channels: vec![],
-            filter: HardwareFilter::default(),
-            software_filters: vec![SoftwareFilter {
-                extended: false,
-                start: 0x100,
-                end: 0x1FF,
+            channels: vec![ChannelFilterUpdate {
+                channel: link_channel,
+                // SocketCAN 没有硬件验收滤波: 该字段应被忽略, 请求仍然成功。
+                filter: Some(HardwareFilter {
+                    mode: 2,
+                    ..HardwareFilter::default()
+                }),
+                software_filters: vec![SoftwareFilter {
+                    extended: false,
+                    start: 0x100,
+                    end: 0x1FF,
+                }],
             }],
         })
         .await
-        .expect("update global software filters");
+        .expect("update socketcan software filters");
+    peer.write_frame(&CanFrame::new(StandardId::new(0x123).unwrap(), &[0x01]).unwrap())
+        .expect("send in-range frame");
+    peer.write_frame(&CanFrame::new(StandardId::new(0x234).unwrap(), &[0x02]).unwrap())
+        .expect("send out-of-range frame");
+    let in_range = wait_until(
+        || {
+            shared
+                .frames()
+                .iter()
+                .any(|frame| frame.id == 0x123 && frame.data == "01")
+        },
+        Duration::from_secs(2),
+    )
+    .await;
+    assert!(in_range, "in-range frame was not ingested");
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(
+        shared.frames().iter().all(|frame| frame.id != 0x234),
+        "out-of-range frame must be filtered by the per-link range"
+    );
+    let status = shared.status();
+    assert!(status
+        .channels
+        .iter()
+        .find(|channel| channel.name == iface)
+        .is_some_and(|channel| channel.software_filters.len() == 1));
 
     // 6) 停止链路后不再接收新帧, 也不能再发送。
-    service.stop(Some(vec![2])).await.expect("stop link");
+    service
+        .stop(Some(vec![link_channel]))
+        .await
+        .expect("stop link");
     let stopped = shared.status();
     let channel = stopped
         .channels
@@ -222,7 +256,7 @@ async fn socketcan_link_receives_sends_records_and_stops() {
     );
     let send_error = service
         .send(SendFrameRequest {
-            channel: 2,
+            channel: link_channel,
             id: 0x321,
             extended: false,
             remote: false,
@@ -265,10 +299,9 @@ async fn socketcan_link_is_brought_up_automatically() {
             socketcan: vec![SocketCanConfig {
                 name: iface.clone(),
                 bitrate: Some(500_000),
+                software_filters: vec![],
             }],
             mode: CanMode::Normal,
-            filter: HardwareFilter::default(),
-            software_filters: vec![],
         })
         .await
         .expect("configure should bring the interface up");
@@ -306,6 +339,146 @@ async fn socketcan_link_is_brought_up_automatically() {
     )
     .await;
     assert!(received, "frame never reached the live buffer");
+
+    service.shutdown().await;
+}
+
+#[tokio::test]
+#[ignore = "requires two SocketCAN interfaces (default vcan0/vcan1), run with --ignored"]
+async fn per_link_software_filters_are_independent() {
+    let _guard = IFACE_LOCK.lock().await;
+    let first = interface();
+    let second = second_interface();
+    assert_ne!(
+        first, second,
+        "CAN_TOOLS_TEST_IFACE2 必须与 CAN_TOOLS_TEST_IFACE 不同"
+    );
+
+    let shared = SharedState::new(ServerInfo {
+        version: "test".to_string(),
+        data_dir: "/tmp/can-tools-socketcan-test".to_string(),
+    });
+    let directory = tempfile::tempdir().unwrap();
+    let service = CanService::spawn(shared.clone(), directory.path().join("recordings")).unwrap();
+
+    service
+        .configure(StartConfig {
+            usb: vec![],
+            socketcan: vec![
+                SocketCanConfig {
+                    name: first.clone(),
+                    bitrate: None,
+                    software_filters: vec![SoftwareFilter {
+                        extended: false,
+                        start: 0x100,
+                        end: 0x1FF,
+                    }],
+                },
+                SocketCanConfig {
+                    name: second.clone(),
+                    bitrate: None,
+                    software_filters: vec![SoftwareFilter {
+                        extended: false,
+                        start: 0x200,
+                        end: 0x2FF,
+                    }],
+                },
+            ],
+            mode: CanMode::Normal,
+        })
+        .await
+        .expect("configure two links with different ranges");
+
+    let status = shared.status();
+    let first_channel = status
+        .channels
+        .iter()
+        .find(|channel| channel.name == first)
+        .expect("first link status")
+        .index;
+    let second_channel = status
+        .channels
+        .iter()
+        .find(|channel| channel.name == second)
+        .expect("second link status")
+        .index;
+    assert_ne!(first_channel, second_channel);
+    let first_channel_status = status
+        .channels
+        .iter()
+        .find(|channel| channel.index == first_channel)
+        .expect("first link");
+    assert_eq!(first_channel_status.software_filters.len(), 1);
+
+    let first_peer = CanSocket::open(&first).expect("open first peer");
+    first_peer
+        .set_nonblocking(true)
+        .expect("nonblocking first peer");
+    let second_peer = CanSocket::open(&second).expect("open second peer");
+    second_peer
+        .set_nonblocking(true)
+        .expect("nonblocking second peer");
+
+    // 两个接口都发送「范围内」与「范围外」各一帧, 交叉验证区间互不影响。
+    let in_first = CanFrame::new(StandardId::new(0x123).unwrap(), &[0x11]).unwrap();
+    let out_first = CanFrame::new(StandardId::new(0x234).unwrap(), &[0x22]).unwrap();
+    let in_second = CanFrame::new(StandardId::new(0x234).unwrap(), &[0x33]).unwrap();
+    let out_second = CanFrame::new(StandardId::new(0x123).unwrap(), &[0x44]).unwrap();
+    first_peer
+        .write_frame(&in_first)
+        .expect("send first in-range");
+    first_peer
+        .write_frame(&out_first)
+        .expect("send first out-of-range");
+    second_peer
+        .write_frame(&in_second)
+        .expect("send second in-range");
+    second_peer
+        .write_frame(&out_second)
+        .expect("send second out-of-range");
+
+    let received = wait_until(
+        || {
+            let frames = shared.frames();
+            frames
+                .iter()
+                .any(|frame| frame.channel == first_channel && frame.id == 0x123)
+                && frames
+                    .iter()
+                    .any(|frame| frame.channel == second_channel && frame.id == 0x234)
+        },
+        Duration::from_secs(2),
+    )
+    .await;
+    assert!(received, "expected in-range frames were not ingested");
+
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let frames = shared.frames();
+    assert!(
+        frames
+            .iter()
+            .filter(|frame| frame.channel == first_channel)
+            .all(|frame| frame.id == 0x123),
+        "{first} 收到了范围外的帧: {:?}",
+        frames
+            .iter()
+            .filter(|frame| frame.channel == first_channel)
+            .map(|frame| frame.id)
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        frames
+            .iter()
+            .filter(|frame| frame.channel == second_channel)
+            .all(|frame| frame.id == 0x234),
+        "{second} 收到了范围外的帧"
+    );
+    assert!(frames
+        .iter()
+        .any(|frame| frame.channel == first_channel && frame.data == "11"));
+    assert!(frames
+        .iter()
+        .any(|frame| frame.channel == second_channel && frame.data == "33"));
 
     service.shutdown().await;
 }

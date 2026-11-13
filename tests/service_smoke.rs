@@ -1,8 +1,8 @@
 //! 无硬件场景下的工作线程冒烟测试: 命令通道、错误路径与关闭流程。
 
 use can_tools::can::types::{
-    BaudRate, CanMode, FilterUpdateRequest, HardwareFilter, SendFrameRequest, SocketCanConfig,
-    StartConfig, UsbChannelConfig,
+    BaudRate, CanMode, ChannelFilterUpdate, FilterUpdateRequest, HardwareFilter, SendFrameRequest,
+    SocketCanConfig, SoftwareFilter, StartConfig, UsbChannelConfig,
 };
 use can_tools::service::CanService;
 use can_tools::state::{ServerInfo, SharedState};
@@ -20,11 +20,11 @@ async fn worker_rejects_operations_without_device_and_shuts_down() {
         usb: vec![UsbChannelConfig {
             index: 0,
             baud: BaudRate::Kbps500,
+            filter: HardwareFilter::default(),
+            software_filters: vec![],
         }],
         socketcan: vec![],
         mode: CanMode::Normal,
-        filter: HardwareFilter::default(),
-        software_filters: vec![],
     };
     assert!(service.configure(config).await.is_err());
     let recording_error = service.start_recording().await.unwrap_err();
@@ -43,11 +43,17 @@ async fn worker_rejects_operations_without_device_and_shuts_down() {
     };
     assert!(service.send(send).await.is_err());
     let filters = FilterUpdateRequest {
-        channels: vec![0],
-        filter: HardwareFilter::default(),
-        software_filters: vec![],
+        channels: vec![ChannelFilterUpdate {
+            channel: 0,
+            filter: Some(HardwareFilter::default()),
+            software_filters: vec![],
+        }],
     };
     assert!(service.update_filters(filters).await.is_err());
+    // 空通道列表不再表示"全局更新"。
+    let empty = FilterUpdateRequest { channels: vec![] };
+    let error = service.update_filters(empty).await.unwrap_err();
+    assert_eq!(error, "至少选择一个通道");
     assert!(service.close().await.is_ok());
     assert!(service.stop(None).await.is_ok());
     assert!(service.list_devices().await.is_ok());
@@ -70,10 +76,13 @@ async fn worker_reports_missing_socketcan_interface() {
         socketcan: vec![SocketCanConfig {
             name: "missingcan0".to_string(),
             bitrate: None,
+            software_filters: vec![SoftwareFilter {
+                extended: false,
+                start: 0,
+                end: 0x7FF,
+            }],
         }],
         mode: CanMode::Normal,
-        filter: HardwareFilter::default(),
-        software_filters: vec![],
     };
     let error = service.configure(config).await.unwrap_err();
     assert!(error.contains("不存在"), "{error}");

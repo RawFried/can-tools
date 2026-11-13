@@ -379,13 +379,19 @@ pub struct LinkList {
     pub socketcan: Vec<SocketCanLinkInfo>,
 }
 
-/// `/api/config` 中的一个 USB 通道及其波特率。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+/// `/api/config` 中的一个 USB 通道及其波特率/滤波。
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct UsbChannelConfig {
     /// USB 通道索引 (`0` = CAN1, `1` = CAN2)。
     pub index: u8,
     /// 该通道使用的波特率。
     pub baud: BaudRate,
+    /// 该通道的硬件验收滤波; 缺省为接收全部。
+    #[serde(default)]
+    pub filter: HardwareFilter,
+    /// 该通道的应用层 ID 区间; 空列表表示接收全部。
+    #[serde(default)]
+    pub software_filters: Vec<SoftwareFilter>,
 }
 
 /// `/api/config` 中的一条 SocketCAN 链路。
@@ -396,6 +402,9 @@ pub struct SocketCanConfig {
     /// 自动启用未 UP 接口时使用的速率 (bps); 省略时用默认值。
     #[serde(default)]
     pub bitrate: Option<u32>,
+    /// 该链路的应用层 ID 区间; 空列表表示接收全部。
+    #[serde(default)]
+    pub software_filters: Vec<SoftwareFilter>,
 }
 
 impl SocketCanConfig {
@@ -406,28 +415,22 @@ impl SocketCanConfig {
     }
 }
 
-/// `/api/config` 请求体 (v4: 每个通道独立配置)。
+/// `/api/config` 请求体 (v5: 每个通道独立配置速率与滤波)。
 #[derive(Debug, Clone, Deserialize)]
 pub struct StartConfig {
-    /// 要配置并启动的 USB 通道 (各带自己的波特率); 可以为空 (只启动 SocketCAN)。
+    /// 要配置并启动的 USB 通道 (各带自己的波特率与滤波); 可以为空 (只启动 SocketCAN)。
     #[serde(default)]
     pub usb: Vec<UsbChannelConfig>,
-    /// 要启动/重启的 SocketCAN 链路 (各带可选速率)。
+    /// 要启动/重启的 SocketCAN 链路 (各带可选速率与区间)。
     #[serde(default)]
     pub socketcan: Vec<SocketCanConfig>,
     /// 工作模式 (仅作用于 USB 通道)。
     #[serde(default)]
     pub mode: CanMode,
-    /// 硬件验收滤波 (仅作用于 USB 通道)。
-    #[serde(default)]
-    pub filter: HardwareFilter,
-    /// 应用层 ID 滤波 (对所有链路生效)。
-    #[serde(default)]
-    pub software_filters: Vec<SoftwareFilter>,
 }
 
 impl StartConfig {
-    /// 最多允许的软件滤波记录数。
+    /// 最多允许的软件滤波记录数 (每通道)。
     pub const MAX_SOFTWARE_FILTERS: usize = 16;
     /// 单次请求最多启动的 SocketCAN 链路数。
     pub const MAX_SOCKETCAN_LINKS: usize = 8;
@@ -448,6 +451,8 @@ impl StartConfig {
                 return Err(format!("USB 通道 {} 重复配置", entry.index));
             }
             usb_indices.push(entry.index);
+            entry.filter.validate()?;
+            validate_software_filters(&entry.software_filters)?;
         }
         let mut unique_names: Vec<&str> = Vec::new();
         for entry in &self.socketcan {
@@ -455,6 +460,7 @@ impl StartConfig {
             if let Some(bitrate) = entry.bitrate {
                 crate::can::socketcan::validate_bitrate(bitrate)?;
             }
+            validate_software_filters(&entry.software_filters)?;
             if !unique_names.contains(&entry.name.as_str()) {
                 unique_names.push(&entry.name);
             }
@@ -466,19 +472,23 @@ impl StartConfig {
                 unique_names.len()
             ));
         }
-        self.filter.validate()?;
-        if self.software_filters.len() > Self::MAX_SOFTWARE_FILTERS {
-            return Err(format!(
-                "软件滤波记录最多 {} 条, 实际 {} 条",
-                Self::MAX_SOFTWARE_FILTERS,
-                self.software_filters.len()
-            ));
-        }
-        for filter in &self.software_filters {
-            filter.validate()?;
-        }
         Ok(())
     }
+}
+
+/// 校验一组软件滤波区间: 最多 16 条, 每条区间与 ID 范围合法。
+pub fn validate_software_filters(filters: &[SoftwareFilter]) -> Result<(), String> {
+    if filters.len() > StartConfig::MAX_SOFTWARE_FILTERS {
+        return Err(format!(
+            "软件滤波记录最多 {} 条, 实际 {} 条",
+            StartConfig::MAX_SOFTWARE_FILTERS,
+            filters.len()
+        ));
+    }
+    for filter in filters {
+        filter.validate()?;
+    }
+    Ok(())
 }
 
 /// `/api/send` 请求体。
@@ -573,39 +583,48 @@ impl SendFrameRequest {
     }
 }
 
-/// `/api/filters` 请求体: 运行中实时更新滤波。
+/// `/api/filters` 中单个通道的滤波更新。
 #[derive(Debug, Clone, Deserialize)]
-pub struct FilterUpdateRequest {
-    /// 要更新硬件滤波的 USB 通道 (必须已启动); 可为空, 表示只更新软件滤波。
-    pub channels: Vec<u8>,
-    /// 新的硬件验收滤波 (仅作用于 USB 通道)。
-    pub filter: HardwareFilter,
-    /// 新的应用层 ID 滤波 (对所有链路生效)。
+pub struct ChannelFilterUpdate {
+    /// 通道 id (0/1 为 USB, `2..=65` 为 SocketCAN 链路)。
+    pub channel: u8,
+    /// 新的硬件验收滤波 (仅 USB 生效; SocketCAN 没有硬件验收滤波, 传入会被忽略)。
+    #[serde(default)]
+    pub filter: Option<HardwareFilter>,
+    /// 新的应用层 ID 区间; 空列表表示接收全部。
     #[serde(default)]
     pub software_filters: Vec<SoftwareFilter>,
 }
 
+/// `/api/filters` 请求体: 运行中按通道实时更新滤波。
+#[derive(Debug, Clone, Deserialize)]
+pub struct FilterUpdateRequest {
+    /// 要更新的通道列表; 不能为空, 通道必须运行中且不能重复。
+    pub channels: Vec<ChannelFilterUpdate>,
+}
+
 impl FilterUpdateRequest {
-    /// 校验通道、硬件滤波与软件滤波参数。
-    ///
-    /// `channels` 可以为空 (只更新全局软件滤波); SocketCAN 链路只支持软件滤波,
-    /// 出现在 `channels` 中会被拒绝。
+    /// 校验通道列表与每条滤波参数。
     pub fn validate(&self) -> Result<(), String> {
-        for &channel in &self.channels {
-            if channel > 1 {
-                return Err("SocketCAN 链路只支持软件滤波".to_string());
+        if self.channels.is_empty() {
+            return Err("至少选择一个通道".to_string());
+        }
+        let mut seen: Vec<u8> = Vec::new();
+        for entry in &self.channels {
+            if entry.channel > MAX_CHANNEL {
+                return Err(format!(
+                    "非法通道 {}; 合法值为 0/1 (USB) 或 2-{MAX_CHANNEL} (SocketCAN 链路)",
+                    entry.channel
+                ));
             }
-        }
-        self.filter.validate()?;
-        if self.software_filters.len() > StartConfig::MAX_SOFTWARE_FILTERS {
-            return Err(format!(
-                "软件滤波记录最多 {} 条, 实际 {} 条",
-                StartConfig::MAX_SOFTWARE_FILTERS,
-                self.software_filters.len()
-            ));
-        }
-        for filter in &self.software_filters {
-            filter.validate()?;
+            if seen.contains(&entry.channel) {
+                return Err(format!("通道 {} 重复", entry.channel));
+            }
+            seen.push(entry.channel);
+            if let Some(filter) = entry.filter {
+                filter.validate()?;
+            }
+            validate_software_filters(&entry.software_filters)?;
         }
         Ok(())
     }
@@ -728,13 +747,27 @@ mod tests {
     }
 
     fn usb_channel(index: u8, baud: BaudRate) -> UsbChannelConfig {
-        UsbChannelConfig { index, baud }
+        UsbChannelConfig {
+            index,
+            baud,
+            filter: HardwareFilter::default(),
+            software_filters: vec![],
+        }
     }
 
     fn link(name: &str, bitrate: Option<u32>) -> SocketCanConfig {
         SocketCanConfig {
             name: name.to_string(),
             bitrate,
+            software_filters: vec![],
+        }
+    }
+
+    fn range(start: u32, end: u32) -> SoftwareFilter {
+        SoftwareFilter {
+            extended: false,
+            start,
+            end,
         }
     }
 
@@ -743,8 +776,6 @@ mod tests {
             usb,
             socketcan,
             mode: CanMode::Normal,
-            filter: HardwareFilter::default(),
-            software_filters: vec![],
         }
     }
 
@@ -854,28 +885,42 @@ mod tests {
         let config: StartConfig =
             serde_json::from_str(r#"{"usb":[{"index":0,"baud":"500k"}]}"#).unwrap();
         assert_eq!(config.mode, CanMode::Normal);
-        assert_eq!(config.filter, HardwareFilter::default());
-        assert!(config.software_filters.is_empty());
         assert!(config.socketcan.is_empty());
         assert_eq!(config.usb.len(), 1);
         assert_eq!(config.usb[0].index, 0);
         assert_eq!(config.usb[0].baud, BaudRate::Kbps500);
+        // 每通道滤波可省略: 缺省为接收全部。
+        assert_eq!(config.usb[0].filter, HardwareFilter::default());
+        assert!(config.usb[0].software_filters.is_empty());
     }
 
     #[test]
-    fn start_config_deserializes_per_channel_rates() {
+    fn start_config_deserializes_per_channel_rates_and_filters() {
         let config: StartConfig = serde_json::from_str(
             r#"{
-                "usb": [{"index": 0, "baud": "500k"}, {"index": 1, "baud": "250k"}],
-                "socketcan": [{"name": "can0", "bitrate": 125000}, {"name": "vcan0"}],
+                "usb": [
+                    {"index": 0, "baud": "500k",
+                     "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 1},
+                     "software_filters": [{"extended": false, "start": 256, "end": 511}]},
+                    {"index": 1, "baud": "250k"}
+                ],
+                "socketcan": [
+                    {"name": "can0", "bitrate": 125000,
+                     "software_filters": [{"extended": false, "start": 512, "end": 767}]},
+                    {"name": "vcan0"}
+                ],
                 "mode": "listen_only"
             }"#,
         )
         .unwrap();
         assert_eq!(config.usb[0].baud, BaudRate::Kbps500);
         assert_eq!(config.usb[1].baud, BaudRate::Kbps250);
+        assert_eq!(config.usb[0].software_filters, vec![range(256, 511)]);
+        assert!(config.usb[1].software_filters.is_empty());
         assert_eq!(config.socketcan[0].bitrate, Some(125_000));
+        assert_eq!(config.socketcan[0].software_filters, vec![range(512, 767)]);
         assert_eq!(config.socketcan[1].bitrate, None);
+        assert!(config.socketcan[1].software_filters.is_empty());
         assert_eq!(config.socketcan[1].bitrate_or_default(), 500_000);
         assert_eq!(config.mode, CanMode::ListenOnly);
         assert!(config.validate().is_ok());
@@ -895,17 +940,40 @@ mod tests {
     }
 
     #[test]
-    fn start_config_rejects_too_many_software_filters() {
-        let filter = SoftwareFilter {
-            extended: false,
-            start: 0,
-            end: 0x7FF,
+    fn start_config_validates_filters_per_channel() {
+        let mut usb = usb_channel(0, BaudRate::Kbps500);
+        usb.software_filters = vec![range(0, 0x7FF); StartConfig::MAX_SOFTWARE_FILTERS + 1];
+        let error = request(vec![usb], vec![]).validate().unwrap_err();
+        assert!(error.contains("软件滤波记录最多"), "{error}");
+
+        let mut usb = usb_channel(0, BaudRate::Kbps500);
+        usb.software_filters = vec![range(0x200, 0x100)];
+        assert!(request(vec![usb], vec![]).validate().is_err());
+
+        let mut usb = usb_channel(0, BaudRate::Kbps500);
+        usb.filter = HardwareFilter {
+            mode: 3,
+            ..HardwareFilter::default()
         };
-        let config = StartConfig {
-            software_filters: vec![filter; StartConfig::MAX_SOFTWARE_FILTERS + 1],
-            ..request(vec![usb_channel(0, BaudRate::Kbps500)], vec![])
-        };
-        assert!(config.validate().is_err());
+        assert!(request(vec![usb], vec![]).validate().is_err());
+
+        let mut link_config = link("can0", None);
+        link_config.software_filters = vec![range(0, 0x800)];
+        assert!(request(vec![], vec![link_config]).validate().is_err());
+
+        let mut link_config = link("can0", None);
+        link_config.software_filters = vec![range(0, 0x7FF); StartConfig::MAX_SOFTWARE_FILTERS + 1];
+        assert!(request(vec![], vec![link_config]).validate().is_err());
+
+        // 两个通道各自的区间互不影响。
+        let mut first = usb_channel(0, BaudRate::Kbps500);
+        first.software_filters = vec![range(0x100, 0x1FF)];
+        let mut second = usb_channel(1, BaudRate::Kbps250);
+        second.software_filters = vec![range(0x200, 0x2FF)];
+        let config = request(vec![first, second], vec![]);
+        assert!(config.validate().is_ok());
+        assert_eq!(config.usb[0].software_filters, vec![range(0x100, 0x1FF)]);
+        assert_eq!(config.usb[1].software_filters, vec![range(0x200, 0x2FF)]);
     }
 
     #[test]
@@ -1043,35 +1111,84 @@ mod tests {
     #[test]
     fn filter_update_request_validates_channels_and_filters() {
         let valid = FilterUpdateRequest {
-            channels: vec![0, 1],
-            filter: HardwareFilter::default(),
-            software_filters: vec![SoftwareFilter {
-                extended: false,
-                start: 0,
-                end: 0x7FF,
-            }],
+            channels: vec![
+                ChannelFilterUpdate {
+                    channel: 0,
+                    filter: Some(HardwareFilter::default()),
+                    software_filters: vec![range(0, 0x7FF)],
+                },
+                ChannelFilterUpdate {
+                    channel: 2,
+                    filter: None,
+                    software_filters: vec![range(0x100, 0x1FF)],
+                },
+            ],
         };
         assert!(valid.validate().is_ok());
-        // 空 channels 表示只更新全局软件滤波。
-        assert!(FilterUpdateRequest {
-            channels: vec![],
-            ..valid.clone()
-        }
-        .validate()
-        .is_ok());
+
+        // 空列表不再表示"全局更新"。
+        let error = FilterUpdateRequest { channels: vec![] }
+            .validate()
+            .unwrap_err();
+        assert_eq!(error, "至少选择一个通道");
+
         let error = FilterUpdateRequest {
-            channels: vec![2],
-            ..valid.clone()
+            channels: vec![
+                ChannelFilterUpdate {
+                    channel: 0,
+                    filter: None,
+                    software_filters: vec![],
+                },
+                ChannelFilterUpdate {
+                    channel: 0,
+                    filter: None,
+                    software_filters: vec![],
+                },
+            ],
         }
         .validate()
         .unwrap_err();
-        assert_eq!(error, "SocketCAN 链路只支持软件滤波");
+        assert_eq!(error, "通道 0 重复");
+
         assert!(FilterUpdateRequest {
-            filter: HardwareFilter {
-                mode: 3,
-                ..HardwareFilter::default()
-            },
-            ..valid
+            channels: vec![ChannelFilterUpdate {
+                channel: MAX_CHANNEL + 1,
+                filter: None,
+                software_filters: vec![],
+            }],
+        }
+        .validate()
+        .is_err());
+
+        assert!(FilterUpdateRequest {
+            channels: vec![ChannelFilterUpdate {
+                channel: 0,
+                filter: Some(HardwareFilter {
+                    mode: 3,
+                    ..HardwareFilter::default()
+                }),
+                software_filters: vec![],
+            }],
+        }
+        .validate()
+        .is_err());
+
+        assert!(FilterUpdateRequest {
+            channels: vec![ChannelFilterUpdate {
+                channel: 0,
+                filter: None,
+                software_filters: vec![range(0x200, 0x100)],
+            }],
+        }
+        .validate()
+        .is_err());
+
+        assert!(FilterUpdateRequest {
+            channels: vec![ChannelFilterUpdate {
+                channel: 2,
+                filter: None,
+                software_filters: vec![range(0, 0x7FF); StartConfig::MAX_SOFTWARE_FILTERS + 1],
+            }],
         }
         .validate()
         .is_err());

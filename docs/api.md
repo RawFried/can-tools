@@ -34,14 +34,16 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
       "mode": "normal",
       "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 1},
       "bitrate": null,
-      "state": null
+      "state": null,
+      "software_filters": [{"extended": false, "start": 256, "end": 511}]
     },
     {"index": 1, "source": "usb", "name": "CAN2", "running": false, "baud": null,
-     "mode": null, "filter": null, "bitrate": null, "state": null},
+     "mode": null, "filter": null, "bitrate": null, "state": null,
+     "software_filters": []},
     {"index": 2, "source": "socketcan", "name": "can0", "running": true, "baud": null,
-     "mode": null, "filter": null, "bitrate": 500000, "state": "up"}
+     "mode": null, "filter": null, "bitrate": 500000, "state": "up",
+     "software_filters": [{"extended": false, "start": 512, "end": 767}]}
   ],
-  "software_filters": [{"extended": false, "start": 256, "end": 511}],
   "recording": {
     "active": true,
     "file": "can-20261109-150000.csv",
@@ -87,9 +89,10 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
   `software_filters` for precise matching. An empty range list, or ranges mixing standard and
   extended frames, falls back to accept-all. Range semantics therefore live in `software_filters`;
   clients that need an exact hardware filter still set `filter` directly.
-- `software_filters` are applied by the application after the hardware filter, for **every** link
-  (USB and SocketCAN). An empty list accepts every frame. Otherwise a frame passes when at least one
-  record matches both its standard/extended flag and `start <= id <= end`.
+- `software_filters` is **per channel** (there is no global filter): the ID ranges currently applied
+  to that channel, `[]` meaning "accept everything". A frame passes when at least one record matches
+  both its standard/extended flag and `start <= id <= end`. SocketCAN links only apply this
+  software layer; USB channels apply it after their hardware acceptance filter.
 - `stats.rx_frames`/`stats.rx_rate` cover frames accepted from all links; `stats.tx_frames` counts
   frames successfully sent through any link since the device was opened or the counters cleared.
 
@@ -216,54 +219,60 @@ The request may take a few seconds while the device re-enumerates after a recent
 
 ### `POST /api/device/close`
 
-No body. Closes the USB device and resets USB channel state. Running SocketCAN links are **not**
-affected (they keep receiving). The recording is flushed only when no SocketCAN link is still
-running, and global software filters are kept while a link is running.
+No body. Closes the USB device and resets USB channel state (USB channels therefore forget their
+ranges until sent again). Running SocketCAN links are **not** affected: they keep receiving and keep
+their own ranges. The recording is flushed only when no SocketCAN link is still running.
 Response: `{"ok": true, "status": { ... }}`
 
 ### `POST /api/config`
 
-Configures and starts channels, each with its own rate. USB entries are initialized with their own
-baud rate; SocketCAN entries are started (or restarted) and down interfaces are enabled
-automatically at the entry's `bitrate` (requires root or `CAP_NET_ADMIN`); interfaces that are
-already up are used as-is without any privileged operation. At least one of `usb`/`socketcan` must
-be non-empty. Re-applying while running restarts the selected channels/links; unselected channels
-stay running.
+Configures and starts channels, each with its own rate **and its own filters**. USB entries are
+initialized with their own baud rate, hardware acceptance filter and ID ranges; SocketCAN entries
+are started (or restarted) with their own ID ranges, and down interfaces are enabled automatically
+at the entry's `bitrate` (requires root or `CAP_NET_ADMIN`); interfaces that are already up are used
+as-is without any privileged operation. At least one of `usb`/`socketcan` must be non-empty.
+Re-applying while running restarts the selected channels/links; unselected channels stay running.
 
 ```json
 {
   "usb": [
-    {"index": 0, "baud": "500k"},
+    {"index": 0, "baud": "500k",
+     "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 1},
+     "software_filters": [{"extended": false, "start": 256, "end": 511}]},
     {"index": 1, "baud": "250k"}
   ],
   "socketcan": [
-    {"name": "can0", "bitrate": 500000}
+    {"name": "can0", "bitrate": 500000,
+     "software_filters": [{"extended": false, "start": 512, "end": 767}]}
   ],
-  "mode": "normal",
-  "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 1},
-  "software_filters": [{"extended": false, "start": 256, "end": 511}]
+  "mode": "normal"
 }
 ```
 
-- `usb` is optional (default `[]`). Each entry is `{"index": 0|1, "baud": "<rate>"}`; `baud` is
+- `usb` is optional (default `[]`). Each entry is
+  `{"index": 0|1, "baud": "<rate>", "filter": {...}, "software_filters": [...]}`; `baud` is
   required per entry (one of `5k`, `10k`, `20k`, `50k`, `100k`, `125k`, `250k`, `500k`, `800k`,
-  `1000k`), indexes must be unique, and the USB device must be open. The list may be empty when
-  only SocketCAN links are being started.
-- `socketcan` is optional (default `[]`). Each entry is `{"name": "<iface>", "bitrate": <bps>}`
-  where `name` is 1–15 characters of `[A-Za-z0-9_.-]`, `bitrate` is optional (default `500000`,
-  allowed `1000`–`1000000`), duplicate names are ignored (first entry wins) and at most 8 links may
-  be started per request.
-- `mode` and `filter` apply to **all** USB channels; SocketCAN links have no hardware acceptance
-  filter and keep the timing configured on the kernel interface (`bitrate`/`state` in the status
-  object report it).
+  `1000k`), indexes must be unique, and the USB device must be open. `filter` and
+  `software_filters` are optional and default to "accept everything" for that channel. The list may
+  be empty when only SocketCAN links are being started.
+- `socketcan` is optional (default `[]`). Each entry is
+  `{"name": "<iface>", "bitrate": <bps>, "software_filters": [...]}` where `name` is 1–15
+  characters of `[A-Za-z0-9_.-]`, `bitrate` is optional (default `500000`, allowed
+  `1000`–`1000000`), `software_filters` is optional, duplicate names are ignored (first entry wins)
+  and at most 8 links may be started per request.
+- `mode` applies to **all** USB channels; SocketCAN links have no hardware acceptance filter and
+  keep the timing configured on the kernel interface (`bitrate`/`state` in the status object report
+  it). Filters are validated per channel: at most 16 ranges, each range legal for its
+  standard/extended flag, and `filter.mode` must be `0`/`1`/`2`.
 - Interfaces that do not support bitrate configuration (e.g. `vcan`) still get enabled; the
   `EOPNOTSUPP` from setting the bitrate is ignored. Their status keeps `bitrate: null`.
 - Error cases: both lists empty → `至少选择一个 USB 通道或 SocketCAN 链路`; duplicate USB index →
   `USB 通道 0 重复配置`; unknown interface → `SocketCAN 接口 can9 不存在`; missing privileges →
   `启用 SocketCAN 接口 can0 需要 root 或 CAP_NET_ADMIN 权限: 请以管理员身份运行，或手动执行 ip link set can0 up type can bitrate 500000`;
   other netlink failures → `{动作} SocketCAN 接口 can0 失败: {原始错误}`.
-- The v4 shape replaces the old `channels`/`baud`/`socketcan_bitrate` fields; those names are
-  ignored by the deserializer (an old-style `socketcan: ["can0"]` string array is rejected).
+- The v5 shape replaces the old global `filter`/`software_filters` and the v4
+  `channels`/`baud`/`socketcan_bitrate` fields; old top-level names are ignored by the deserializer
+  (an old-style `socketcan: ["can0"]` string array is rejected).
 - If any channel/link started by this request fails (including the automatic bring-up), all
   channels and links started by the request are rolled back before the error is returned
   (previously running links are not restored).
@@ -272,25 +281,29 @@ Response: `{"ok": true, "status": { ... }}`
 
 ### `POST /api/filters`
 
-Updates filtering on already running USB channels without closing/reopening the device; software
-filters apply to every link:
+Updates filtering on **already running** channels, one entry per channel:
 
 ```json
 {
-  "channels": [0, 1],
-  "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 0},
-  "software_filters": [{"extended": false, "start": 256, "end": 511}]
+  "channels": [
+    {"channel": 0,
+     "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 1},
+     "software_filters": [{"extended": false, "start": 256, "end": 511}]},
+    {"channel": 2,
+     "software_filters": [{"extended": false, "start": 512, "end": 767}]}
+  ]
 }
 ```
 
-- `channels` lists USB ids (`0`/`1`) only and may be an **empty array** to update the global
-  software filters alone. A SocketCAN id in this list is rejected with
-  `SocketCAN 链路只支持软件滤波`; SocketCAN links have no hardware acceptance filter.
-- Every selected USB channel must be running; otherwise the request fails with a clear error.
-- `software_filters` take effect immediately in the host worker and apply to **all** links
-  (USB and SocketCAN).
-- If the hardware filter changed for a running channel, the worker re-runs `InitCAN` +
-  `StartCAN` without `ResetCAN`/close; this is a fast hot re-initialization, not a channel stop.
+- `channels` must not be empty (`至少选择一个通道`), ids must be unique (`通道 0 重复`) and every
+  listed channel must be running.
+- `filter` is optional and only meaningful for USB channels; when it differs from the running
+  hardware filter the worker re-runs `InitCAN` + `StartCAN` without `ResetCAN`/close (a fast hot
+  re-initialization, not a channel stop). If it is omitted, the hardware filter is left unchanged.
+- SocketCAN links have no hardware acceptance filter: a `filter` on such an entry is **ignored** and
+  only `software_filters` is applied.
+- `software_filters` replaces that channel's ranges immediately (empty list = accept everything);
+  other channels keep their own ranges. At most 16 ranges per channel.
 - If only software filters changed, no USB I/O is performed.
 - The request also accepts listen-only channels (they still receive/filter).
 

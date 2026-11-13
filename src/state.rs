@@ -49,6 +49,8 @@ pub struct ChannelStatus {
     pub bitrate: Option<u64>,
     /// 接口状态 `up`/`down`/`unknown` (仅 SocketCAN)。
     pub state: Option<String>,
+    /// 该通道当前生效的应用层 ID 区间; 空数组表示接收全部。
+    pub software_filters: Vec<SoftwareFilter>,
 }
 
 impl ChannelStatus {
@@ -63,6 +65,7 @@ impl ChannelStatus {
             filter: None,
             bitrate: None,
             state: None,
+            software_filters: Vec::new(),
         }
     }
 }
@@ -85,7 +88,7 @@ pub struct RecordingStatus {
 pub struct Stats {
     /// 打开/清空以来接收的帧数 (不含被软件滤波丢弃的帧)。
     pub rx_frames: u64,
-    /// 被软件滤波丢弃的帧数。
+    /// 被按通道软件滤波丢弃的帧数 (所有通道合计)。
     pub filtered_frames: u64,
     /// 最近一秒的接收速率 (帧/秒)。
     pub rx_rate: f64,
@@ -110,9 +113,9 @@ pub struct Status {
     /// 设备状态。
     pub device: DeviceStatus,
     /// 全部通道状态: 2 个 USB 项 + 已注册的 SocketCAN 链路。
+    ///
+    /// 软件滤波是**按通道**的, 见每个 [`ChannelStatus::software_filters`]。
     pub channels: Vec<ChannelStatus>,
-    /// 当前生效的软件滤波。
-    pub software_filters: Vec<SoftwareFilter>,
     /// 录制状态。
     pub recording: RecordingStatus,
     /// 统计信息。
@@ -130,7 +133,6 @@ impl Status {
                 info: None,
             },
             channels: vec![ChannelStatus::stopped(0), ChannelStatus::stopped(1)],
-            software_filters: Vec::new(),
             recording: RecordingStatus::default(),
             stats: Stats::default(),
             server,
@@ -341,6 +343,10 @@ mod tests {
         assert!(!status.device.open);
         assert_eq!(status.channels.len(), 2);
         assert!(!status.channels[1].running);
+        assert!(status
+            .channels
+            .iter()
+            .all(|channel| channel.software_filters.is_empty()));
         assert!(status.recording.file.is_none());
     }
 

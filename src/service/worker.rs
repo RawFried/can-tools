@@ -24,12 +24,13 @@ const LINK_READ_BATCH: usize = 64;
 /// SocketCAN 链路的第一个通道 id。
 const FIRST_LINK_ID: u8 = 2;
 
-/// 单通道运行配置。
-#[derive(Debug, Clone, Copy)]
+/// 单通道运行配置 (滤波按通道独立保存)。
+#[derive(Debug, Clone)]
 struct ChannelRuntime {
     baud: BaudRate,
     mode: CanMode,
     filter: HardwareFilter,
+    software_filters: Vec<SoftwareFilter>,
 }
 
 /// SocketCAN 链路在工作线程内的注册表条目。
@@ -41,6 +42,8 @@ struct SocketCanSlot {
     socket: Option<SocketCanLink>,
     bitrate: Option<u64>,
     state: String,
+    /// 停止链路后保留, 重新配置时覆盖。
+    software_filters: Vec<SoftwareFilter>,
 }
 
 /// 工作线程内部状态。
@@ -51,7 +54,6 @@ pub(crate) struct Worker {
     channels: [Option<ChannelRuntime>; 2],
     links: Vec<SocketCanSlot>,
     next_link_id: u8,
-    software_filters: Vec<SoftwareFilter>,
     recorder: Option<Recorder>,
     stats: Stats,
     seq: u64,
@@ -70,7 +72,6 @@ impl Worker {
             channels: [None, None],
             links: Vec::new(),
             next_link_id: FIRST_LINK_ID,
-            software_filters: Vec::new(),
             recorder: None,
             stats: Stats::default(),
             seq: 0,
@@ -197,6 +198,7 @@ impl Worker {
                     socket: None,
                     bitrate: info.bitrate,
                     state,
+                    software_filters: Vec::new(),
                 }),
                 Err(error) => {
                     self.shared.log("warn", error);
@@ -252,6 +254,7 @@ impl Worker {
             socket: None,
             bitrate: info.and_then(|info| info.bitrate),
             state,
+            software_filters: Vec::new(),
         });
         Ok(self.links.len() - 1)
     }
@@ -289,7 +292,6 @@ impl Worker {
                     let info = device.info().clone();
                     self.device = Some(device);
                     self.channels = [None, None];
-                    self.clear_software_filters_if_idle();
                     self.stats = Stats::default();
                     self.seq = 0;
                     self.rate_frames = 0;
@@ -326,7 +328,6 @@ impl Worker {
             }
         }
         self.channels = [None, None];
-        self.clear_software_filters_if_idle();
         if let Some(mut device) = self.device.take() {
             if let Err(error) = device.close() {
                 self.shared.log("warn", format!("关闭设备时出错: {error}"));
@@ -343,20 +344,13 @@ impl Worker {
         Ok(())
     }
 
-    /// 关闭 USB 设备时清空软件滤波; 仍有 SocketCAN 链路运行时保留 (软件滤波是全局的)。
-    fn clear_software_filters_if_idle(&mut self) {
-        if !self.links.iter().any(|slot| slot.socket.is_some()) {
-            self.software_filters.clear();
-        }
-    }
-
     fn configure(&mut self, config: &StartConfig) -> Result<(), String> {
         config.validate()?;
         // 去重并在请求顺序内保留首次出现的配置 (validate 已拒绝重复的 USB 通道)。
         let mut usb_channels: Vec<UsbChannelConfig> = Vec::new();
         for entry in &config.usb {
             if !usb_channels.iter().any(|seen| seen.index == entry.index) {
-                usb_channels.push(*entry);
+                usb_channels.push(entry.clone());
             }
         }
         let mut links: Vec<&SocketCanConfig> = Vec::new();
@@ -389,10 +383,10 @@ impl Worker {
         let mut started_usb: Vec<u8> = Vec::new();
         for entry in &usb_channels {
             let channel = entry.index;
-            // 每个 USB 通道使用自己的波特率初始化。
+            // 每个 USB 通道使用自己的波特率与硬件滤波初始化。
             let result = match self.device.as_mut() {
                 Some(device) => {
-                    init_and_start(device, channel, entry.baud, config.mode, &config.filter)
+                    init_and_start(device, channel, entry.baud, config.mode, &entry.filter)
                 }
                 None => Err(Error::NotOpen),
             };
@@ -404,7 +398,8 @@ impl Worker {
             self.channels[channel as usize] = Some(ChannelRuntime {
                 baud: entry.baud,
                 mode: config.mode,
-                filter: config.filter,
+                filter: entry.filter,
+                software_filters: entry.software_filters.clone(),
             });
             started_usb.push(channel);
         }
@@ -437,6 +432,7 @@ impl Worker {
                     let slot = &mut self.links[index];
                     slot.bitrate = link.bitrate();
                     slot.state = link.state().to_string();
+                    slot.software_filters = entry.software_filters.clone();
                     slot.socket = Some(link);
                     started_links.push(index);
                 }
@@ -448,15 +444,12 @@ impl Worker {
             }
         }
 
-        self.software_filters = config.software_filters.clone();
         self.rate_frames = 0;
         self.rate_start = Instant::now();
         self.publish_status();
         if !usb_channels.is_empty() {
-            self.shared.log(
-                "info",
-                usb_start_message(&usb_channels, config.mode, config.software_filters.len()),
-            );
+            self.shared
+                .log("info", usb_start_message(&usb_channels, config.mode));
         }
         if !links.is_empty() {
             let link_names = links
@@ -464,13 +457,8 @@ impl Worker {
                 .map(|entry| entry.name.as_str())
                 .collect::<Vec<_>>()
                 .join(", ");
-            self.shared.log(
-                "info",
-                format!(
-                    "已启用 SocketCAN 链路 {link_names} (软件滤波 {} 条)",
-                    config.software_filters.len()
-                ),
-            );
+            self.shared
+                .log("info", format!("已启用 SocketCAN 链路 {link_names}"));
         }
         Ok(())
     }
@@ -546,90 +534,99 @@ impl Worker {
         Ok(())
     }
 
-    /// 运行中实时更新滤波。
+    /// 运行中按通道实时更新滤波。
     ///
-    /// 软件滤波对所有链路直接生效; 硬件验收滤波变化时对运行中的 USB 通道执行
-    /// `InitCAN + StartCAN` (不发送 ResetCAN), 实测可在不重新打开设备的情况下生效。
-    /// `channels` 可以为空, 表示只更新全局软件滤波。
+    /// 软件区间立即生效; USB 硬件验收滤波变化时执行 `InitCAN + StartCAN`
+    /// (不发送 ResetCAN), 实测可在不重新打开设备的情况下生效。
+    /// SocketCAN 没有硬件验收滤波, 其条目里的 `filter` 会被忽略。
     fn update_filters(&mut self, request: &FilterUpdateRequest) -> Result<(), String> {
         request.validate()?;
-        let mut channels = request.channels.clone();
-        channels.sort_unstable();
-        channels.dedup();
-        if !channels.is_empty() && self.device.is_none() {
+        let has_usb = request
+            .channels
+            .iter()
+            .any(|entry| entry.channel < USB_CHANNELS);
+        if has_usb && self.device.is_none() {
             return Err("设备未打开, 无法更新滤波".to_string());
         }
-        for &channel in &channels {
-            if self.channels[channel as usize].is_none() {
+        // 先确认所有目标通道都在运行, 避免部分生效。
+        for entry in &request.channels {
+            let channel = entry.channel;
+            if channel < USB_CHANNELS {
+                if self.channels[channel as usize].is_none() {
+                    return Err(format!(
+                        "CAN{} 未启动; 实时滤波只能作用于运行中的通道",
+                        channel + 1
+                    ));
+                }
+            } else if !self
+                .links
+                .iter()
+                .any(|slot| slot.id == channel && slot.socket.is_some())
+            {
+                let label = self.channel_name(channel);
                 return Err(format!(
-                    "CAN{} 未启动; 实时滤波只能作用于运行中的通道",
-                    channel + 1
+                    "SocketCAN 链路 {label} 未启动; 实时滤波只能作用于运行中的通道"
                 ));
             }
         }
 
         let mut hardware_changed = Vec::new();
-        for &channel in &channels {
-            let Some(runtime) = self.channels[channel as usize] else {
-                continue;
-            };
-            if runtime.filter == request.filter {
-                continue;
+        for entry in &request.channels {
+            let channel = entry.channel;
+            if channel < USB_CHANNELS {
+                let Some(runtime) = self.channels[channel as usize].as_ref() else {
+                    continue;
+                };
+                let baud = runtime.baud;
+                let mode = runtime.mode;
+                let current_filter = runtime.filter;
+                let new_filter = entry.filter.unwrap_or(current_filter);
+                if new_filter != current_filter {
+                    let result = match self.device.as_mut() {
+                        Some(device) => device
+                            .init_can(channel, baud, mode, &new_filter)
+                            .and_then(|_| device.start_can(channel)),
+                        None => Err(Error::NotOpen),
+                    };
+                    if let Err(error) = result {
+                        self.channels[channel as usize] = None;
+                        self.publish_status();
+                        return Err(format!("实时更新 CAN{} 硬件滤波失败: {error}", channel + 1));
+                    }
+                    hardware_changed.push(channel);
+                }
+                if let Some(runtime) = self.channels[channel as usize].as_mut() {
+                    runtime.filter = new_filter;
+                    runtime.software_filters = entry.software_filters.clone();
+                }
+            } else if let Some(slot) = self.links.iter_mut().find(|slot| slot.id == channel) {
+                if slot.socket.is_none() {
+                    continue;
+                }
+                // SocketCAN 没有硬件验收滤波: `entry.filter` 被忽略。
+                slot.software_filters = entry.software_filters.clone();
             }
-            let result = match self.device.as_mut() {
-                Some(device) => device
-                    .init_can(channel, runtime.baud, runtime.mode, &request.filter)
-                    .and_then(|_| device.start_can(channel)),
-                None => Err(Error::NotOpen),
-            };
-            if let Err(error) = result {
-                self.channels[channel as usize] = None;
-                self.publish_status();
-                return Err(format!("实时更新 CAN{} 硬件滤波失败: {error}", channel + 1));
-            }
-            if let Some(slot) = self.channels[channel as usize].as_mut() {
-                slot.filter = request.filter;
-            }
-            hardware_changed.push(channel);
         }
 
-        self.software_filters = request.software_filters.clone();
         self.publish_status();
-        if channels.is_empty() {
-            self.shared.log(
-                "info",
-                format!(
-                    "已实时更新全局软件滤波 ({} 条), 所有链路立即生效",
-                    self.software_filters.len()
-                ),
-            );
-            return Ok(());
-        }
-        let names = channels
+        let names = request
+            .channels
             .iter()
-            .map(|channel| format!("CAN{}", channel + 1))
+            .map(|entry| self.channel_name(entry.channel))
             .collect::<Vec<_>>()
             .join(", ");
         if hardware_changed.is_empty() {
-            self.shared.log(
-                "info",
-                format!(
-                    "已实时更新 {names} 软件滤波 ({} 条), 通道未重启",
-                    self.software_filters.len()
-                ),
-            );
+            self.shared
+                .log("info", format!("已实时更新 {names} 软件滤波, 通道未重启"));
         } else {
             let hardware_names = hardware_changed
                 .iter()
-                .map(|channel| format!("CAN{}", channel + 1))
+                .map(|&channel| self.channel_name(channel))
                 .collect::<Vec<_>>()
                 .join(", ");
             self.shared.log(
                 "info",
-                format!(
-                    "已实时更新 {names} 滤波: 硬件 {hardware_names}, 软件 {} 条",
-                    self.software_filters.len()
-                ),
+                format!("已实时更新 {names} 滤波: 硬件热重初始化 {hardware_names}"),
             );
         }
         Ok(())
@@ -648,7 +645,10 @@ impl Worker {
         if self.channels[channel as usize].is_none() {
             return Err(format!("CAN{} 未启动, 请先应用配置", channel + 1));
         }
-        if self.channels[channel as usize].map(|runtime| runtime.mode) == Some(CanMode::ListenOnly)
+        if self.channels[channel as usize]
+            .as_ref()
+            .map(|runtime| runtime.mode)
+            == Some(CanMode::ListenOnly)
         {
             return Err(format!("CAN{} 处于只听模式, 不能发送", channel + 1));
         }
@@ -836,6 +836,19 @@ impl Worker {
             .map_or_else(|| format!("CH{channel}"), |slot| slot.name.clone())
     }
 
+    /// 取通道当前生效的应用层区间; 通道不在运行时返回空切片 (接收全部)。
+    fn channel_software_filters(&self, channel: u8) -> &[SoftwareFilter] {
+        if channel < USB_CHANNELS {
+            return self.channels[channel as usize]
+                .as_ref()
+                .map_or(&[][..], |runtime| runtime.software_filters.as_slice());
+        }
+        self.links
+            .iter()
+            .find(|slot| slot.id == channel)
+            .map_or(&[][..], |slot| slot.software_filters.as_slice())
+    }
+
     fn ingest(
         &mut self,
         channel: u8,
@@ -844,12 +857,11 @@ impl Worker {
         now_ms: u64,
         batch: &mut Vec<crate::can::types::FrameDto>,
     ) {
-        if !self.software_filters.is_empty()
-            && !self
-                .software_filters
-                .iter()
-                .any(|filter| filter.matches(frame))
-        {
+        let accepted = {
+            let filters = self.channel_software_filters(channel);
+            filters.is_empty() || filters.iter().any(|filter| filter.matches(frame))
+        };
+        if !accepted {
             self.stats.filtered_frames += 1;
             return;
         }
@@ -875,7 +887,6 @@ impl Worker {
             let _ = device.close();
         }
         self.channels = [None, None];
-        self.clear_software_filters_if_idle();
         if !self.links.iter().any(|slot| slot.socket.is_some()) {
             self.finish_recording();
         }
@@ -942,7 +953,6 @@ impl Worker {
             .collect();
         channels.extend(self.links.iter().map(link_status));
         status.channels = channels;
-        status.software_filters = self.software_filters.clone();
         status.recording = RecordingStatus {
             active: self.recorder.is_some(),
             file: self
@@ -957,7 +967,7 @@ impl Worker {
     }
 
     fn channel_status(&self, index: usize) -> ChannelStatus {
-        let runtime = self.channels[index];
+        let runtime = self.channels[index].as_ref();
         ChannelStatus {
             index: index as u8,
             source: ChannelSource::Usb,
@@ -968,6 +978,8 @@ impl Worker {
             filter: runtime.map(|runtime| runtime.filter),
             bitrate: None,
             state: None,
+            software_filters: runtime
+                .map_or_else(Vec::new, |runtime| runtime.software_filters.clone()),
         }
     }
 }
@@ -983,6 +995,7 @@ fn link_status(slot: &SocketCanSlot) -> ChannelStatus {
         filter: None,
         bitrate: slot.bitrate,
         state: Some(slot.state.clone()),
+        software_filters: slot.software_filters.clone(),
     }
 }
 
@@ -1008,16 +1021,13 @@ fn mode_label(mode: CanMode) -> &'static str {
 }
 
 /// USB 启动日志: 按通道列出各自的速率, 如 `已启动 USB CAN1 (500k), CAN2 (250k)`。
-fn usb_start_message(channels: &[UsbChannelConfig], mode: CanMode, filter_count: usize) -> String {
+fn usb_start_message(channels: &[UsbChannelConfig], mode: CanMode) -> String {
     let names = channels
         .iter()
         .map(|entry| format!("CAN{} ({})", entry.index + 1, entry.baud.short_label()))
         .collect::<Vec<_>>()
         .join(", ");
-    format!(
-        "已启动 USB {names}: {}, 滤波 {filter_count} 条",
-        mode_label(mode)
-    )
+    format!("已启动 USB {names}: {}", mode_label(mode))
 }
 
 fn send<T>(reply: Reply<T>, result: Result<T, String>) {
@@ -1075,15 +1085,38 @@ mod tests {
         assert!(content.contains(",1,CAN1,291,0x123,0,0,2,AA BB"));
     }
 
+    fn runtime_with_filters(filters: Vec<SoftwareFilter>) -> ChannelRuntime {
+        ChannelRuntime {
+            baud: BaudRate::Kbps500,
+            mode: CanMode::Normal,
+            filter: HardwareFilter::default(),
+            software_filters: filters,
+        }
+    }
+
     #[test]
-    fn ingest_applies_software_filters() {
+    fn ingest_applies_per_channel_software_filters() {
         let directory = tempfile::tempdir().unwrap();
         let mut worker = test_worker(directory.path());
-        worker.software_filters = vec![SoftwareFilter {
+        worker.channels[0] = Some(runtime_with_filters(vec![SoftwareFilter {
             extended: false,
             start: 0x100,
             end: 0x1FF,
-        }];
+        }]));
+        // 通道 1 没有区间 (接收全部)。
+        worker.channels[1] = Some(runtime_with_filters(Vec::new()));
+        worker.links.push(SocketCanSlot {
+            id: 2,
+            name: "can0".to_string(),
+            socket: None,
+            bitrate: None,
+            state: "up".to_string(),
+            software_filters: vec![SoftwareFilter {
+                extended: false,
+                start: 0x200,
+                end: 0x2FF,
+            }],
+        });
 
         let mut batch = Vec::new();
         worker.ingest(0, "CAN1", &frame(0x200), 1_700_000_000_000, &mut batch);
@@ -1092,9 +1125,19 @@ mod tests {
         assert!(batch.is_empty());
 
         worker.ingest(0, "CAN1", &frame(0x123), 1_700_000_000_000, &mut batch);
-        assert_eq!(worker.stats.filtered_frames, 1);
         assert_eq!(worker.stats.rx_frames, 1);
         assert_eq!(batch.len(), 1);
+
+        // 同一帧在通道 1 被放行, 说明区间是按通道独立的。
+        worker.ingest(1, "CAN2", &frame(0x200), 1_700_000_000_000, &mut batch);
+        assert_eq!(worker.stats.rx_frames, 2);
+        assert_eq!(batch.len(), 2);
+
+        // SocketCAN 链路只接受自己区间内的帧。
+        worker.ingest(2, "can0", &frame(0x123), 1_700_000_000_000, &mut batch);
+        assert_eq!(worker.stats.filtered_frames, 2);
+        worker.ingest(2, "can0", &frame(0x234), 1_700_000_000_000, &mut batch);
+        assert_eq!(worker.stats.rx_frames, 3);
     }
 
     #[test]
@@ -1118,6 +1161,11 @@ mod tests {
             socket: None,
             bitrate: Some(500_000),
             state: "down".to_string(),
+            software_filters: vec![SoftwareFilter {
+                extended: false,
+                start: 0x100,
+                end: 0x1FF,
+            }],
         });
 
         let status = worker.status();
@@ -1132,6 +1180,10 @@ mod tests {
         assert_eq!(link.bitrate, Some(500_000));
         assert_eq!(link.state.as_deref(), Some("down"));
         assert!(link.baud.is_none() && link.mode.is_none() && link.filter.is_none());
+        assert_eq!(link.software_filters.len(), 1);
+        assert_eq!(link.software_filters[0].start, 0x100);
+        // 未运行的 USB 通道也带空区间字段 (形状统一)。
+        assert!(status.channels[0].software_filters.is_empty());
     }
 
     #[test]
@@ -1150,18 +1202,18 @@ mod tests {
                 UsbChannelConfig {
                     index: 0,
                     baud: BaudRate::Kbps500,
+                    filter: HardwareFilter::default(),
+                    software_filters: vec![],
                 },
                 UsbChannelConfig {
                     index: 1,
                     baud: BaudRate::Kbps250,
+                    filter: HardwareFilter::default(),
+                    software_filters: vec![],
                 },
             ],
             CanMode::Normal,
-            3,
         );
-        assert_eq!(
-            message,
-            "已启动 USB CAN1 (500k), CAN2 (250k): 正常模式, 滤波 3 条"
-        );
+        assert_eq!(message, "已启动 USB CAN1 (500k), CAN2 (250k): 正常模式");
     }
 }
