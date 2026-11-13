@@ -91,6 +91,29 @@ export function syncSendChannels(st: StatusDto): void {
 }
 
 /** 远程帧禁用数据输入；数据帧的 DLC 自动等于字节数。 */
+/**
+ * 切换帧类型时规范化 ID 输入：扩展帧补足 8 位十六进制（高位补零），
+ * 标准帧去掉前导零；非法或超范围输入保持原样，交给控件校验提示。
+ */
+export function normalizeSendId(extended: boolean): void {
+  const raw = els.sendId.value.trim().replace(/^0x/i, '');
+  if (raw.length === 0 || !/^[0-9a-f]+$/i.test(raw)) return;
+  const value = parseInt(raw, 16);
+  if (!Number.isFinite(value)) return;
+  if (extended) {
+    if (value > 0x1fffffff) return;
+    els.sendId.value = value.toString(16).toUpperCase().padStart(8, '0');
+  } else {
+    els.sendId.value = value.toString(16).toUpperCase();
+  }
+}
+
+/** 帧类型切换：先规范化 ID，再刷新发送控件状态。 */
+export function applySendType(): void {
+  normalizeSendId(sendExtended());
+  updateSendControls();
+}
+
 export function updateSendDlc(): void {
   const remote = els.sendRemote.checked;
   els.sendData.disabled = remote;

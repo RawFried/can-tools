@@ -14,7 +14,7 @@ import { loadRecordings } from './recordings';
 import { acceptAllRanges, addRangeRow, applyFiltersLive } from './filters';
 import { clearLocalFrames, rebuildTable, setAutoscroll, setPaused } from './frames';
 import { applyStatus, runBusy } from './status';
-import { sendCurrentFrame, updateSendControls, updateSendDlc } from './send';
+import { applySendType, sendCurrentFrame, updateSendControls, updateSendDlc } from './send';
 import { state } from './state';
 import { setLastLog, toast } from './toast';
 import { connectWs } from './ws';
@@ -110,7 +110,7 @@ export function bindEvents(): void {
     updateSendControls();
   });
   for (const radio of document.querySelectorAll<HTMLInputElement>('input[name="send-ext"]')) {
-    radio.addEventListener('change', updateSendControls);
+    radio.addEventListener('change', applySendType);
   }
   for (const input of [els.sendId, els.sendData]) {
     input.addEventListener('keydown', (event) => {
