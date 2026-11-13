@@ -988,6 +988,9 @@
   function hexOf(v, width) {
     return "0x" + v.toString(16).toUpperCase().padStart(width, "0");
   }
+  function displayChannelName(name) {
+    return name.toUpperCase();
+  }
   function parseHex(raw, max) {
     const s = raw.trim().toLowerCase().replace(/^0x/, "");
     if (!/^[0-9a-f]+$/.test(s)) return null;
@@ -1613,8 +1616,8 @@
     if (target.source === "usb") update.filter = deriveAcceptanceFilter(ranges);
     const status = await updateFilters({ channels: [update] });
     if (status) applyStatus2(status);
-    toast("滤波已实时更新：" + target.name + "（通道未停止）", "success");
-    setLastLog("滤波已实时更新：" + target.name);
+    toast("滤波已实时更新：" + displayChannelName(target.name) + "（通道未停止）", "success");
+    setLastLog("滤波已实时更新：" + displayChannelName(target.name));
   }
 
   // src/channels.ts
@@ -1627,7 +1630,7 @@
       seen.add(key);
       options.push({
         key,
-        label: (ch.source === "usb" ? "USB · " : "SOCKET · ") + ch.name,
+        label: (ch.source === "usb" ? "USB · " : "SOCKET · ") + displayChannelName(ch.name),
         channel: ch,
         link: null
       });
@@ -1636,7 +1639,7 @@
       const key = "scan:" + link.name;
       if (seen.has(key)) continue;
       seen.add(key);
-      options.push({ key, label: "SOCKET · " + link.name, channel: null, link });
+      options.push({ key, label: "SOCKET · " + displayChannelName(link.name), channel: null, link });
     }
     return options;
   }
@@ -1892,7 +1895,7 @@
     }
     const status = await stopChannels([ch.index]);
     if (status) applyStatus2(status);
-    toast("已停止 " + ch.name, "success");
+    toast("已停止 " + displayChannelName(ch.name), "success");
   }
 
   // src/send.ts
@@ -1923,7 +1926,7 @@
     return bytes.length <= 8 ? bytes : null;
   }
   function channelLabel(channel) {
-    return channel.name + (channel.mode === "listen_only" ? "（只听）" : "");
+    return displayChannelName(channel.name) + (channel.mode === "listen_only" ? "（只听）" : "");
   }
   function syncSendChannels(st) {
     const running = st.channels.filter((channel) => channel.running);
@@ -2024,7 +2027,7 @@
     const status = await sendFrame(body);
     if (status) applyStatus2(status);
     const channelInfo = state.status?.channels.find((item) => item.index === channel) ?? null;
-    const channelName = channelInfo ? channelInfo.name : "CH" + (channel + 1);
+    const channelName = channelInfo ? displayChannelName(channelInfo.name) : "CH" + (channel + 1);
     const label = channelName + " 0x" + id.toString(16).toUpperCase();
     const detail = remote ? "远程帧 DLC " + dlc : bytes.length + " 字节";
     toast("已发送 " + label + " （" + detail + "）", "success");
@@ -2260,7 +2263,7 @@
     if (info !== null && info.source === "socketcan") badge.className = "ch-badge ch-scan";
     else if (f.channel === 0 || f.channel === 1) badge.className = "ch-badge ch" + f.channel;
     else badge.className = "ch-badge chx";
-    badge.textContent = info !== null ? info.name : f.channel === 0 ? "CAN1" : f.channel === 1 ? "CAN2" : "CH" + (f.channel + 1);
+    badge.textContent = info !== null ? displayChannelName(info.name) : f.channel === 0 ? "CAN1" : f.channel === 1 ? "CAN2" : "CH" + (f.channel + 1);
     row.cells[2].appendChild(badge);
     row.cells[3].textContent = hexOf(f.id, f.extended ? 8 : 3);
     const baseType = f.extended ? "扩展" : "标准";
@@ -2281,7 +2284,7 @@
       String(f.channel),
       String(f.channel + 1),
       "can" + f.channel,
-      info ? info.name : "",
+      info ? displayChannelName(info.name) : "",
       f.data,
       baseType,
       f.remote ? "远程" : ""

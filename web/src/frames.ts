@@ -3,7 +3,7 @@
  */
 import { feedDbcFrames, clearDbcSamples } from './dbc';
 import { els, rowTplRow } from './dom';
-import { fmtClock, fmtInt, hexOf } from './format';
+import { displayChannelName, fmtClock, fmtInt, hexOf } from './format';
 import { BUFFER_CAP, state } from './state';
 import { updateEmpty, updateStrip } from './status';
 import type { FrameDto } from './types';
@@ -70,7 +70,7 @@ function buildRow(f: FrameDto): HTMLTableRowElement {
   else badge.className = 'ch-badge chx';
   badge.textContent =
     info !== null
-      ? info.name
+      ? displayChannelName(info.name)
       : f.channel === 0
         ? 'CAN1'
         : f.channel === 1
@@ -100,7 +100,7 @@ function matchesFilter(f: FrameDto): boolean {
     String(f.channel),
     String(f.channel + 1),
     'can' + f.channel,
-    info ? info.name : '',
+    info ? displayChannelName(info.name) : '',
     f.data,
     baseType,
     f.remote ? '远程' : '',

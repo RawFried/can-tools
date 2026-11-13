@@ -68,6 +68,11 @@ export function hexOf(v: number, width: number): string {
   return '0x' + v.toString(16).toUpperCase().padStart(width, '0');
 }
 
+/** 通道展示名：统一大写（SocketCAN 的 can0 → CAN0；USB 名称本身已大写）。 */
+export function displayChannelName(name: string): string {
+  return name.toUpperCase();
+}
+
 /** SocketCAN 速率完整文案：500000 → "500 kbps"；未知 → "速率未知"。 */
 export function fmtBitrateLong(bitrate: number | null): string {
   if (bitrate === null || !Number.isFinite(bitrate) || bitrate <= 0) return '速率未知';

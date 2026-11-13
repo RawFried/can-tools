@@ -7,6 +7,7 @@ import { els } from './dom';
 import { channelKey, deriveAcceptanceFilter, renderHwPrefilter, renderRangesFor, saveCurrentRanges, syncFilters } from './filters';
 import { state } from './state';
 import { toast } from './toast';
+import { displayChannelName } from './format';
 import { asBaud, asMode, BAUDS } from './types';
 import type { CanMode, ChannelStatusDto, SocketCanLinkDto, StatusDto } from './types';
 
@@ -27,7 +28,7 @@ function channelOptions(st: StatusDto | null): ChannelOption[] {
     seen.add(key);
     options.push({
       key,
-      label: (ch.source === 'usb' ? 'USB · ' : 'SOCKET · ') + ch.name,
+      label: (ch.source === 'usb' ? 'USB · ' : 'SOCKET · ') + displayChannelName(ch.name),
       channel: ch,
       link: null,
     });
@@ -36,7 +37,7 @@ function channelOptions(st: StatusDto | null): ChannelOption[] {
     const key = 'scan:' + link.name;
     if (seen.has(key)) continue;
     seen.add(key);
-    options.push({ key, label: 'SOCKET · ' + link.name, channel: null, link });
+    options.push({ key, label: 'SOCKET · ' + displayChannelName(link.name), channel: null, link });
   }
   return options;
 }
@@ -331,5 +332,5 @@ export async function stopChannel(applyStatus: (st: StatusDto) => void): Promise
   }
   const status = await stopChannels([ch.index]);
   if (status) applyStatus(status);
-  toast('已停止 ' + ch.name, 'success');
+  toast('已停止 ' + displayChannelName(ch.name), 'success');
 }

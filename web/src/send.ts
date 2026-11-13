@@ -3,7 +3,7 @@
  */
 import { sendFrame } from './api';
 import { els } from './dom';
-import { parseHex } from './format';
+import { displayChannelName, parseHex } from './format';
 import { state } from './state';
 import { setLastLog, toast } from './toast';
 import type { ChannelStatusDto, SendBody, StatusDto } from './types';
@@ -41,7 +41,7 @@ export function parseSendData(raw: string): number[] | null {
 
 /** 下拉框显示名：通道 name（USB 为 CAN1/CAN2，SocketCAN 为接口名），USB 只听模式加后缀。 */
 function channelLabel(channel: ChannelStatusDto): string {
-  return channel.name + (channel.mode === 'listen_only' ? '（只听）' : '');
+  return displayChannelName(channel.name) + (channel.mode === 'listen_only' ? '（只听）' : '');
 }
 
 /** 依据运行中的通道重建发送通道下拉框；保留用户选择。 */
@@ -169,7 +169,7 @@ export async function sendCurrentFrame(applyStatus: (st: StatusDto) => void): Pr
   const status = await sendFrame(body);
   if (status) applyStatus(status);
   const channelInfo = state.status?.channels.find((item) => item.index === channel) ?? null;
-  const channelName = channelInfo ? channelInfo.name : 'CH' + (channel + 1);
+  const channelName = channelInfo ? displayChannelName(channelInfo.name) : 'CH' + (channel + 1);
   const label = channelName + ' 0x' + id.toString(16).toUpperCase();
   const detail = remote ? '远程帧 DLC ' + dlc : bytes.length + ' 字节';
   toast('已发送 ' + label + ' （' + detail + '）', 'success');

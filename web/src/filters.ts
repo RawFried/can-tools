@@ -8,7 +8,7 @@ import { els, q, filterTplRow } from './dom';
 import { deriveAcceptanceFilter, describeHardwareFilter } from './filters-model';
 /* channels.ts 通过 filters 取用滤波推导，保持依赖方向简洁 */
 export { deriveAcceptanceFilter };
-import { parseHex } from './format';
+import { displayChannelName, parseHex } from './format';
 import { state } from './state';
 import { setLastLog, toast } from './toast';
 import type {
@@ -220,6 +220,6 @@ export async function applyFiltersLive(
 
   const status = await updateFilters({ channels: [update] });
   if (status) applyStatus(status);
-  toast('滤波已实时更新：' + target.name + '（通道未停止）', 'success');
-  setLastLog('滤波已实时更新：' + target.name);
+  toast('滤波已实时更新：' + displayChannelName(target.name) + '（通道未停止）', 'success');
+  setLastLog('滤波已实时更新：' + displayChannelName(target.name));
 }
