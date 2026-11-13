@@ -1,23 +1,56 @@
-/* ---------- 录制 ---------- */
+/* ---------- 录制（CSV） ---------- */
+/* 工具行：左侧起停按钮，中间行内录制信息，右侧数据目录；窄屏整体换行 */
+.rec-toolbar {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.rec-actions { display: flex; gap: 8px; flex: none; }
+
+/* 录制中：行内胶囊（文件名可省略、数字等宽，不随帧数增长而抖动） */
 .rec-active {
-  display: grid; gap: 6px;
+  display: flex; align-items: center; gap: 12px;
+  flex: 1 1 260px; min-width: 0; max-width: 520px;
+  padding: 4px 12px;
   border: 1px solid var(--err-line);
   background: var(--err-dim);
-  border-radius: 8px; padding: 10px 12px;
+  border-radius: 999px;
 }
-.rec-head { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .rec-dot {
-  width: 9px; height: 9px; border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%;
   background: var(--err); flex: none;
   box-shadow: 0 0 8px var(--err);
   animation: pulse 2.4s ease-in-out infinite;
 }
 .rec-file {
-  font: 600 12px/1.3 var(--font-mono);
+  flex: 1 1 140px; min-width: 0;
+  font: 600 12px/1.5 var(--font-mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.rec-sub {
-  display: flex; gap: 14px;
-  font: 400 11.5px/1.4 var(--font-mono); color: var(--text-mid);
-  flex-wrap: wrap;
+.rec-stat {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  flex: none;
+  font: 400 11.5px/1.5 var(--font-mono);
+  color: var(--text-mid);
+  white-space: nowrap;
+}
+.rec-num {
+  display: inline-block; min-width: 4ch; text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* 数据目录：贴右显示，路径过长时省略而不是把工具行撑破 */
+.rec-dir {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-left: auto; min-width: 0; max-width: 100%;
+  font-size: 11px; color: var(--text-faint);
+  white-space: nowrap;
+}
+.rec-dir .rec-path {
+  flex: 0 1 auto; min-width: 0; max-width: 300px;
+  font: 500 11px/1.5 var(--font-mono);
+  color: var(--text-mid);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }

@@ -9,5 +9,3 @@
 }
 /* 公式与区间表达式不换行，可在卡片内横向滚动 */
 .hint code.nobreak { white-space: nowrap; overflow-x: auto; display: inline-block; max-width: 100%; overflow-wrap: normal; }
-/* 服务器路径：整段不折行，超出时横向滚动 */
-.hint code.code-path { display: block; white-space: nowrap; overflow-x: auto; overflow-wrap: normal; margin-top: 2px; }
