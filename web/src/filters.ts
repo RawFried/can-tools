@@ -6,6 +6,7 @@ import { updateFilters } from './api';
 import { els, q, filterTplRow } from './dom';
 import { deriveAcceptanceFilter, describeHardwareFilter } from './filters-model';
 import { parseHex } from './format';
+import { state } from './state';
 import { setLastLog, toast } from './toast';
 import type { ConfigBody, SoftwareFilterDto, StatusDto } from './types';
 import { asBaud, asMode } from './types';
@@ -106,9 +107,18 @@ function collectRanges(): SoftwareFilterDto[] | null {
 
 /** 从表单收集 POST /api/config 请求体；校验失败时提示并返回 null。 */
 export function collectConfig(): ConfigBody | null {
-  const channels = selectedChannels();
-  if (channels.length === 0) {
-    toast('请至少选择一个通道', 'warn');
+  const usbSelected = selectedChannels();
+  /* USB 通道只有在设备已打开时才可能启动; 设备关闭时只提交 SocketCAN 链路。 */
+  const usbOpen = state.status?.device.open === true;
+  const channels = usbOpen ? usbSelected : [];
+  const socketcan = [...state.scanSelected];
+  if (channels.length === 0 && socketcan.length === 0) {
+    toast(
+      usbSelected.length > 0
+        ? '设备未打开，请先打开设备或取消勾选 USB 通道'
+        : '请至少选择一个通道或链路',
+      'warn'
+    );
     return null;
   }
 
@@ -119,7 +129,14 @@ export function collectConfig(): ConfigBody | null {
   if (software_filters === null) return null;
 
   /* 硬件滤波由区间列表统一推导，用户不再直接编辑验收码/屏蔽码 */
-  return { channels, baud, mode, filter: deriveAcceptanceFilter(software_filters), software_filters };
+  return {
+    channels,
+    baud,
+    mode,
+    filter: deriveAcceptanceFilter(software_filters),
+    software_filters,
+    socketcan,
+  };
 }
 
 /** 硬件预过滤徽标：跟随每次状态推送，取首个运行中（或首个有滤波的）通道回报。 */
@@ -158,14 +175,26 @@ export function addRangeRow(): void {
 /**
  * 「实时应用滤波」：硬件与软件滤波同源，均由区间列表推导后一起下发。
  *
+ * 只向运行中的 USB 通道下发硬件滤波；若未勾选 USB 但仍有运行中的链路
+ * （例如只启动了 SocketCAN），则以空 channels 更新全局软件滤波。
+ *
  * applyStatus 由 events 注入，避免 filters ↔ status 直接互相 import。
  */
 export async function applyFiltersLive(
   applyStatus: (st: StatusDto) => void
 ): Promise<void> {
-  const channels = selectedChannels();
-  if (channels.length === 0) {
-    toast('请至少选择一个通道', 'warn');
+  const checkedUsb = selectedChannels();
+  const st = state.status;
+  const channels = checkedUsb.filter(
+    (index) => st !== null && st.channels.some((c) => c.index === index && c.running)
+  );
+  if (checkedUsb.length > 0 && channels.length !== checkedUsb.length) {
+    toast('已勾选的 USB 通道未运行，请先启动或取消勾选', 'warn');
+    return;
+  }
+  const anyRunning = st !== null && st.channels.some((c) => c.running);
+  if (checkedUsb.length === 0 && !anyRunning) {
+    toast('请至少勾选一个运行中的通道，或先启动一条链路', 'warn');
     return;
   }
   const software_filters = collectRanges();
@@ -174,7 +203,12 @@ export async function applyFiltersLive(
   const filter = deriveAcceptanceFilter(software_filters);
   const status = await updateFilters(channels, filter, software_filters);
   if (status) applyStatus(status);
-  const names = channels.map((channel) => 'CAN' + (channel + 1)).join('、');
+  const names =
+    channels.length > 0
+      ? channels
+          .map((index) => st?.channels.find((c) => c.index === index)?.name ?? 'CAN' + (index + 1))
+          .join('、')
+      : '全部链路（仅软件滤波）';
   toast('滤波已实时更新：' + names + '（通道未停止）', 'success');
   setLastLog('滤波已实时更新：' + names);
 }

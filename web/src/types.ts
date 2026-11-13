@@ -5,6 +5,12 @@
 
 /* ---------- API 数据形状（与 docs/api.md 一致） ---------- */
 
+import { parseNullableDbc } from './dbc-types';
+import type { DbcDefinitionDto } from './dbc-types';
+
+/* DBC 契约已拆到 dbc-types.ts；重新导出以保持既有 import 路径不变 */
+export * from './dbc-types';
+
 export const BAUDS = ['5k', '10k', '20k', '50k', '100k', '125k', '250k', '500k', '800k', '1000k'] as const;
 export type Baud = typeof BAUDS[number];
 
@@ -32,12 +38,36 @@ export interface AcceptanceFilterDto {
   mode: FilterMode;
 }
 
+/** 通道来源：USB 硬件的 CAN1/CAN2，或 Linux SocketCAN 链路。 */
+export type ChannelSource = 'usb' | 'socketcan';
+
 export interface ChannelStatusDto {
   index: number;
+  source: ChannelSource;
+  name: string;
   running: boolean;
   baud: Baud | null;
   mode: CanMode | null;
   filter: AcceptanceFilterDto | null;
+  /** SocketCAN 链路速率（sysfs 可读时有值），USB 为 null。 */
+  bitrate: number | null;
+  /** SocketCAN 接口状态（up/down/unknown），USB 为 null。 */
+  state: string | null;
+}
+
+/** GET /api/devices 中 socketcan 数组的项。 */
+export interface SocketCanLinkDto {
+  name: string;
+  channel: number;
+  bitrate: number | null;
+  state: string | null;
+  running: boolean;
+}
+
+/** GET /api/devices 响应：USB 设备列表 + 发现的 SocketCAN 链路。 */
+export interface DevicesResponseDto {
+  devices: DeviceInfoDto[];
+  socketcan: SocketCanLinkDto[];
 }
 
 export interface SoftwareFilterDto {
@@ -93,54 +123,6 @@ export interface RecordingFileDto {
   modified_ms: number;
 }
 
-/* ---------- DBC 定义（与 /tmp/opencode/dbc-contract.md 第 1 节一致） ---------- */
-
-export type DbcValueKind = 'unsigned' | 'signed' | 'float' | 'double';
-
-/** VAL_ 取值表项；raw 为 i64，可负。 */
-export interface DbcValueDto {
-  raw: number;
-  label: string;
-}
-
-/** 多路复用信息：M 信号 is_multiplexer=true、value=null；mN 信号 value=N。 */
-export interface DbcMuxDto {
-  is_multiplexer: boolean;
-  value: number | null;
-}
-
-export interface DbcSignalDto {
-  name: string;
-  start_bit: number;
-  length: number;
-  little_endian: boolean;
-  signed: boolean;
-  factor: number;
-  offset: number;
-  min: number;
-  max: number;
-  unit: string;
-  receivers: string[];
-  value_kind: DbcValueKind;
-  mux: DbcMuxDto | null;
-  values: DbcValueDto[];
-}
-
-export interface DbcMessageDto {
-  id: number;
-  extended: boolean;
-  name: string;
-  dlc: number;
-  sender: string;
-  signals: DbcSignalDto[];
-}
-
-export interface DbcDefinitionDto {
-  name: string;
-  loaded_at_ms: number;
-  messages: DbcMessageDto[];
-}
-
 /** POST /api/config 请求体 */
 export interface ConfigBody {
   channels: number[];
@@ -148,6 +130,8 @@ export interface ConfigBody {
   mode: CanMode;
   filter: AcceptanceFilterDto;
   software_filters: SoftwareFilterDto[];
+  /** 要启动/重启的 SocketCAN 接口名；channels 与 socketcan 不可同时为空。 */
+  socketcan: string[];
 }
 
 /** POST /api/send 请求体 */
@@ -244,7 +228,19 @@ export function parseStatusDto(v: unknown): StatusDto | null {
   if (Array.isArray(v['channels'])) {
     for (const c of v['channels']) {
       if (!isObj(c)) continue;
-      const f = isObj(c['filter'])
+      const index = numOr(c['index'], channels.length);
+      /* 旧版状态没有 source/name 字段：按索引推断来源并给出可读名称 */
+      const source: ChannelSource =
+        c['source'] === 'usb'
+          ? 'usb'
+          : c['source'] === 'socketcan'
+            ? 'socketcan'
+            : index < 2
+              ? 'usb'
+              : 'socketcan';
+      const fallbackName = source === 'usb' ? 'CAN' + (index + 1) : 'CH' + (index + 1);
+      const name = strOr(c['name'], '').trim() || fallbackName;
+      const filter = isObj(c['filter'])
         ? {
             acc_code: numOr(c['filter']['acc_code'], 0),
             acc_mask: numOr(c['filter']['acc_mask'], 0xffffffff),
@@ -252,11 +248,15 @@ export function parseStatusDto(v: unknown): StatusDto | null {
           }
         : null;
       channels.push({
-        index: numOr(c['index'], channels.length),
+        index,
+        source,
+        name,
         running: c['running'] === true,
         baud: asBaud(c['baud']),
         mode: asMode(c['mode']),
-        filter: f,
+        filter,
+        bitrate: isNum(c['bitrate']) ? c['bitrate'] : null,
+        state: isStr(c['state']) ? c['state'] : null,
       });
     }
   }
@@ -298,20 +298,41 @@ export function parseStatusDto(v: unknown): StatusDto | null {
   };
 }
 
-export function parseDevicesDto(v: unknown): DeviceInfoDto[] {
-  if (!isObj(v) || !Array.isArray(v['devices'])) return [];
-  const out: DeviceInfoDto[] = [];
-  for (const d of v['devices']) {
-    if (!isObj(d)) continue;
-    out.push({
-      index: numOr(d['index'], 0),
-      fw_version: cleanText(d['fw_version']),
-      serial: cleanText(d['serial']),
-      hw_type: cleanText(d['hw_type']),
-      channel_count: numOr(d['channel_count'], 0),
-    });
+/** 校验并收窄 GET /api/devices；旧响应缺少 socketcan 时按空列表处理。 */
+export function parseDevicesDto(v: unknown): DevicesResponseDto {
+  const devices: DeviceInfoDto[] = [];
+  const socketcan: SocketCanLinkDto[] = [];
+  if (!isObj(v)) return { devices, socketcan };
+
+  if (Array.isArray(v['devices'])) {
+    for (const d of v['devices']) {
+      if (!isObj(d)) continue;
+      devices.push({
+        index: numOr(d['index'], 0),
+        fw_version: cleanText(d['fw_version']),
+        serial: cleanText(d['serial']),
+        hw_type: cleanText(d['hw_type']),
+        channel_count: numOr(d['channel_count'], 0),
+      });
+    }
   }
-  return out;
+
+  if (Array.isArray(v['socketcan'])) {
+    for (const l of v['socketcan']) {
+      if (!isObj(l)) continue;
+      const name = cleanText(l['name']);
+      if (name.length === 0) continue;
+      socketcan.push({
+        name,
+        channel: numOr(l['channel'], 2 + socketcan.length),
+        bitrate: isNum(l['bitrate']) ? l['bitrate'] : null,
+        state: isStr(l['state']) ? l['state'] : null,
+        running: l['running'] === true,
+      });
+    }
+  }
+
+  return { devices, socketcan };
 }
 
 export function parseRecordingsDto(v: unknown): RecordingFileDto[] {
@@ -326,101 +347,6 @@ export function parseRecordingsDto(v: unknown): RecordingFileDto[] {
     });
   }
   return out;
-}
-
-const DBC_VALUE_KINDS: readonly DbcValueKind[] = ['unsigned', 'signed', 'float', 'double'];
-
-function asValueKind(v: unknown): DbcValueKind {
-  return isStr(v) && (DBC_VALUE_KINDS as readonly string[]).includes(v)
-    ? (v as DbcValueKind)
-    : 'unsigned';
-}
-
-function parseDbcValues(v: unknown): DbcValueDto[] {
-  if (!Array.isArray(v)) return [];
-  const out: DbcValueDto[] = [];
-  for (const it of v) {
-    if (!isObj(it)) continue;
-    out.push({ raw: numOr(it['raw'], 0), label: strOr(it['label'], '') });
-  }
-  return out;
-}
-
-function parseDbcMux(v: unknown): DbcMuxDto | null {
-  if (!isObj(v)) return null;
-  return {
-    is_multiplexer: v['is_multiplexer'] === true,
-    value: isNum(v['value']) ? v['value'] : null,
-  };
-}
-
-function parseDbcSignal(v: unknown): DbcSignalDto | null {
-  if (!isObj(v)) return null;
-  return {
-    name: strOr(v['name'], ''),
-    start_bit: numOr(v['start_bit'], 0),
-    length: numOr(v['length'], 0),
-    little_endian: v['little_endian'] !== false,
-    signed: v['signed'] === true,
-    factor: numOr(v['factor'], 1),
-    offset: numOr(v['offset'], 0),
-    min: numOr(v['min'], 0),
-    max: numOr(v['max'], 0),
-    unit: strOr(v['unit'], ''),
-    receivers: Array.isArray(v['receivers']) ? v['receivers'].filter(isStr) : [],
-    value_kind: asValueKind(v['value_kind']),
-    mux: parseDbcMux(v['mux']),
-    values: parseDbcValues(v['values']),
-  };
-}
-
-function parseDbcMessage(v: unknown): DbcMessageDto | null {
-  if (!isObj(v)) return null;
-  const signals: DbcSignalDto[] = [];
-  if (Array.isArray(v['signals'])) {
-    for (const s of v['signals']) {
-      const parsed = parseDbcSignal(s);
-      if (parsed) signals.push(parsed);
-    }
-  }
-  return {
-    id: numOr(v['id'], 0),
-    extended: v['extended'] === true,
-    name: strOr(v['name'], ''),
-    dlc: numOr(v['dlc'], 8),
-    sender: strOr(v['sender'], ''),
-    signals,
-  };
-}
-
-/**
- * 校验并收窄未知 JSON 为 DbcDefinitionDto；非对象返回 null。
- * 字段缺失时给默认值（messages/signals 非数组或为空按空数组），保证 key 齐全。
- */
-export function parseDbcDto(v: unknown): DbcDefinitionDto | null {
-  if (!isObj(v)) return null;
-  const messages: DbcMessageDto[] = [];
-  if (Array.isArray(v['messages'])) {
-    for (const m of v['messages']) {
-      const parsed = parseDbcMessage(m);
-      if (parsed) messages.push(parsed);
-    }
-  }
-  return {
-    name: strOr(v['name'], ''),
-    loaded_at_ms: numOr(v['loaded_at_ms'], 0),
-    messages,
-  };
-}
-
-/**
- * 收窄 `dbc` 字段：null → null（无定义）；undefined 或非法 → undefined（不可用）。
- * 调用方据此区分「明确没有定义」与「字段损坏」。
- */
-export function parseNullableDbc(v: unknown): DbcDefinitionDto | null | undefined {
-  if (v === null) return null;
-  if (v === undefined) return undefined;
-  return parseDbcDto(v) ?? undefined;
 }
 
 /** 校验 WS 消息；无法识别（含未知 type）返回 null，由调用方忽略。 */

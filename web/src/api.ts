@@ -3,7 +3,7 @@
  */
 import type {
   ConfigBody,
-  DeviceInfoDto,
+  DevicesResponseDto,
   RecordingFileDto,
   SendBody,
   SoftwareFilterDto,
@@ -58,7 +58,8 @@ export async function fetchStatus(): Promise<StatusDto | null> {
   return parseStatusDto(await api('/api/status'));
 }
 
-export async function fetchDevices(): Promise<DeviceInfoDto[]> {
+/** 设备与链路发现：USB 设备列表 + SocketCAN 链路列表。 */
+export async function fetchDevices(): Promise<DevicesResponseDto> {
   return parseDevicesDto(await api('/api/devices'));
 }
 
@@ -88,7 +89,10 @@ export async function stopChannels(): Promise<StatusDto | null> {
   return statusOf(await api('/api/stop', 'POST', {}));
 }
 
-/** 实时更新硬件/软件滤波（通道保持运行）。 */
+/**
+ * 实时更新硬件/软件滤波（通道保持运行）。
+ * channels 可为空数组：仅更新对所有链路生效的软件滤波。
+ */
 export async function updateFilters(
   channels: number[],
   filter: AcceptanceFilterDto,

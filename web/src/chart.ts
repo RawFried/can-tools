@@ -1,6 +1,8 @@
 /**
  * DBC 信号曲线渲染器（小多图）：
  * - 每个序列一条横带，Y 轴各自自适应（信号单位可能不同，禁止共用 Y 轴）；
+ *   窗口内恒定值（上下刻度格式化后相同）按 |中值| 的 5%（至少 1）给对称余量，
+ *   曲线居中、上下刻度可区分；正常序列给 12% 余量防波峰压到标注条；
  * - 共享底部相对时间轴（如 -30s … 0s），窗口右端对齐最新样本；
  * - 每像素列做 min/max 抽稀，超长样本数组不拖慢绘制；
  * - 网格/文字颜色经 getComputedStyle 读取 app.css 自定义属性，
@@ -356,12 +358,17 @@ export class SignalChart {
       if (v > dHi) dHi = v;
     }
     if (dLo > dHi) return; // 窗口内全为非法值
+    /* 恒定/近恒定判定：上下刻度格式化后相同即视为不可区分（涵盖 range === 0 与
+       大数值下的微小抖动），此时实际范围无法作为刻度展示 */
+    const flat = fmtVal(dHi) === fmtVal(dLo);
     let lo = dLo;
     let hi = dHi;
-    if (lo === hi) {
-      const d = Math.max(Math.abs(lo) * 0.1, 0.5);
-      lo -= d;
-      hi += d;
+    if (flat) {
+      /* 恒定值：按 |中值| 的 5%（至少 1）给对称余量，曲线居中、上下刻度可区分 */
+      const mid = (dHi + dLo) / 2;
+      const d = Math.max(Math.abs(mid) * 0.05, 1);
+      lo = mid - d;
+      hi = mid + d;
     } else {
       /* 12% 余量：波峰与标注条之间保持可视间隙（窄画布/字体回退时仍不压字） */
       const pad = (hi - lo) * 0.12;
@@ -371,12 +378,13 @@ export class SignalChart {
     const yOf = (v: number): number => innerTop + (1 - (v - lo) / (hi - lo)) * (innerBottom - innerTop);
     const xOf = (t: number): number => plotL + ((t - tLeft) / this.windowMs) * span;
 
-    /* 左侧范围刻度（实际数据范围，不含余量）；用 mid 色保证浅色主题可读 */
+    /* 左侧范围刻度：正常显示实际数据范围；恒定序列显示含余量的轴范围，
+       否则上下两个刻度格式化后相同（如都是 952），失去轴信息 */
     ctx.textAlign = 'right';
     ctx.font = '400 9.5px ' + th.mono;
     ctx.fillStyle = th.mid;
-    ctx.fillText(fmtVal(dHi), plotL - 6, innerTop + 8);
-    ctx.fillText(fmtVal(dLo), plotL - 6, innerBottom - 1);
+    ctx.fillText(fmtVal(flat ? hi : dHi), plotL - 6, innerTop + 8);
+    ctx.fillText(fmtVal(flat ? lo : dLo), plotL - 6, innerBottom - 1);
 
     /* 每像素列 min/max 抽稀 */
     const cols: Column[] = [];

@@ -48,6 +48,9 @@ export const els = {
   chipCh2: byId<HTMLElement>('chipCh2'),
   chipCh2State: byId<HTMLElement>('chipCh2State'),
   chipCh2Sub: byId<HTMLElement>('chipCh2Sub'),
+  scanList: byId<HTMLElement>('scanList'),
+  scanEmpty: byId<HTMLElement>('scanEmpty'),
+  scanStates: byId<HTMLElement>('scanStates'),
 
   /* 滤波器 */
   filterRangeList: byId<HTMLElement>('filterRangeList'),

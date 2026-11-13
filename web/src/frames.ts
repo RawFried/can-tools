@@ -64,8 +64,18 @@ function buildRow(f: FrameDto): HTMLTableRowElement {
   row.cells[1].textContent = fmtClock(f.time_ms);
 
   const badge = document.createElement('span');
-  badge.className = 'ch-badge ch' + (f.channel === 0 || f.channel === 1 ? f.channel : 'x');
-  badge.textContent = f.channel === 0 ? 'CAN1' : f.channel === 1 ? 'CAN2' : 'CH' + (f.channel + 1);
+  const info = state.status?.channels.find((item) => item.index === f.channel) ?? null;
+  if (info !== null && info.source === 'socketcan') badge.className = 'ch-badge ch-scan';
+  else if (f.channel === 0 || f.channel === 1) badge.className = 'ch-badge ch' + f.channel;
+  else badge.className = 'ch-badge chx';
+  badge.textContent =
+    info !== null
+      ? info.name
+      : f.channel === 0
+        ? 'CAN1'
+        : f.channel === 1
+          ? 'CAN2'
+          : 'CH' + (f.channel + 1);
   row.cells[2].appendChild(badge);
 
   row.cells[3].textContent = hexOf(f.id, f.extended ? 8 : 3);
@@ -83,12 +93,14 @@ function matchesFilter(f: FrameDto): boolean {
   const query = state.filter;
   if (!query) return true;
   const baseType = f.extended ? '扩展' : '标准';
+  const info = state.status?.channels.find((item) => item.index === f.channel) ?? null;
   const hay = [
     f.id.toString(16),
     String(f.seq),
     String(f.channel),
     String(f.channel + 1),
     'can' + f.channel,
+    info ? info.name : '',
     f.data,
     baseType,
     f.remote ? '远程' : '',

@@ -54,9 +54,9 @@
         <div class="device-list" id="deviceList" role="radiogroup" aria-label="检测到的 USBCAN 设备"></div>
         <div class="empty-inline" id="deviceEmpty" hidden>未检测到 USBCAN 设备（04d8:0053）。<br>插入设备后点击「刷新」。</div>
         <div class="btn-row">
-          <button class="btn" id="btnRefreshDevices" type="button">
+          <button class="btn" id="btnRefreshDevices" type="button" title="同时扫描 USBCAN 设备与 SocketCAN 接口">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
-            <span>刷新设备列表</span>
+            <span>刷新设备与链路</span>
           </button>
         </div>
         <dl class="kv" id="deviceInfo" hidden>
@@ -87,9 +87,10 @@
             <div class="row1"><span class="chip-mini ch2">CAN2</span><span class="st"><span class="dot"></span><span id="chipCh2State">已停止</span></span></div>
             <div class="sub" id="chipCh2Sub">未运行</div>
           </div>
+          <div class="scan-states" id="scanStates" aria-label="SocketCAN 链路状态"></div>
         </div>
         <div class="field">
-          <span class="field-label" id="lb-ch">通道（至少选择一个）</span>
+          <span class="field-label" id="lb-ch">USB 通道（与 SocketCAN 链路至少选其一）</span>
           <div class="ch-pick" role="group" aria-labelledby="lb-ch">
             <label class="ch-toggle t1"><input type="checkbox" id="ch1Check" checked><span class="ch-label ch1">CAN1</span></label>
             <label class="ch-toggle t2"><input type="checkbox" id="ch2Check"><span class="ch-label ch2">CAN2</span></label>
@@ -118,6 +119,12 @@
             <label><input type="radio" name="mode" value="self_test"><span>自测</span></label>
           </div>
         </div>
+        <div class="field">
+          <span class="field-label" id="lb-scan">SocketCAN 链路（可与 USB 通道同时启动）</span>
+          <div class="scan-list" id="scanList" role="group" aria-labelledby="lb-scan"></div>
+          <div class="scan-empty" id="scanEmpty" hidden>未发现 SocketCAN 接口（需在系统中先创建 canX）</div>
+        </div>
+        <p class="hint">SocketCAN 链路的速率由系统配置决定，可与 USB 通道同时启动；链路未启用时启动会给出提示，可先在系统中启用接口（如 <code>ip link set can0 up</code>）。「刷新设备与链路」会同时扫描 USB 设备与 SocketCAN 接口。</p>
         <div class="btn-row">
           <button class="btn btn-primary" id="btnApplyConfig" type="button" disabled>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 10 17.5 19 6.5"/></svg>

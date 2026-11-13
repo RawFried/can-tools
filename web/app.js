@@ -42,6 +42,9 @@
     chipCh2: byId("chipCh2"),
     chipCh2State: byId("chipCh2State"),
     chipCh2Sub: byId("chipCh2Sub"),
+    scanList: byId("scanList"),
+    scanEmpty: byId("scanEmpty"),
+    scanStates: byId("scanStates"),
     /* 滤波器 */
     filterRangeList: byId("filterRangeList"),
     filterEmpty: byId("filterEmpty"),
@@ -121,151 +124,7 @@
   var recTplRow = els.recRowTpl.content.firstElementChild;
   var filterTplRow = els.filterRowTpl.content.firstElementChild;
 
-  // src/types.ts
-  var BAUDS = ["5k", "10k", "20k", "50k", "100k", "125k", "250k", "500k", "800k", "1000k"];
-  var MODES = ["normal", "listen_only", "self_test"];
-  function isObj(v) {
-    return typeof v === "object" && v !== null && !Array.isArray(v);
-  }
-  function isStr(v) {
-    return typeof v === "string";
-  }
-  function isNum(v) {
-    return typeof v === "number" && Number.isFinite(v);
-  }
-  function numOr(v, d) {
-    return isNum(v) ? v : d;
-  }
-  function strOr(v, d) {
-    return isStr(v) ? v : d;
-  }
-  function cleanText(v) {
-    return isStr(v) ? v.replace(/[\u0000-\u001f\u007f]/g, "").trim() : "";
-  }
-  function asFilterMode(v) {
-    const n = numOr(v, 1);
-    return n === 0 || n === 2 ? n : 1;
-  }
-  function asBaud(v) {
-    return isStr(v) && BAUDS.includes(v) ? v : null;
-  }
-  function asMode(v) {
-    return isStr(v) && MODES.includes(v) ? v : null;
-  }
-  function parseFrameDto(o) {
-    return {
-      seq: numOr(o["seq"], 0),
-      time_ms: numOr(o["time_ms"], Date.now()),
-      device_ts: numOr(o["device_ts"], 0),
-      channel: numOr(o["channel"], 0),
-      id: numOr(o["id"], 0),
-      extended: o["extended"] === true,
-      remote: o["remote"] === true,
-      dlc: numOr(o["dlc"], 0),
-      data: strOr(o["data"], "")
-    };
-  }
-  function parseFrames(v) {
-    if (!Array.isArray(v)) return [];
-    const out = [];
-    for (const it of v) if (isObj(it)) out.push(parseFrameDto(it));
-    return out;
-  }
-  function parseStatusDto(v) {
-    if (!isObj(v)) return null;
-    const dev = isObj(v["device"]) ? v["device"] : null;
-    if (!dev) return null;
-    let info = null;
-    if (isObj(dev["info"])) {
-      const i = dev["info"];
-      info = {
-        index: numOr(i["index"], 0),
-        fw_version: cleanText(i["fw_version"]),
-        serial: cleanText(i["serial"]),
-        hw_type: cleanText(i["hw_type"]),
-        channel_count: numOr(i["channel_count"], 0)
-      };
-    }
-    const channels = [];
-    if (Array.isArray(v["channels"])) {
-      for (const c of v["channels"]) {
-        if (!isObj(c)) continue;
-        const f = isObj(c["filter"]) ? {
-          acc_code: numOr(c["filter"]["acc_code"], 0),
-          acc_mask: numOr(c["filter"]["acc_mask"], 4294967295),
-          mode: asFilterMode(c["filter"]["mode"])
-        } : null;
-        channels.push({
-          index: numOr(c["index"], channels.length),
-          running: c["running"] === true,
-          baud: asBaud(c["baud"]),
-          mode: asMode(c["mode"]),
-          filter: f
-        });
-      }
-    }
-    const software_filters = [];
-    if (Array.isArray(v["software_filters"])) {
-      for (const f of v["software_filters"]) {
-        if (!isObj(f)) continue;
-        software_filters.push({
-          extended: f["extended"] === true,
-          start: numOr(f["start"], 0),
-          end: numOr(f["end"], 0)
-        });
-      }
-    }
-    const rec = isObj(v["recording"]) ? v["recording"] : {};
-    const stats = isObj(v["stats"]) ? v["stats"] : {};
-    const srv = isObj(v["server"]) ? v["server"] : {};
-    return {
-      device: { open: dev["open"] === true, info },
-      channels,
-      software_filters,
-      recording: {
-        active: rec["active"] === true,
-        file: isStr(rec["file"]) ? rec["file"] : null,
-        frames: isNum(rec["frames"]) ? rec["frames"] : null,
-        started_at_ms: isNum(rec["started_at_ms"]) ? rec["started_at_ms"] : null
-      },
-      stats: {
-        rx_frames: numOr(stats["rx_frames"], 0),
-        filtered_frames: numOr(stats["filtered_frames"], 0),
-        rx_rate: numOr(stats["rx_rate"], 0),
-        recorded_frames: numOr(stats["recorded_frames"], 0),
-        tx_frames: numOr(stats["tx_frames"], 0)
-      },
-      server: { version: strOr(srv["version"], ""), data_dir: strOr(srv["data_dir"], "") }
-    };
-  }
-  function parseDevicesDto(v) {
-    if (!isObj(v) || !Array.isArray(v["devices"])) return [];
-    const out = [];
-    for (const d of v["devices"]) {
-      if (!isObj(d)) continue;
-      out.push({
-        index: numOr(d["index"], 0),
-        fw_version: cleanText(d["fw_version"]),
-        serial: cleanText(d["serial"]),
-        hw_type: cleanText(d["hw_type"]),
-        channel_count: numOr(d["channel_count"], 0)
-      });
-    }
-    return out;
-  }
-  function parseRecordingsDto(v) {
-    if (!isObj(v) || !Array.isArray(v["recordings"])) return [];
-    const out = [];
-    for (const r of v["recordings"]) {
-      if (!isObj(r)) continue;
-      out.push({
-        name: strOr(r["name"], ""),
-        size: numOr(r["size"], 0),
-        modified_ms: numOr(r["modified_ms"], 0)
-      });
-    }
-    return out;
-  }
+  // src/dbc-types.ts
   var DBC_VALUE_KINDS = ["unsigned", "signed", "float", "double"];
   function asValueKind(v) {
     return isStr(v) && DBC_VALUE_KINDS.includes(v) ? v : "unsigned";
@@ -342,6 +201,177 @@
     if (v === null) return null;
     if (v === void 0) return void 0;
     return parseDbcDto(v) ?? void 0;
+  }
+
+  // src/types.ts
+  var BAUDS = ["5k", "10k", "20k", "50k", "100k", "125k", "250k", "500k", "800k", "1000k"];
+  var MODES = ["normal", "listen_only", "self_test"];
+  function isObj(v) {
+    return typeof v === "object" && v !== null && !Array.isArray(v);
+  }
+  function isStr(v) {
+    return typeof v === "string";
+  }
+  function isNum(v) {
+    return typeof v === "number" && Number.isFinite(v);
+  }
+  function numOr(v, d) {
+    return isNum(v) ? v : d;
+  }
+  function strOr(v, d) {
+    return isStr(v) ? v : d;
+  }
+  function cleanText(v) {
+    return isStr(v) ? v.replace(/[\u0000-\u001f\u007f]/g, "").trim() : "";
+  }
+  function asFilterMode(v) {
+    const n = numOr(v, 1);
+    return n === 0 || n === 2 ? n : 1;
+  }
+  function asBaud(v) {
+    return isStr(v) && BAUDS.includes(v) ? v : null;
+  }
+  function asMode(v) {
+    return isStr(v) && MODES.includes(v) ? v : null;
+  }
+  function parseFrameDto(o) {
+    return {
+      seq: numOr(o["seq"], 0),
+      time_ms: numOr(o["time_ms"], Date.now()),
+      device_ts: numOr(o["device_ts"], 0),
+      channel: numOr(o["channel"], 0),
+      id: numOr(o["id"], 0),
+      extended: o["extended"] === true,
+      remote: o["remote"] === true,
+      dlc: numOr(o["dlc"], 0),
+      data: strOr(o["data"], "")
+    };
+  }
+  function parseFrames(v) {
+    if (!Array.isArray(v)) return [];
+    const out = [];
+    for (const it of v) if (isObj(it)) out.push(parseFrameDto(it));
+    return out;
+  }
+  function parseStatusDto(v) {
+    if (!isObj(v)) return null;
+    const dev = isObj(v["device"]) ? v["device"] : null;
+    if (!dev) return null;
+    let info = null;
+    if (isObj(dev["info"])) {
+      const i = dev["info"];
+      info = {
+        index: numOr(i["index"], 0),
+        fw_version: cleanText(i["fw_version"]),
+        serial: cleanText(i["serial"]),
+        hw_type: cleanText(i["hw_type"]),
+        channel_count: numOr(i["channel_count"], 0)
+      };
+    }
+    const channels = [];
+    if (Array.isArray(v["channels"])) {
+      for (const c of v["channels"]) {
+        if (!isObj(c)) continue;
+        const index = numOr(c["index"], channels.length);
+        const source = c["source"] === "usb" ? "usb" : c["source"] === "socketcan" ? "socketcan" : index < 2 ? "usb" : "socketcan";
+        const fallbackName = source === "usb" ? "CAN" + (index + 1) : "CH" + (index + 1);
+        const name = strOr(c["name"], "").trim() || fallbackName;
+        const filter = isObj(c["filter"]) ? {
+          acc_code: numOr(c["filter"]["acc_code"], 0),
+          acc_mask: numOr(c["filter"]["acc_mask"], 4294967295),
+          mode: asFilterMode(c["filter"]["mode"])
+        } : null;
+        channels.push({
+          index,
+          source,
+          name,
+          running: c["running"] === true,
+          baud: asBaud(c["baud"]),
+          mode: asMode(c["mode"]),
+          filter,
+          bitrate: isNum(c["bitrate"]) ? c["bitrate"] : null,
+          state: isStr(c["state"]) ? c["state"] : null
+        });
+      }
+    }
+    const software_filters = [];
+    if (Array.isArray(v["software_filters"])) {
+      for (const f of v["software_filters"]) {
+        if (!isObj(f)) continue;
+        software_filters.push({
+          extended: f["extended"] === true,
+          start: numOr(f["start"], 0),
+          end: numOr(f["end"], 0)
+        });
+      }
+    }
+    const rec = isObj(v["recording"]) ? v["recording"] : {};
+    const stats = isObj(v["stats"]) ? v["stats"] : {};
+    const srv = isObj(v["server"]) ? v["server"] : {};
+    return {
+      device: { open: dev["open"] === true, info },
+      channels,
+      software_filters,
+      recording: {
+        active: rec["active"] === true,
+        file: isStr(rec["file"]) ? rec["file"] : null,
+        frames: isNum(rec["frames"]) ? rec["frames"] : null,
+        started_at_ms: isNum(rec["started_at_ms"]) ? rec["started_at_ms"] : null
+      },
+      stats: {
+        rx_frames: numOr(stats["rx_frames"], 0),
+        filtered_frames: numOr(stats["filtered_frames"], 0),
+        rx_rate: numOr(stats["rx_rate"], 0),
+        recorded_frames: numOr(stats["recorded_frames"], 0),
+        tx_frames: numOr(stats["tx_frames"], 0)
+      },
+      server: { version: strOr(srv["version"], ""), data_dir: strOr(srv["data_dir"], "") }
+    };
+  }
+  function parseDevicesDto(v) {
+    const devices = [];
+    const socketcan = [];
+    if (!isObj(v)) return { devices, socketcan };
+    if (Array.isArray(v["devices"])) {
+      for (const d of v["devices"]) {
+        if (!isObj(d)) continue;
+        devices.push({
+          index: numOr(d["index"], 0),
+          fw_version: cleanText(d["fw_version"]),
+          serial: cleanText(d["serial"]),
+          hw_type: cleanText(d["hw_type"]),
+          channel_count: numOr(d["channel_count"], 0)
+        });
+      }
+    }
+    if (Array.isArray(v["socketcan"])) {
+      for (const l of v["socketcan"]) {
+        if (!isObj(l)) continue;
+        const name = cleanText(l["name"]);
+        if (name.length === 0) continue;
+        socketcan.push({
+          name,
+          channel: numOr(l["channel"], 2 + socketcan.length),
+          bitrate: isNum(l["bitrate"]) ? l["bitrate"] : null,
+          state: isStr(l["state"]) ? l["state"] : null,
+          running: l["running"] === true
+        });
+      }
+    }
+    return { devices, socketcan };
+  }
+  function parseRecordingsDto(v) {
+    if (!isObj(v) || !Array.isArray(v["recordings"])) return [];
+    const out = [];
+    for (const r of v["recordings"]) {
+      if (!isObj(r)) continue;
+      out.push({
+        name: strOr(r["name"], ""),
+        size: numOr(r["size"], 0),
+        modified_ms: numOr(r["modified_ms"], 0)
+      });
+    }
+    return out;
   }
   function parseWsMessage(v) {
     if (!isObj(v)) return null;
@@ -732,12 +762,14 @@
         if (v > dHi) dHi = v;
       }
       if (dLo > dHi) return;
+      const flat = fmtVal(dHi) === fmtVal(dLo);
       let lo = dLo;
       let hi = dHi;
-      if (lo === hi) {
-        const d = Math.max(Math.abs(lo) * 0.1, 0.5);
-        lo -= d;
-        hi += d;
+      if (flat) {
+        const mid = (dHi + dLo) / 2;
+        const d = Math.max(Math.abs(mid) * 0.05, 1);
+        lo = mid - d;
+        hi = mid + d;
       } else {
         const pad = (hi - lo) * 0.12;
         lo -= pad;
@@ -748,8 +780,8 @@
       ctx.textAlign = "right";
       ctx.font = "400 9.5px " + th.mono;
       ctx.fillStyle = th.mid;
-      ctx.fillText(fmtVal(dHi), plotL - 6, innerTop + 8);
-      ctx.fillText(fmtVal(dLo), plotL - 6, innerBottom - 1);
+      ctx.fillText(fmtVal(flat ? hi : dHi), plotL - 6, innerTop + 8);
+      ctx.fillText(fmtVal(flat ? lo : dLo), plotL - 6, innerBottom - 1);
       const cols = [];
       let lastX = -1;
       for (let j = first; j <= last; j++) {
@@ -980,6 +1012,23 @@
   function hexOf(v, width) {
     return "0x" + v.toString(16).toUpperCase().padStart(width, "0");
   }
+  function fmtBitrateShort(bitrate) {
+    if (bitrate === null || !Number.isFinite(bitrate) || bitrate <= 0) return "—";
+    return Math.round(bitrate / 1e3) + "k";
+  }
+  function fmtBitrateLong(bitrate) {
+    if (bitrate === null || !Number.isFinite(bitrate) || bitrate <= 0) return "速率未知";
+    return Math.round(bitrate / 1e3) + " kbps";
+  }
+  function linkStateLabel(state2) {
+    if (state2 === "up") return "已启用";
+    if (state2 === "down") return "未启用";
+    if (state2 === "unknown" || state2 === null || state2.length === 0) return "状态未知";
+    return state2;
+  }
+  function fmtScanMeta(bitrate, state2, running) {
+    return fmtBitrateLong(bitrate) + " · " + (running ? "运行中" : linkStateLabel(state2));
+  }
   function parseHex(raw, max) {
     const s = raw.trim().toLowerCase().replace(/^0x/, "");
     if (!/^[0-9a-f]+$/.test(s)) return null;
@@ -993,6 +1042,8 @@
   var state = {
     status: null,
     devices: [],
+    socketcan: [],
+    scanSelected: /* @__PURE__ */ new Set(),
     selectedDevice: null,
     recordings: [],
     ws: null,
@@ -1516,9 +1567,15 @@
     return ranges;
   }
   function collectConfig() {
-    const channels = selectedChannels();
-    if (channels.length === 0) {
-      toast("请至少选择一个通道", "warn");
+    const usbSelected = selectedChannels();
+    const usbOpen = state.status?.device.open === true;
+    const channels = usbOpen ? usbSelected : [];
+    const socketcan = [...state.scanSelected];
+    if (channels.length === 0 && socketcan.length === 0) {
+      toast(
+        usbSelected.length > 0 ? "设备未打开，请先打开设备或取消勾选 USB 通道" : "请至少选择一个通道或链路",
+        "warn"
+      );
       return null;
     }
     const baud = asBaud(els.baudSelect.value) ?? "500k";
@@ -1526,7 +1583,14 @@
     const mode = checked ? asMode(checked.value) ?? "normal" : "normal";
     const software_filters = collectRanges();
     if (software_filters === null) return null;
-    return { channels, baud, mode, filter: deriveAcceptanceFilter(software_filters), software_filters };
+    return {
+      channels,
+      baud,
+      mode,
+      filter: deriveAcceptanceFilter(software_filters),
+      software_filters,
+      socketcan
+    };
   }
   function renderHwPrefilter(st) {
     const running = st.channels.find((c) => c.running);
@@ -1558,9 +1622,18 @@
     }
   }
   async function applyFiltersLive(applyStatus2) {
-    const channels = selectedChannels();
-    if (channels.length === 0) {
-      toast("请至少选择一个通道", "warn");
+    const checkedUsb = selectedChannels();
+    const st = state.status;
+    const channels = checkedUsb.filter(
+      (index) => st !== null && st.channels.some((c) => c.index === index && c.running)
+    );
+    if (checkedUsb.length > 0 && channels.length !== checkedUsb.length) {
+      toast("已勾选的 USB 通道未运行，请先启动或取消勾选", "warn");
+      return;
+    }
+    const anyRunning = st !== null && st.channels.some((c) => c.running);
+    if (checkedUsb.length === 0 && !anyRunning) {
+      toast("请至少勾选一个运行中的通道，或先启动一条链路", "warn");
       return;
     }
     const software_filters = collectRanges();
@@ -1568,7 +1641,7 @@
     const filter = deriveAcceptanceFilter(software_filters);
     const status = await updateFilters(channels, filter, software_filters);
     if (status) applyStatus2(status);
-    const names = channels.map((channel) => "CAN" + (channel + 1)).join("、");
+    const names = channels.length > 0 ? channels.map((index) => st?.channels.find((c) => c.index === index)?.name ?? "CAN" + (index + 1)).join("、") : "全部链路（仅软件滤波）";
     toast("滤波已实时更新：" + names + "（通道未停止）", "success");
     setLastLog("滤波已实时更新：" + names);
   }
@@ -1600,9 +1673,12 @@
     }
     return bytes.length <= 8 ? bytes : null;
   }
+  function channelLabel(channel) {
+    return channel.name + (channel.mode === "listen_only" ? "（只听）" : "");
+  }
   function syncSendChannels(st) {
     const running = st.channels.filter((channel) => channel.running);
-    const signature = running.map((channel) => channel.index + ":" + (channel.mode ?? "")).join(",");
+    const signature = running.map((channel) => channel.index + ":" + channel.name + ":" + (channel.mode ?? "")).join(",");
     if (signature === sendChannelSignature) return;
     sendChannelSignature = signature;
     const previous = els.sendChannel.value;
@@ -1618,7 +1694,7 @@
     const options = running.map((channel) => {
       const option = document.createElement("option");
       option.value = String(channel.index);
-      option.textContent = "CAN" + (channel.index + 1) + (channel.mode === "listen_only" ? "（只听）" : "");
+      option.textContent = channelLabel(channel);
       option.disabled = channel.mode === "listen_only";
       return option;
     });
@@ -1653,8 +1729,7 @@
     const bytes = remote ? [] : parseSendData(els.sendData.value);
     const dlc = remote ? Number(els.sendDlc.value) : bytes?.length ?? 0;
     let reason = "";
-    if (!open) reason = "先打开设备";
-    else if (running === null) reason = "先启动一个通道";
+    if (running === null) reason = open ? "先启动一个通道" : "先打开设备或启动链路";
     else if (running.mode === "listen_only") reason = "只听模式不可发送";
     else if (id === null) reason = "ID 无效或超出范围";
     else if (bytes === null) reason = "数据必须是 1–8 个十六进制字节";
@@ -1700,7 +1775,9 @@
     };
     const status = await sendFrame(body);
     if (status) applyStatus2(status);
-    const label = "CAN" + (channel + 1) + " 0x" + id.toString(16).toUpperCase();
+    const channelInfo = state.status?.channels.find((item) => item.index === channel) ?? null;
+    const channelName = channelInfo ? channelInfo.name : "CH" + (channel + 1);
+    const label = channelName + " 0x" + id.toString(16).toUpperCase();
     const detail = remote ? "远程帧 DLC " + dlc : bytes.length + " 字节";
     toast("已发送 " + label + " （" + detail + "）", "success");
     setLastLog("已发送 " + label + " （" + detail + "）");
@@ -1738,6 +1815,8 @@
       stateEl.textContent = ch.running ? "运行中" : "已停止";
       subEl.textContent = ch.running && ch.baud ? ch.baud + " · " + MODE_LABELS[ch.mode ?? "normal"] : "—";
     }
+    renderScanStates(st);
+    refreshScanMeta(st);
     els.recActive.hidden = !st.recording.active;
     els.recPill.hidden = !st.recording.active;
     if (st.recording.active) {
@@ -1760,20 +1839,58 @@
     updateControls();
     updateEmpty();
   }
+  function renderScanStates(st) {
+    const links = st.channels.filter((ch) => ch.source === "socketcan");
+    const frag = document.createDocumentFragment();
+    for (const ch of links) {
+      const chip = document.createElement("span");
+      chip.className = "scan-chip";
+      chip.classList.toggle("running", ch.running);
+      const name = document.createElement("span");
+      name.className = "scan-chip-name";
+      name.textContent = ch.name;
+      const sub = document.createElement("span");
+      sub.className = "scan-chip-sub";
+      if (ch.bitrate !== null) sub.textContent = fmtBitrateShort(ch.bitrate);
+      else sub.textContent = ch.running ? "运行中" : linkStateLabel(ch.state);
+      chip.append(name, sub);
+      frag.appendChild(chip);
+    }
+    els.scanStates.replaceChildren(frag);
+    els.scanStates.hidden = links.length === 0;
+  }
+  function refreshScanMeta(st) {
+    for (const item of els.scanList.querySelectorAll(".scan-item")) {
+      const check = item.querySelector(".scan-check");
+      const meta = item.querySelector(".scan-meta");
+      if (!check || !meta) continue;
+      const name = check.value;
+      const live = st.channels.find((ch) => ch.source === "socketcan" && ch.name === name) ?? null;
+      const known = state.socketcan.find((link) => link.name === name) ?? null;
+      const running = live !== null ? live.running : known !== null && known.running;
+      meta.textContent = fmtScanMeta(
+        live?.bitrate ?? known?.bitrate ?? null,
+        live?.state ?? known?.state ?? null,
+        running
+      );
+    }
+  }
   function updateControls() {
     const st = state.status;
     const open = st !== null && st.device.open;
-    const anyRunning = st !== null && st.channels.some((c) => c.running);
+    const channels = st?.channels ?? [];
+    const anyRunning = channels.some((c) => c.running);
     const recActive = st !== null && st.recording.active;
     const anyChannelChecked = els.ch1Check.checked || els.ch2Check.checked;
     const checkedChannels = selectedChannels();
-    const allCheckedRunning = checkedChannels.length > 0 && checkedChannels.every((index) => st?.channels[index]?.running === true);
+    const allCheckedRunning = checkedChannels.length > 0 && checkedChannels.every((index) => channels.some((c) => c.index === index && c.running));
+    const filterAllowed = checkedChannels.length > 0 ? allCheckedRunning : anyRunning;
     els.btnOpenDevice.disabled = open || state.devices.length === 0 || state.selectedDevice === null;
     els.btnCloseDevice.disabled = !open;
-    els.btnApplyConfig.disabled = !open || !anyChannelChecked;
-    els.btnApplyFilters.disabled = !open || !allCheckedRunning;
+    els.btnApplyConfig.disabled = !(open && anyChannelChecked || state.scanSelected.size > 0);
+    els.btnApplyFilters.disabled = !filterAllowed || checkedChannels.length > 0 && !open;
     els.btnStopChannels.disabled = !anyRunning;
-    els.btnRecStart.disabled = !open || recActive;
+    els.btnRecStart.disabled = !(open || anyRunning) || recActive;
     els.btnRecStop.disabled = !recActive;
     els.btnPauseView.disabled = !anyRunning;
     const rangeCount = rangeRowCount();
@@ -1786,8 +1903,9 @@
   function syncFormOnce(st) {
     if (state.formSynced) return;
     state.formSynced = true;
-    const running = st.channels.filter((c) => c.running);
-    const ref = running.length > 0 ? running[0] : st.channels.length > 0 ? st.channels[0] : null;
+    const usb = st.channels.filter((c) => c.source === "usb");
+    const running = usb.filter((c) => c.running);
+    const ref = running.length > 0 ? running[0] : usb.length > 0 ? usb[0] : null;
     if (ref) {
       if (ref.baud) els.baudSelect.value = ref.baud;
       if (ref.mode) {
@@ -1825,15 +1943,15 @@
     if (state.buffer.length > 0 && state.filter) {
       els.emptyTitle.textContent = "没有匹配的报文";
       els.emptyHint.textContent = "当前过滤条件未匹配任何报文，试着调整或清空过滤输入。";
-    } else if (!open) {
-      els.emptyTitle.textContent = "未连接设备";
-      els.emptyHint.textContent = "在左侧「设备连接」中选择设备并点击「打开设备」。";
-    } else if (!running) {
-      els.emptyTitle.textContent = "通道未启动";
-      els.emptyHint.textContent = "选择通道、波特率与滤波器，然后点击「应用配置并启动」。";
-    } else {
+    } else if (running) {
       els.emptyTitle.textContent = "等待 CAN 报文";
       els.emptyHint.textContent = "通道已启动，尚未收到报文；请确认总线波特率一致、滤波器未全部滤除。";
+    } else if (!open) {
+      els.emptyTitle.textContent = "未连接设备";
+      els.emptyHint.textContent = "在左侧「设备连接」中选择设备并点击「打开设备」，或勾选 SocketCAN 链路后启动。";
+    } else {
+      els.emptyTitle.textContent = "通道未启动";
+      els.emptyHint.textContent = "选择通道、波特率与滤波器，然后点击「应用配置并启动」。";
     }
   }
   async function runBusy(btn, fn) {
@@ -1874,6 +1992,47 @@
   }
 
   // src/devices.ts
+  function scanMetaText(link) {
+    const live = state.status?.channels.find(
+      (ch) => ch.source === "socketcan" && ch.name === link.name
+    ) ?? null;
+    const running = live !== null ? live.running : link.running;
+    return fmtScanMeta(
+      live?.bitrate ?? link.bitrate,
+      live?.state ?? link.state,
+      running
+    );
+  }
+  function renderScanList() {
+    const frag = document.createDocumentFragment();
+    for (const link of state.socketcan) {
+      const item = document.createElement("label");
+      item.className = "scan-item";
+      const checked = state.scanSelected.has(link.name);
+      item.classList.toggle("is-on", checked);
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.className = "scan-check";
+      input.value = link.name;
+      input.checked = checked;
+      const name = document.createElement("span");
+      name.className = "scan-name";
+      name.textContent = link.name;
+      const meta = document.createElement("span");
+      meta.className = "scan-meta";
+      meta.textContent = scanMetaText(link);
+      input.addEventListener("change", () => {
+        if (input.checked) state.scanSelected.add(link.name);
+        else state.scanSelected.delete(link.name);
+        item.classList.toggle("is-on", input.checked);
+        updateControls();
+      });
+      item.append(input, name, meta);
+      frag.appendChild(item);
+    }
+    els.scanList.replaceChildren(frag);
+    els.scanEmpty.hidden = state.socketcan.length > 0;
+  }
   function renderDevices() {
     const frag = document.createDocumentFragment();
     for (const dev of state.devices) {
@@ -1906,11 +2065,14 @@
     }
     els.deviceList.replaceChildren(frag);
     els.deviceEmpty.hidden = state.devices.length > 0;
+    renderScanList();
     updateControls();
   }
   async function loadDevices() {
     try {
-      state.devices = await fetchDevices();
+      const res = await fetchDevices();
+      state.devices = res.devices;
+      state.socketcan = res.socketcan;
       const st = state.status;
       const openIdx = st !== null && st.device.open && st.device.info ? st.device.info.index : null;
       if (openIdx !== null) {
@@ -2018,8 +2180,11 @@
     row.cells[0].textContent = fmtInt(f.seq);
     row.cells[1].textContent = fmtClock(f.time_ms);
     const badge = document.createElement("span");
-    badge.className = "ch-badge ch" + (f.channel === 0 || f.channel === 1 ? f.channel : "x");
-    badge.textContent = f.channel === 0 ? "CAN1" : f.channel === 1 ? "CAN2" : "CH" + (f.channel + 1);
+    const info = state.status?.channels.find((item) => item.index === f.channel) ?? null;
+    if (info !== null && info.source === "socketcan") badge.className = "ch-badge ch-scan";
+    else if (f.channel === 0 || f.channel === 1) badge.className = "ch-badge ch" + f.channel;
+    else badge.className = "ch-badge chx";
+    badge.textContent = info !== null ? info.name : f.channel === 0 ? "CAN1" : f.channel === 1 ? "CAN2" : "CH" + (f.channel + 1);
     row.cells[2].appendChild(badge);
     row.cells[3].textContent = hexOf(f.id, f.extended ? 8 : 3);
     const baseType = f.extended ? "扩展" : "标准";
@@ -2033,12 +2198,14 @@
     const query = state.filter;
     if (!query) return true;
     const baseType = f.extended ? "扩展" : "标准";
+    const info = state.status?.channels.find((item) => item.index === f.channel) ?? null;
     const hay = [
       f.id.toString(16),
       String(f.seq),
       String(f.channel),
       String(f.channel + 1),
       "can" + f.channel,
+      info ? info.name : "",
       f.data,
       baseType,
       f.remote ? "远程" : ""
@@ -2257,8 +2424,12 @@
         if (!body) return;
         const st = await applyConfig(body);
         if (st) applyStatus(st);
-        const names = body.channels.map((c) => "CAN" + (c + 1)).join("、");
-        toast("配置已应用，" + names + " 已启动 （" + body.baud + "）", "success");
+        const usbNames = body.channels.map(
+          (c) => state.status?.channels.find((ch) => ch.index === c)?.name ?? "CAN" + (c + 1)
+        );
+        const names = [...usbNames, ...body.socketcan].join("、");
+        const baudText = body.channels.length > 0 ? "（" + body.baud + "）" : "";
+        toast("配置已应用，" + names + " 已启动" + baudText, "success");
       });
     });
     els.btnStopChannels.addEventListener("click", () => {

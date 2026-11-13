@@ -1,7 +1,13 @@
 /**
  * 应用状态：单例 state（连接、缓冲、暂停、过滤器、表单同步标记）与 busy 按钮集合。
  */
-import type { DeviceInfoDto, FrameDto, RecordingFileDto, StatusDto } from './types';
+import type {
+  DeviceInfoDto,
+  FrameDto,
+  RecordingFileDto,
+  SocketCanLinkDto,
+  StatusDto,
+} from './types';
 
 /** 本地报文缓冲上限，与后端每通道缓冲策略无关（仅约束前端表格） */
 export const BUFFER_CAP = 5000;
@@ -9,6 +15,10 @@ export const BUFFER_CAP = 5000;
 export interface AppState {
   status: StatusDto | null;
   devices: DeviceInfoDto[];
+  /** 最近一次 /api/devices 发现的 SocketCAN 链路（可能已运行或未启用）。 */
+  socketcan: SocketCanLinkDto[];
+  /** 已勾选的 SocketCAN 接口名；刷新设备时刻意保留，避免暂时消失的链路丢失选择。 */
+  scanSelected: Set<string>;
   selectedDevice: number | null;
   recordings: RecordingFileDto[];
   ws: WebSocket | null;
@@ -26,6 +36,8 @@ export interface AppState {
 export const state: AppState = {
   status: null,
   devices: [],
+  socketcan: [],
+  scanSelected: new Set<string>(),
   selectedDevice: null,
   recordings: [],
   ws: null,

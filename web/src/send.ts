@@ -6,7 +6,7 @@ import { els } from './dom';
 import { parseHex } from './format';
 import { state } from './state';
 import { setLastLog, toast } from './toast';
-import type { SendBody, StatusDto } from './types';
+import type { ChannelStatusDto, SendBody, StatusDto } from './types';
 
 /** 运行中通道集合的签名，用于避免每次状态推送都重建下拉框。 */
 let sendChannelSignature: string | null = null;
@@ -39,11 +39,16 @@ export function parseSendData(raw: string): number[] | null {
   return bytes.length <= 8 ? bytes : null;
 }
 
+/** 下拉框显示名：通道 name（USB 为 CAN1/CAN2，SocketCAN 为接口名），USB 只听模式加后缀。 */
+function channelLabel(channel: ChannelStatusDto): string {
+  return channel.name + (channel.mode === 'listen_only' ? '（只听）' : '');
+}
+
 /** 依据运行中的通道重建发送通道下拉框；保留用户选择。 */
 export function syncSendChannels(st: StatusDto): void {
   const running = st.channels.filter((channel) => channel.running);
   const signature = running
-    .map((channel) => channel.index + ':' + (channel.mode ?? ''))
+    .map((channel) => channel.index + ':' + channel.name + ':' + (channel.mode ?? ''))
     .join(',');
   if (signature === sendChannelSignature) return;
   sendChannelSignature = signature;
@@ -62,8 +67,7 @@ export function syncSendChannels(st: StatusDto): void {
   const options = running.map((channel) => {
     const option = document.createElement('option');
     option.value = String(channel.index);
-    option.textContent =
-      'CAN' + (channel.index + 1) + (channel.mode === 'listen_only' ? '（只听）' : '');
+    option.textContent = channelLabel(channel);
     option.disabled = channel.mode === 'listen_only';
     return option;
   });
@@ -106,8 +110,7 @@ export function updateSendControls(): void {
   const dlc = remote ? Number(els.sendDlc.value) : (bytes?.length ?? 0);
 
   let reason = '';
-  if (!open) reason = '先打开设备';
-  else if (running === null) reason = '先启动一个通道';
+  if (running === null) reason = open ? '先启动一个通道' : '先打开设备或启动链路';
   else if (running.mode === 'listen_only') reason = '只听模式不可发送';
   else if (id === null) reason = 'ID 无效或超出范围';
   else if (bytes === null) reason = '数据必须是 1–8 个十六进制字节';
@@ -166,7 +169,9 @@ export async function sendCurrentFrame(applyStatus: (st: StatusDto) => void): Pr
   };
   const status = await sendFrame(body);
   if (status) applyStatus(status);
-  const label = 'CAN' + (channel + 1) + ' 0x' + id.toString(16).toUpperCase();
+  const channelInfo = state.status?.channels.find((item) => item.index === channel) ?? null;
+  const channelName = channelInfo ? channelInfo.name : 'CH' + (channel + 1);
+  const label = channelName + ' 0x' + id.toString(16).toUpperCase();
   const detail = remote ? '远程帧 DLC ' + dlc : bytes.length + ' 字节';
   toast('已发送 ' + label + ' （' + detail + '）', 'success');
   setLastLog('已发送 ' + label + ' （' + detail + '）');

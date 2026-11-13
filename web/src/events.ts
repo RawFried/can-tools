@@ -63,8 +63,13 @@ export function bindEvents(): void {
       if (!body) return;
       const st = await applyConfig(body);
       if (st) applyStatus(st);
-      const names = body.channels.map((c) => 'CAN' + (c + 1)).join('、');
-      toast('配置已应用，' + names + ' 已启动 （' + body.baud + '）', 'success');
+      const usbNames = body.channels.map(
+        (c) => state.status?.channels.find((ch) => ch.index === c)?.name ?? 'CAN' + (c + 1)
+      );
+      const names = [...usbNames, ...body.socketcan].join('、');
+      /* baud 只作用于 USB 通道，纯链路启动时不附带速率 */
+      const baudText = body.channels.length > 0 ? '（' + body.baud + '）' : '';
+      toast('配置已应用，' + names + ' 已启动' + baudText, 'success');
     });
   });
 
