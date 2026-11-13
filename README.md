@@ -158,23 +158,22 @@ USBCAN/CANalyst-II (04d8:0053)
 
 ## 构建
 
-前置：Rust 1.82+、Linux。`rusb` 启用 `vendored`，构建 libusb 不需要系统开发头文件。
+前置：Rust 1.82+、Linux；完整构建还需要 Node.js（用于生成前端产物）。`rusb` 启用 `vendored`，构建 libusb 不需要系统开发头文件。
 
-```bash
-cargo build --release
-cargo test
-```
-
-前端（仅在修改 UI 时需要）：
+首次构建（或改动前端后）先生成前端产物，它们不入库：
 
 ```bash
 cd web
 npm ci
 npm run build     # esbuild -> web/app.js（src/main.ts）与 web/app.css（src/styles/index.css）
 npm run check     # 只做类型检查
+cd ..
+cargo build --release
+cargo test
 ```
 
-`web/app.js` 与 `web/app.css` 都是构建产物并纳入版本控制（`npm run build` 同时生成两者），Rust 构建不依赖 Node。
+`web/app.js` 与 `web/app.css` 是构建产物、不入库；后端在编译时用 `include_str!` 嵌入它们，
+产物缺失时 `build.rs` 会提示先执行 `npm run build`，因此 `cargo build` 前必须先生成前端产物。
 
 ## AppImage
 
