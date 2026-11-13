@@ -1,11 +1,12 @@
 /**
- * 状态渲染与控件可用性：applyStatus/syncFormOnce/updateControls/updateStrip/updateEmpty、
- * 统计与通道状态；以及以按钮 busy 态执行异步操作的 runBusy。
+ * 状态渲染与控件可用性：applyStatus/updateControls/updateStrip/updateEmpty、
+ * 统计与通道卡；以及以按钮 busy 态执行异步操作的 runBusy。
  */
 import { fetchHealthVersion, fetchStatus } from './api';
+import { selectedChannel, syncChannels } from './channels';
 import { els } from './dom';
-import { MAX_RANGE_ROWS, filterChannelStatus, rangeRowCount, renderHwPrefilter, syncFilters } from './filters';
-import { errText, fmtDur, fmtInt, fmtRate, fmtScanMeta } from './format';
+import { MAX_RANGE_ROWS, rangeRowCount } from './filters';
+import { errText, fmtDur, fmtInt, fmtRate } from './format';
 import { syncSendChannels, updateSendControls } from './send';
 import { BUFFER_CAP, busy, state } from './state';
 import { toast } from './toast';
@@ -31,15 +32,8 @@ export function applyStatus(st: StatusDto): void {
     els.devicePillText.textContent = '未连接设备';
   }
 
-  /* USB 行内状态：运行中 · 500k / 已停止 */
-  for (const ch of st.channels) {
-    if (ch.index !== 0 && ch.index !== 1) continue;
-    const meta = ch.index === 0 ? els.ch1Meta : els.ch2Meta;
-    meta.textContent = ch.running ? '运行中' + (ch.baud ? ' · ' + ch.baud : '') : '已停止';
-    meta.classList.toggle('running', ch.running);
-  }
-
-  refreshScanMeta(st);
+  /* 通道卡：选项、速率、状态行、模式与滤波区（channels 内部联动 filters） */
+  syncChannels(st);
 
   /* 录制 */
   els.recActive.hidden = !st.recording.active;
@@ -65,73 +59,36 @@ export function applyStatus(st: StatusDto): void {
   /* 版本 */
   if (st.server.version) els.versionLabel.textContent = 'v' + st.server.version;
 
-  syncFilters(st);
-  renderHwPrefilter(st);
-  syncFormOnce(st);
   updateControls();
   updateEmpty();
-}
-/** 状态推送时原地刷新链路列表的运行态文案；不重建复选框，避免打断用户操作。 */
-function refreshScanMeta(st: StatusDto): void {
-  for (const item of els.scanList.querySelectorAll<HTMLElement>('.scan-item')) {
-    const check = item.querySelector<HTMLInputElement>('.scan-check');
-    const meta = item.querySelector<HTMLElement>('.scan-meta');
-    if (!check || !meta) continue;
-    const name = check.value;
-    const live = st.channels.find((ch) => ch.source === 'socketcan' && ch.name === name) ?? null;
-    const known = state.socketcan.find((link) => link.name === name) ?? null;
-    const running = live !== null ? live.running : known !== null && known.running;
-    meta.textContent = fmtScanMeta(
-      live?.bitrate ?? known?.bitrate ?? null,
-      running,
-      live?.state ?? known?.state ?? null
-    );
-    meta.classList.toggle('running', running);
-  }
 }
 
 /** 依据当前状态计算各按钮的可用性（busy 中的按钮保持禁用）。 */
 export function updateControls(): void {
   const st = state.status;
-  const open = st !== null && st.device.open;
-  const channels = st?.channels ?? [];
-  const anyRunning = channels.some((c) => c.running);
+  const anyRunning = st !== null && st.channels.some((c) => c.running);
   const recActive = st !== null && st.recording.active;
-  const anyChannelChecked = els.ch1Check.checked || els.ch2Check.checked;
-  const filterTarget = filterChannelStatus(state.status);
-  const filterRunning = filterTarget !== null && filterTarget.running;
+  const target = selectedChannel(st);
+  const targetRunning = target !== null && target.running;
+  const hasChannel = state.channelKey !== null;
 
-  els.btnApplyConfig.disabled = !anyChannelChecked && state.scanSelected.size === 0;
-  els.btnApplyFilters.disabled = !filterRunning;
-  els.btnStopChannels.disabled = !anyRunning;
-  els.btnRecStart.disabled = !(open || anyRunning) || recActive;
+  els.btnChannelStart.disabled = !hasChannel;
+  els.btnChannelStop.disabled = !targetRunning;
+  els.btnApplyFilters.disabled = !targetRunning;
+  els.btnAcceptAll.disabled = !hasChannel;
+  els.btnRecStart.disabled = !anyRunning || recActive;
   els.btnRecStop.disabled = !recActive;
   els.btnPauseView.disabled = !anyRunning;
 
   /* 区间行数达到上限时禁用「添加」，并维护空列表占位提示 */
   const rangeCount = rangeRowCount();
-  els.btnAddFilter.disabled = rangeCount >= MAX_RANGE_ROWS;
+  els.btnAddFilter.disabled = !hasChannel || rangeCount >= MAX_RANGE_ROWS;
   els.filterEmpty.hidden = rangeCount > 0;
 
   /* 异步进行中的按钮保持禁用，避免状态推送期间被重新启用 */
   for (const b of busy) b.disabled = true;
 
   updateSendControls();
-}
-
-/** 首个状态到达时，按运行中通道回填 USB 勾选（仅一次，不覆盖用户后续编辑）。 */
-export function syncFormOnce(st: StatusDto): void {
-  if (state.formSynced) return;
-  state.formSynced = true;
-
-  /* 只回填 ch1/ch2 勾选；每通道速率与 SocketCAN 行由用户控件维持 */
-  const running = st.channels.filter((c) => c.running);
-  if (running.length > 0) {
-    els.ch1Check.checked = running.some((c) => c.index === 0);
-    els.ch2Check.checked = running.some((c) => c.index === 1);
-  }
-
-  updateControls();
 }
 
 export function updateStrip(): void {
@@ -155,7 +112,7 @@ export function updateEmpty(): void {
     els.emptyHint.textContent = '通道已启动，尚未收到报文；请确认总线波特率一致、滤波器未全部滤除。';
   } else {
     els.emptyTitle.textContent = '通道未启动';
-    els.emptyHint.textContent = '选择要启动的通道与速率，然后点击「应用配置并启动」。';
+    els.emptyHint.textContent = '选择通道与速率，然后点击「启动通道」。';
   }
 }
 

@@ -84,8 +84,9 @@ export async function applyConfig(body: ConfigBody): Promise<StatusDto | null> {
   return statusOf(await api('/api/config', 'POST', body));
 }
 
-export async function stopChannels(): Promise<StatusDto | null> {
-  return statusOf(await api('/api/stop', 'POST', {}));
+/** 停止指定通道/链路（id 列表）。 */
+export async function stopChannels(channels: number[]): Promise<StatusDto | null> {
+  return statusOf(await api('/api/stop', 'POST', { channels }));
 }
 
 /** 按通道实时更新硬件/软件滤波（通道保持运行）。 */

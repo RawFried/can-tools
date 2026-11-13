@@ -48,7 +48,7 @@
 <div class="layout">
   <aside class="rail" aria-label="配置面板">
 
-    <section class="card card-chan" aria-labelledby="h-chan">
+    <section class="card" aria-labelledby="h-chan">
       <header class="card-head">
         <span class="card-index">01</span><h2 id="h-chan">通道与滤波</h2>
         <span class="head-spacer"></span>
@@ -59,45 +59,30 @@
       </header>
       <div class="card-body">
         <div class="field">
-          <span class="field-label" id="lb-ch">通道（至少选择一个，可分别设置速率）</span>
-          <div class="ch-list" role="group" aria-labelledby="lb-ch">
-            <div class="ch-row">
-              <label class="ch-toggle t1"><input type="checkbox" id="ch1Check"><span class="src-tag src-usb">USB</span><span class="ch-label ch1">CAN1</span></label>
-              <select class="input ch-rate" id="ch1Baud" aria-label="CAN1 波特率">
-                <option value="5k">5 kbps</option>
-                <option value="10k">10 kbps</option>
-                <option value="20k">20 kbps</option>
-                <option value="50k">50 kbps</option>
-                <option value="100k">100 kbps</option>
-                <option value="125k">125 kbps</option>
-                <option value="250k">250 kbps</option>
-                <option value="500k" selected>500 kbps</option>
-                <option value="800k">800 kbps</option>
-                <option value="1000k">1000 kbps</option>
-              </select>
-              <span class="ch-meta" id="ch1Meta">已停止</span>
-            </div>
-            <div class="ch-row">
-              <label class="ch-toggle t2"><input type="checkbox" id="ch2Check"><span class="src-tag src-usb">USB</span><span class="ch-label ch2">CAN2</span></label>
-              <select class="input ch-rate" id="ch2Baud" aria-label="CAN2 波特率">
-                <option value="5k">5 kbps</option>
-                <option value="10k">10 kbps</option>
-                <option value="20k">20 kbps</option>
-                <option value="50k">50 kbps</option>
-                <option value="100k">100 kbps</option>
-                <option value="125k">125 kbps</option>
-                <option value="250k">250 kbps</option>
-                <option value="500k" selected>500 kbps</option>
-                <option value="800k">800 kbps</option>
-                <option value="1000k">1000 kbps</option>
-              </select>
-              <span class="ch-meta" id="ch2Meta">已停止</span>
-            </div>
-            <div class="scan-list" id="scanList" role="group" aria-label="SocketCAN 链路"></div>
-            <div class="scan-empty" id="scanEmpty" hidden>未发现 SocketCAN 接口（需在系统中先创建 canX）</div>
-          </div>
+          <label class="field-label" id="lb-ch" for="channelSelect">通道</label>
+          <select class="input" id="channelSelect" aria-label="选择要配置的通道"></select>
         </div>
+        <div class="channel-state" id="channelState">已停止</div>
         <div class="field">
+          <label class="field-label" for="channelRate">速率</label>
+          <select class="input" id="channelRate">
+            <option value="5k">5 kbps</option>
+            <option value="10k">10 kbps</option>
+            <option value="20k">20 kbps</option>
+            <option value="50k">50 kbps</option>
+            <option value="100k">100 kbps</option>
+            <option value="125k">125 kbps</option>
+            <option value="250k">250 kbps</option>
+            <option value="500k" selected>500 kbps</option>
+            <option value="800k">800 kbps</option>
+            <option value="1000k">1000 kbps</option>
+          </select>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnChannelStart" type="button" disabled><span>启动通道</span></button>
+          <button class="btn" id="btnChannelStop" type="button" disabled><span>停止通道</span></button>
+        </div>
+        <div class="field" id="modeField">
           <span class="field-label" id="lb-mode">工作模式（USB）</span>
           <div class="seg" role="radiogroup" aria-labelledby="lb-mode">
             <label><input type="radio" name="mode" value="normal" checked><span>正常</span></label>
@@ -105,22 +90,11 @@
             <label><input type="radio" name="mode" value="self_test"><span>自测</span></label>
           </div>
         </div>
-        <div class="btn-row">
-          <button class="btn btn-primary" id="btnApplyConfig" type="button" disabled>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 10 17.5 19 6.5"/></svg>
-            <span>应用配置并启动</span>
-          </button>
-          <button class="btn" id="btnStopChannels" type="button" disabled><span>停止采集</span></button>
-        </div>
-        <p class="hint">每个通道独立设置速率；勾选 USB 通道后「应用配置并启动」会自动打开设备。未启用的 SocketCAN 链路按该行速率自动启用，需要 root 或 CAP_NET_ADMIN 权限（已启用的链路无需特权）；软件滤波对所有通道生效。</p>
+        <p class="hint">选择通道后单独设置其速率，并单独启动/停止；滤波区间按通道独立保存，切换通道时自动切换。USB 通道启动时会自动打开设备；未启用的 SocketCAN 链路按该通道速率自动启用，需要 root 或 CAP_NET_ADMIN 权限（已启用的链路无需特权）。</p>
 
         <div class="card-section" role="group" aria-labelledby="h-filter">
           <h3 class="section-head" id="h-filter">滤波器</h3>
-          <p class="hint">滤波按通道独立配置：每个通道可有自己的 ID 区间（十六进制，命中任一区间即保留）；列表为空表示该通道接收全部，运行中应用立即生效。</p>
-          <div class="field">
-            <label class="field-label" for="filterChannel">滤波通道</label>
-            <select class="input" id="filterChannel" aria-label="选择要配置滤波的通道"></select>
-          </div>
+          <p class="hint">滤波按通道独立配置：上方选中通道可有自己的 ID 区间（十六进制，命中任一区间即保留）；列表为空表示该通道接收全部，运行中应用立即生效。</p>
           <div class="field">
             <span class="field-label" id="lb-ranges">ID 区间（最多 16 条）</span>
             <div id="filterRangeList" role="group" aria-labelledby="lb-ranges"></div>
@@ -320,7 +294,7 @@
               <circle cx="148" cy="82" r="8" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/>
             </svg>
             <p class="t" id="emptyTitle">等待报文</p>
-            <p class="h" id="emptyHint">在左侧勾选通道并点击「应用配置并启动」，捕获的报文将显示在这里。</p>
+            <p class="h" id="emptyHint">在左侧选择通道并点击「启动通道」，捕获的报文将显示在这里。</p>
           </div>
           <div class="paused-badge" id="pausedBadge" hidden>已暂停 · <span id="pausedCount">0</span> 帧未显示</div>
         </div>

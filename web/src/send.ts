@@ -109,7 +109,7 @@ export function updateSendControls(): void {
   const dlc = remote ? Number(els.sendDlc.value) : (bytes?.length ?? 0);
 
   let reason = '';
-  if (running === null) reason = '请先在左侧选择通道并应用配置';
+  if (running === null) reason = '请先在左侧选择并启动通道';
   else if (running.mode === 'listen_only') reason = '只听模式不可发送';
   else if (id === null) reason = 'ID 无效或超出范围';
   else if (bytes === null) reason = '数据必须是 1–8 个十六进制字节';

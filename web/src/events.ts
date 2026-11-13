@@ -2,20 +2,18 @@
  * 事件绑定汇总：把各模块的 handler 挂到 DOM/窗口事件上，保持原有绑定顺序与语义。
  */
 import {
-  applyConfig,
   clearFrames,
-  openDevice,
   startRecording,
-  stopChannels,
   stopRecording,
 } from './api';
+import { initChannelPanel, selectChannel, setChannelRate, startChannel, stopChannel } from './channels';
 import { els } from './dom';
 import { fmtInt } from './format';
 import { loadDevices } from './devices';
 import { loadRecordings } from './recordings';
-import { acceptAllRanges, addRangeRow, applyFiltersLive, collectConfig, initFilterPanel, selectFilterChannel } from './filters';
+import { acceptAllRanges, addRangeRow, applyFiltersLive } from './filters';
 import { clearLocalFrames, rebuildTable, setAutoscroll, setPaused } from './frames';
-import { applyStatus, runBusy, updateControls } from './status';
+import { applyStatus, runBusy } from './status';
 import { sendCurrentFrame, updateSendControls, updateSendDlc } from './send';
 import { state } from './state';
 import { setLastLog, toast } from './toast';
@@ -26,45 +24,20 @@ export function bindEvents(): void {
     void runBusy(els.btnRefreshDevices, loadDevices);
   });
 
-  els.ch1Check.addEventListener('change', updateControls);
-  els.ch2Check.addEventListener('change', updateControls);
-
-  els.filterChannel.addEventListener('change', () => {
-    selectFilterChannel(els.filterChannel.value);
+  els.channelSelect.addEventListener('change', () => {
+    selectChannel(els.channelSelect.value);
   });
 
-  els.btnApplyConfig.addEventListener('click', () => {
-    void runBusy(els.btnApplyConfig, async () => {
-      const body = collectConfig();
-      if (!body) return;
-
-      /* 勾选 USB 但设备未打开时，用首个已发现设备自动打开；纯 SocketCAN 不触碰 USB */
-      if (body.usb.length > 0 && state.status?.device.open !== true) {
-        const first = state.devices[0];
-        if (!first) {
-          toast('未检测到 USBCAN 设备', 'error');
-          return;
-        }
-        const opened = await openDevice(first.index);
-        if (opened) applyStatus(opened);
-      }
-
-      const st = await applyConfig(body);
-      if (st) applyStatus(st);
-      const usbNames = body.usb.map(
-        (ch) => state.status?.channels.find((c) => c.index === ch.index)?.name ?? 'CAN' + (ch.index + 1)
-      );
-      const names = [...usbNames, ...body.socketcan.map((link) => link.name)].join('、');
-      toast('配置已应用，' + names + ' 已启动', 'success');
-    });
+  els.channelRate.addEventListener('change', () => {
+    setChannelRate(els.channelRate.value);
   });
 
-  els.btnStopChannels.addEventListener('click', () => {
-    void runBusy(els.btnStopChannels, async () => {
-      const st = await stopChannels();
-      if (st) applyStatus(st);
-      toast('已停止全部通道', 'success');
-    });
+  els.btnChannelStart.addEventListener('click', () => {
+    void runBusy(els.btnChannelStart, () => startChannel(applyStatus));
+  });
+
+  els.btnChannelStop.addEventListener('click', () => {
+    void runBusy(els.btnChannelStop, () => stopChannel(applyStatus));
   });
 
   els.btnAcceptAll.addEventListener('click', () => {
@@ -173,6 +146,6 @@ export function bindEvents(): void {
     if (!ws || ws.readyState > 1) connectWs();
   });
 
-  /* 首个状态到达前先渲染滤波面板占位；状态到达后由 applyStatus 同步各通道区间 */
-  initFilterPanel();
+  /* 首个状态到达前先渲染通道卡；状态到达后由 applyStatus → syncChannels 同步 */
+  initChannelPanel();
 }

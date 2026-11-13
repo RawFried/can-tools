@@ -26,19 +26,14 @@ export const els = {
 
   /* 设备刷新与通道配置 */
   btnRefreshDevices: byId<HTMLButtonElement>('btnRefreshDevices'),
-  ch1Check: byId<HTMLInputElement>('ch1Check'),
-  ch2Check: byId<HTMLInputElement>('ch2Check'),
-  ch1Baud: byId<HTMLSelectElement>('ch1Baud'),
-  ch2Baud: byId<HTMLSelectElement>('ch2Baud'),
-  btnApplyConfig: byId<HTMLButtonElement>('btnApplyConfig'),
-  btnStopChannels: byId<HTMLButtonElement>('btnStopChannels'),
-  ch1Meta: byId<HTMLElement>('ch1Meta'),
-  ch2Meta: byId<HTMLElement>('ch2Meta'),
-  scanList: byId<HTMLElement>('scanList'),
-  scanEmpty: byId<HTMLElement>('scanEmpty'),
+  channelSelect: byId<HTMLSelectElement>('channelSelect'),
+  channelState: byId<HTMLElement>('channelState'),
+  channelRate: byId<HTMLSelectElement>('channelRate'),
+  btnChannelStart: byId<HTMLButtonElement>('btnChannelStart'),
+  btnChannelStop: byId<HTMLButtonElement>('btnChannelStop'),
+  modeField: byId<HTMLElement>('modeField'),
 
   /* 滤波器 */
-  filterChannel: byId<HTMLSelectElement>('filterChannel'),
   filterRangeList: byId<HTMLElement>('filterRangeList'),
   filterEmpty: byId<HTMLElement>('filterEmpty'),
   hwFilterState: byId<HTMLElement>('hwFilterState'),
