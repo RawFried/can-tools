@@ -12,8 +12,8 @@ use chrono::{Local, TimeZone};
 
 use crate::can::types::FrameDto;
 
-/// 表头 (CSV 首行)。
-const HEADER: &str = "time,unix_ms,channel,id,id_hex,extended,remote,dlc,data\n";
+/// 表头 (CSV 首行)。`channel` 沿用 1 基编号, `link` 是通道名 (`CAN1`/`CAN2`/`can0`)。
+const HEADER: &str = "time,unix_ms,channel,link,id,id_hex,extended,remote,dlc,data\n";
 /// 周期性 flush 间隔, 降低掉电丢数据范围。
 const FLUSH_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -78,8 +78,8 @@ impl Recorder {
         self.started_at_ms
     }
 
-    /// 追加一帧。
-    pub fn write(&mut self, frame: &FrameDto) -> std::io::Result<()> {
+    /// 追加一帧; `link` 为通道名 (`CAN1`/`CAN2`/`can0`)。
+    pub fn write(&mut self, frame: &FrameDto, link: &str) -> std::io::Result<()> {
         let time = Local
             .timestamp_millis_opt(frame.time_ms as i64)
             .single()
@@ -92,9 +92,10 @@ impl Recorder {
         };
         writeln!(
             self.writer,
-            "{time},{},{},{},{},{},{},{},{}",
+            "{time},{},{},{},{},{},{},{},{},{}",
             frame.time_ms,
             frame.channel + 1,
+            link,
             frame.id,
             id_hex,
             u8::from(frame.extended),
@@ -124,12 +125,12 @@ impl Recorder {
 mod tests {
     use super::*;
 
-    fn frame(seq: u64, extended: bool, data: &str) -> FrameDto {
+    fn frame(seq: u64, channel: u8, extended: bool, data: &str) -> FrameDto {
         FrameDto {
             seq,
             time_ms: 1_700_000_000_123 + seq as i64 as u64,
             device_ts: 0,
-            channel: 0,
+            channel,
             id: if extended { 0x01AB_CDEF } else { 0x123 },
             extended,
             remote: false,
@@ -142,16 +143,23 @@ mod tests {
     fn writes_header_and_rows() {
         let dir = tempfile::tempdir().unwrap();
         let mut recorder = Recorder::create(dir.path(), 1_700_000_000_000).unwrap();
-        recorder.write(&frame(1, false, "01 02 03")).unwrap();
-        recorder.write(&frame(2, true, "AA BB CC")).unwrap();
+        recorder
+            .write(&frame(1, 0, false, "01 02 03"), "CAN1")
+            .unwrap();
+        recorder
+            .write(&frame(2, 2, true, "AA BB CC"), "can0")
+            .unwrap();
         let summary = recorder.finish().unwrap();
         assert_eq!(summary.frames, 2);
         let content = std::fs::read_to_string(dir.path().join(&summary.name)).unwrap();
         let lines: Vec<&str> = content.lines().collect();
         assert_eq!(lines.len(), 3);
         assert_eq!(lines[0], HEADER.trim_end());
-        assert!(lines[1].contains(",1,291,0x123,0,0,3,01 02 03"));
-        assert!(lines[2].contains(&format!(",1,{},0x01ABCDEF,1,0,3,AA BB CC", 0x01AB_CDEF)));
+        assert!(lines[1].contains(",1,CAN1,291,0x123,0,0,3,01 02 03"));
+        assert!(lines[2].contains(&format!(
+            ",3,can0,{},0x01ABCDEF,1,0,3,AA BB CC",
+            0x01AB_CDEF
+        )));
     }
 
     #[test]

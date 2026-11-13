@@ -7,7 +7,9 @@ use serde::Serialize;
 use tokio::sync::broadcast;
 
 use crate::can::dbc::DbcDefinition;
-use crate::can::types::{BaudRate, CanMode, DeviceInfo, FrameDto, HardwareFilter, SoftwareFilter};
+use crate::can::types::{
+    BaudRate, CanMode, ChannelSource, DeviceInfo, FrameDto, HardwareFilter, SoftwareFilter,
+};
 
 /// 前端实时帧缓冲上限。
 pub const MAX_LIVE_FRAMES: usize = 5000;
@@ -24,28 +26,43 @@ pub struct DeviceStatus {
 }
 
 /// 单通道状态。
+///
+/// USB 与 SocketCAN 共用同一形状; USB 项的 `bitrate`/`state` 为 `null`,
+/// SocketCAN 项的 `baud`/`mode`/`filter` 为 `null`。
 #[derive(Debug, Clone, Serialize)]
 pub struct ChannelStatus {
-    /// 通道索引 (0 = CAN1, 1 = CAN2)。
+    /// 通道索引: 0/1 为 USB, `2..=65` 为 SocketCAN 链路。
     pub index: u8,
+    /// 通道来源。
+    pub source: ChannelSource,
+    /// 通道名: USB 为 `CAN1`/`CAN2`, SocketCAN 为接口名。
+    pub name: String,
     /// 是否已启动。
     pub running: bool,
-    /// 当前波特率。
+    /// 当前波特率 (仅 USB)。
     pub baud: Option<BaudRate>,
-    /// 当前工作模式。
+    /// 当前工作模式 (仅 USB)。
     pub mode: Option<CanMode>,
-    /// 当前硬件滤波。
+    /// 当前硬件滤波 (仅 USB)。
     pub filter: Option<HardwareFilter>,
+    /// sysfs 中读到的接口速率 (仅 SocketCAN)。
+    pub bitrate: Option<u64>,
+    /// 接口状态 `up`/`down`/`unknown` (仅 SocketCAN)。
+    pub state: Option<String>,
 }
 
 impl ChannelStatus {
     fn stopped(index: u8) -> Self {
         Self {
             index,
+            source: ChannelSource::Usb,
+            name: format!("CAN{}", index + 1),
             running: false,
             baud: None,
             mode: None,
             filter: None,
+            bitrate: None,
+            state: None,
         }
     }
 }
@@ -92,7 +109,7 @@ pub struct ServerInfo {
 pub struct Status {
     /// 设备状态。
     pub device: DeviceStatus,
-    /// 双通道状态。
+    /// 全部通道状态: 2 个 USB 项 + 已注册的 SocketCAN 链路。
     pub channels: Vec<ChannelStatus>,
     /// 当前生效的软件滤波。
     pub software_filters: Vec<SoftwareFilter>,

@@ -4,6 +4,7 @@ pub mod dbc;
 pub mod device;
 pub mod error;
 pub mod protocol;
+pub mod socketcan;
 pub mod types;
 
 pub use device::UsbCan;

@@ -271,7 +271,7 @@ pub struct FrameDto {
     pub time_ms: u64,
     /// 设备 32 位时间戳。
     pub device_ts: u32,
-    /// 通道索引 (0 = CAN1, 1 = CAN2)。
+    /// 通道 id: 0/1 为 USB, `2..=65` 为 SocketCAN 链路。
     pub channel: u8,
     /// 仲裁 ID。
     pub id: u32,
@@ -326,37 +326,93 @@ pub struct DeviceInfo {
     pub channel_count: u8,
 }
 
+/// 通道来源。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChannelSource {
+    /// USBCAN 的 CAN1/CAN2。
+    Usb,
+    /// Linux SocketCAN 链路。
+    SocketCan,
+}
+
+/// 通道编号上限: `0`/`1` 为 USB, `2..=65` 为 SocketCAN 链路 (最多 64 条)。
+pub const MAX_CHANNEL: u8 = 65;
+
+/// `/api/devices` 中的 SocketCAN 链路条目。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SocketCanLinkInfo {
+    /// 接口名, 如 `can0`。
+    pub name: String,
+    /// 工作线程分配的通道 id (`2..=65`)。
+    pub channel: u8,
+    /// sysfs 中读到的速率; 不可见时为 `null`。
+    pub bitrate: Option<u64>,
+    /// `up` / `down` / `unknown`。
+    pub state: String,
+    /// 是否有已打开的 socket。
+    pub running: bool,
+}
+
+/// `GET /api/devices` 的响应: USB 设备列表 + SocketCAN 链路列表。
+#[derive(Debug, Clone, Serialize)]
+pub struct LinkList {
+    /// 匹配的 USB 设备 (设备已打开时只有当前设备)。
+    pub devices: Vec<DeviceInfo>,
+    /// 已分配通道 id 的 SocketCAN 链路。
+    pub socketcan: Vec<SocketCanLinkInfo>,
+}
+
 /// `/api/config` 请求体。
 #[derive(Debug, Clone, Deserialize)]
 pub struct StartConfig {
-    /// 要配置并启动的通道, 如 `[0, 1]`。
+    /// 要配置并启动的 USB 通道, 如 `[0, 1]`; 可以为空 (只启动 SocketCAN)。
     pub channels: Vec<u8>,
-    /// 波特率。
+    /// 波特率 (仅作用于 USB 通道)。
     pub baud: BaudRate,
-    /// 工作模式。
+    /// 工作模式 (仅作用于 USB 通道)。
     #[serde(default)]
     pub mode: CanMode,
-    /// 硬件验收滤波。
+    /// 硬件验收滤波 (仅作用于 USB 通道)。
     #[serde(default)]
     pub filter: HardwareFilter,
-    /// 应用层 ID 滤波。
+    /// 应用层 ID 滤波 (对所有链路生效)。
     #[serde(default)]
     pub software_filters: Vec<SoftwareFilter>,
+    /// 要启动/重启的 SocketCAN 接口名。
+    #[serde(default)]
+    pub socketcan: Vec<String>,
 }
 
 impl StartConfig {
     /// 最多允许的软件滤波记录数。
     pub const MAX_SOFTWARE_FILTERS: usize = 16;
+    /// 单次请求最多启动的 SocketCAN 链路数。
+    pub const MAX_SOCKETCAN_LINKS: usize = 8;
 
     /// 校验请求参数; 通道去重由调用方处理。
     pub fn validate(&self) -> Result<(), String> {
-        if self.channels.is_empty() {
-            return Err("至少选择一个通道".to_string());
+        if self.channels.is_empty() && self.socketcan.is_empty() {
+            return Err("至少选择一个 USB 通道或 SocketCAN 链路".to_string());
         }
         for &channel in &self.channels {
             if channel > 1 {
-                return Err(format!("非法通道 {channel}; 合法值为 0 或 1"));
+                return Err(format!("非法通道 {channel}; USB 通道合法值为 0 或 1"));
             }
+        }
+        let mut unique_names: Vec<&str> = Vec::new();
+        for name in &self.socketcan {
+            crate::can::socketcan::validate_name(name)?;
+            if !unique_names.contains(&name.as_str()) {
+                unique_names.push(name);
+            }
+        }
+        if unique_names.len() > Self::MAX_SOCKETCAN_LINKS {
+            return Err(format!(
+                "SocketCAN 链路最多 {} 个, 实际 {} 个",
+                Self::MAX_SOCKETCAN_LINKS,
+                unique_names.len()
+            ));
         }
         self.filter.validate()?;
         if self.software_filters.len() > Self::MAX_SOFTWARE_FILTERS {
@@ -379,7 +435,7 @@ impl StartConfig {
 /// `dlc` 可省略: 数据帧默认等于字节数, 远程帧默认 0。
 #[derive(Debug, Clone, Deserialize)]
 pub struct SendFrameRequest {
-    /// 发送通道 (0 = CAN1, 1 = CAN2)。
+    /// 发送通道: 0/1 为 USB, `2..=65` 为 SocketCAN 链路。
     pub channel: u8,
     /// 仲裁 ID。
     pub id: u32,
@@ -403,8 +459,11 @@ impl SendFrameRequest {
 
     /// 校验并转换为驱动帧。
     pub fn to_frame(&self) -> Result<CanFrame, String> {
-        if self.channel > 1 {
-            return Err(format!("非法通道 {}; 合法值为 0 或 1", self.channel));
+        if self.channel > MAX_CHANNEL {
+            return Err(format!(
+                "非法通道 {}; 合法值为 0/1 (USB) 或 2-{MAX_CHANNEL} (SocketCAN 链路)",
+                self.channel
+            ));
         }
         let max_id = if self.extended { 0x1FFF_FFFF } else { 0x7FF };
         if self.id > max_id {
@@ -465,24 +524,24 @@ impl SendFrameRequest {
 /// `/api/filters` 请求体: 运行中实时更新滤波。
 #[derive(Debug, Clone, Deserialize)]
 pub struct FilterUpdateRequest {
-    /// 要更新滤波的通道 (必须已启动)。
+    /// 要更新硬件滤波的 USB 通道 (必须已启动); 可为空, 表示只更新软件滤波。
     pub channels: Vec<u8>,
-    /// 新的硬件验收滤波。
+    /// 新的硬件验收滤波 (仅作用于 USB 通道)。
     pub filter: HardwareFilter,
-    /// 新的应用层 ID 滤波。
+    /// 新的应用层 ID 滤波 (对所有链路生效)。
     #[serde(default)]
     pub software_filters: Vec<SoftwareFilter>,
 }
 
 impl FilterUpdateRequest {
     /// 校验通道、硬件滤波与软件滤波参数。
+    ///
+    /// `channels` 可以为空 (只更新全局软件滤波); SocketCAN 链路只支持软件滤波,
+    /// 出现在 `channels` 中会被拒绝。
     pub fn validate(&self) -> Result<(), String> {
-        if self.channels.is_empty() {
-            return Err("至少选择一个通道".to_string());
-        }
         for &channel in &self.channels {
             if channel > 1 {
-                return Err(format!("非法通道 {channel}; 合法值为 0 或 1"));
+                return Err("SocketCAN 链路只支持软件滤波".to_string());
             }
         }
         self.filter.validate()?;
@@ -622,8 +681,66 @@ mod tests {
             mode: CanMode::Normal,
             filter: HardwareFilter::default(),
             software_filters: vec![],
+            socketcan: vec![],
         };
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn start_config_requires_usb_or_socketcan() {
+        let config = StartConfig {
+            channels: vec![],
+            baud: BaudRate::Kbps500,
+            mode: CanMode::Normal,
+            filter: HardwareFilter::default(),
+            software_filters: vec![],
+            socketcan: vec![],
+        };
+        let error = config.validate().unwrap_err();
+        assert!(
+            error.contains("至少选择一个 USB 通道或 SocketCAN 链路"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn start_config_accepts_socketcan_without_usb_channels() {
+        let config = StartConfig {
+            channels: vec![],
+            baud: BaudRate::Kbps500,
+            mode: CanMode::Normal,
+            filter: HardwareFilter::default(),
+            software_filters: vec![],
+            socketcan: vec!["can0".to_string()],
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn start_config_validates_socketcan_names_and_count() {
+        let base = StartConfig {
+            channels: vec![],
+            baud: BaudRate::Kbps500,
+            mode: CanMode::Normal,
+            filter: HardwareFilter::default(),
+            software_filters: vec![],
+            socketcan: vec!["can 0".to_string()],
+        };
+        assert!(base.validate().is_err());
+
+        let duplicated = StartConfig {
+            socketcan: vec!["can0".to_string(); StartConfig::MAX_SOCKETCAN_LINKS + 1],
+            ..base
+        };
+        assert!(duplicated.validate().is_ok());
+
+        let too_many = StartConfig {
+            socketcan: (0..StartConfig::MAX_SOCKETCAN_LINKS + 1)
+                .map(|index| format!("can{index}"))
+                .collect(),
+            ..duplicated
+        };
+        assert!(too_many.validate().is_err());
     }
 
     #[test]
@@ -646,6 +763,19 @@ mod tests {
         assert_eq!(config.mode, CanMode::Normal);
         assert_eq!(config.filter, HardwareFilter::default());
         assert!(config.software_filters.is_empty());
+        assert!(config.socketcan.is_empty());
+    }
+
+    #[test]
+    fn start_config_deserializes_socketcan_links() {
+        let config: StartConfig =
+            serde_json::from_str(r#"{"channels":[],"baud":"500k","socketcan":["can0","vcan0"]}"#)
+                .unwrap();
+        assert_eq!(
+            config.socketcan,
+            vec!["can0".to_string(), "vcan0".to_string()]
+        );
+        assert!(config.channels.is_empty());
     }
 
     #[test]
@@ -661,6 +791,7 @@ mod tests {
             mode: CanMode::Normal,
             filter: HardwareFilter::default(),
             software_filters: vec![filter; StartConfig::MAX_SOFTWARE_FILTERS + 1],
+            socketcan: vec![],
         };
         assert!(config.validate().is_err());
     }
@@ -787,7 +918,14 @@ mod tests {
         }
         .to_frame()
         .is_err());
-        assert!(SendFrameRequest { channel: 2, ..base }.to_frame().is_err());
+        assert!(SendFrameRequest {
+            channel: MAX_CHANNEL + 1,
+            ..base.clone()
+        }
+        .to_frame()
+        .is_err());
+        // SocketCAN 通道 (2..=65) 允许通过帧构造校验, 运行状态由工作线程判断。
+        assert!(SendFrameRequest { channel: 2, ..base }.to_frame().is_ok());
     }
 
     #[test]
@@ -802,18 +940,20 @@ mod tests {
             }],
         };
         assert!(valid.validate().is_ok());
+        // 空 channels 表示只更新全局软件滤波。
         assert!(FilterUpdateRequest {
             channels: vec![],
             ..valid.clone()
         }
         .validate()
-        .is_err());
-        assert!(FilterUpdateRequest {
+        .is_ok());
+        let error = FilterUpdateRequest {
             channels: vec![2],
             ..valid.clone()
         }
         .validate()
-        .is_err());
+        .unwrap_err();
+        assert_eq!(error, "SocketCAN 链路只支持软件滤波");
         assert!(FilterUpdateRequest {
             filter: HardwareFilter {
                 mode: 3,

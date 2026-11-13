@@ -21,9 +21,14 @@ async fn worker_rejects_operations_without_device_and_shuts_down() {
         mode: CanMode::Normal,
         filter: HardwareFilter::default(),
         software_filters: vec![],
+        socketcan: vec![],
     };
     assert!(service.configure(config).await.is_err());
-    assert!(service.start_recording().await.is_err());
+    let recording_error = service.start_recording().await.unwrap_err();
+    assert!(
+        recording_error.contains("没有运行中的链路"),
+        "{recording_error}"
+    );
     assert!(service.stop_recording().await.is_err());
     let send = SendFrameRequest {
         channel: 0,
@@ -46,4 +51,32 @@ async fn worker_rejects_operations_without_device_and_shuts_down() {
 
     service.shutdown().await;
     assert!(!shared.status().device.open);
+}
+
+#[tokio::test]
+async fn worker_reports_missing_socketcan_interface() {
+    let shared = SharedState::new(ServerInfo {
+        version: "test".to_string(),
+        data_dir: "/tmp/can-tools-test".to_string(),
+    });
+    let dir = tempfile::tempdir().unwrap();
+    let service = CanService::spawn(shared.clone(), dir.path().join("recordings")).unwrap();
+
+    let config = StartConfig {
+        channels: vec![],
+        baud: BaudRate::Kbps500,
+        mode: CanMode::Normal,
+        filter: HardwareFilter::default(),
+        software_filters: vec![],
+        socketcan: vec!["missingcan0".to_string()],
+    };
+    let error = service.configure(config).await.unwrap_err();
+    assert!(error.contains("不存在"), "{error}");
+    assert!(shared
+        .status()
+        .channels
+        .iter()
+        .all(|channel| !channel.running));
+
+    service.shutdown().await;
 }

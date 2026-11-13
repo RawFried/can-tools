@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 use tokio::sync::broadcast;
 
 use crate::can::dbc;
-use crate::can::types::{FilterUpdateRequest, SendFrameRequest, StartConfig};
+use crate::can::types::{FilterUpdateRequest, LinkList, SendFrameRequest, StartConfig};
 use crate::service::CanService;
 use crate::state::SharedState;
 
@@ -97,9 +97,9 @@ async fn status(State(state): State<AppState>) -> Json<crate::state::Status> {
     Json(state.shared.status())
 }
 
-async fn list_devices(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
-    let devices = state.service.list_devices().await.map_err(ApiError::bad)?;
-    Ok(Json(json!({"devices": devices})))
+async fn list_devices(State(state): State<AppState>) -> Result<Json<LinkList>, ApiError> {
+    let list = state.service.list_devices().await.map_err(ApiError::bad)?;
+    Ok(Json(list))
 }
 
 #[derive(Debug, Deserialize)]

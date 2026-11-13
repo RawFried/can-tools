@@ -27,12 +27,19 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
   "channels": [
     {
       "index": 0,
+      "source": "usb",
+      "name": "CAN1",
       "running": true,
       "baud": "500k",
       "mode": "normal",
-      "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 1}
+      "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 1},
+      "bitrate": null,
+      "state": null
     },
-    {"index": 1, "running": false, "baud": null, "mode": null, "filter": null}
+    {"index": 1, "source": "usb", "name": "CAN2", "running": false, "baud": null,
+     "mode": null, "filter": null, "bitrate": null, "state": null},
+    {"index": 2, "source": "socketcan", "name": "can0", "running": true, "baud": null,
+     "mode": null, "filter": null, "bitrate": 500000, "state": "up"}
   ],
   "software_filters": [{"extended": false, "start": 256, "end": 511}],
   "recording": {
@@ -55,8 +62,20 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
 }
 ```
 
+- `channels` always starts with the two USB entries (`index` 0/1, `source: "usb"`); every
+  registered SocketCAN link follows (`source: "socketcan"`, `index` 2–65), whether running or not.
+- `channel` ids are the only routing key used by frames, configuration and sends. USB ids are fixed
+  (0 = CAN1, 1 = CAN2); SocketCAN ids are assigned by the worker on first discovery/configuration,
+  start at 2 and are never reused within one process lifetime (at most 64 links).
+- `name` is `CAN1`/`CAN2` for USB and the interface name (`can0`) for SocketCAN.
+- `bitrate` is the interface rate read from `/sys/class/net/<name>/can_bittiming/bitrate`; it is
+  `null` for USB and when the interface is not visible in sysfs.
+- `state` is `up`/`down` from the sysfs `flags` `IFF_UP` bit, or `unknown` when sysfs does not show
+  the interface (for example a `vcan0` created inside a new network namespace). It is `null` for USB.
 - `baud` is one of `5k`, `10k`, `20k`, `50k`, `100k`, `125k`, `250k`, `500k`, `800k`, `1000k`.
-- `mode` is one of `normal`, `listen_only`, `self_test`.
+- `mode` is one of `normal`, `listen_only`, `self_test` (USB only).
+- `filter` (hardware acceptance filter) exists for USB channels only; SocketCAN links report
+  `null` and their bitrate/timing is configured by the kernel interface itself.
 - `filter.mode` is `0` (accept all), `1` (single filter) or `2` (dual filter). The
   controller compares a normalized 32-bit value, not the raw CAN ID: standard frames use
   `acc_code = id << 21` with `acc_mask = 0x001FFFFF`; extended frames use
@@ -68,12 +87,11 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
   `software_filters` for precise matching. An empty range list, or ranges mixing standard and
   extended frames, falls back to accept-all. Range semantics therefore live in `software_filters`;
   clients that need an exact hardware filter still set `filter` directly.
-- `software_filters` are applied by the application after the hardware filter. An empty list
-  accepts every frame. Otherwise a frame passes when at least one record matches both its
-  standard/extended flag and `start <= id <= end`.
-- `stats.rx_rate` is the accepted-frame rate over the last second (frames/second).
-- `stats.tx_frames` is the number of frames successfully sent since the device was opened or
-  the live counters were cleared.
+- `software_filters` are applied by the application after the hardware filter, for **every** link
+  (USB and SocketCAN). An empty list accepts every frame. Otherwise a frame passes when at least one
+  record matches both its standard/extended flag and `start <= id <= end`.
+- `stats.rx_frames`/`stats.rx_rate` cover frames accepted from all links; `stats.tx_frames` counts
+  frames successfully sent through any link since the device was opened or the counters cleared.
 
 ## Frame object
 
@@ -91,9 +109,10 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
 }
 ```
 
-`time_ms` is the host receive time in UNIX milliseconds. `device_ts` is the raw 32-bit counter
-reported by the device. `data` is uppercase hex separated by single spaces (empty string when
-`dlc` is 0).
+`time_ms` is the host receive time in UNIX milliseconds. `channel` is the routing id of the source:
+`0`/`1` for USB, `2`–`65` for SocketCAN links. `device_ts` is the raw 32-bit counter reported by the
+USB device (`0` for SocketCAN frames). `data` is uppercase hex separated by single spaces (empty
+string when `dlc` is 0).
 
 ## DBC definition object
 
@@ -162,13 +181,24 @@ A parsed DBC file is exposed as one definition. All fields are always present.
 
 ### `GET /api/devices`
 
-Enumerates matching USB devices (04d8:0053). Only valid while the device is closed; while open,
-the current device is returned.
+Enumerates matching USB devices (04d8:0053) and the SocketCAN interfaces found in
+`/sys/class/net` (`type == 280`, sorted by name). Only valid while the USB device is closed; while
+open, the current device is returned.
 
 ```json
-{"devices": [{"index": 0, "fw_version": "3.51", "serial": "000000000001",
-              "hw_type": "CAN-Linux", "channel_count": 2}]}
+{
+  "devices": [{"index": 0, "fw_version": "3.51", "serial": "000000000001",
+               "hw_type": "CAN-Linux", "channel_count": 2}],
+  "socketcan": [
+    {"name": "can0", "channel": 2, "bitrate": 500000, "state": "up", "running": true}
+  ]
+}
 ```
+
+- `socketcan` contains every link the worker has registered (discovered or configured), including
+  stopped ones (`running: false`). `channel` is the routing id described in the status object.
+- Discovery also tolerates interfaces that are not visible in sysfs (new network namespaces);
+  configuring such a link by name still works.
 
 ### `GET /api/status`
 
@@ -186,14 +216,17 @@ The request may take a few seconds while the device re-enumerates after a recent
 
 ### `POST /api/device/close`
 
-No body. Closes the device, stops recording (flushing the CSV), and resets channel state.
+No body. Closes the USB device and resets USB channel state. Running SocketCAN links are **not**
+affected (they keep receiving). The recording is flushed only when no SocketCAN link is still
+running, and global software filters are kept while a link is running.
 Response: `{"ok": true, "status": { ... }}`
 
 ### `POST /api/config`
 
-Initializes and starts the selected channels with the given baud rate, mode and hardware
-filter, then installs the software filters. Re-applying while running restarts the selected
-channels. At least one channel is required.
+Initializes and starts the selected USB channels with the given baud rate, mode and hardware filter,
+and starts/restarts the listed SocketCAN links. At least one of `channels`/`socketcan` must be
+non-empty. Re-applying while running restarts the selected channels/links; unselected channels stay
+running.
 
 ```json
 {
@@ -201,15 +234,29 @@ channels. At least one channel is required.
   "baud": "500k",
   "mode": "normal",
   "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 1},
-  "software_filters": [{"extended": false, "start": 256, "end": 511}]
+  "software_filters": [{"extended": false, "start": 256, "end": 511}],
+  "socketcan": ["can0"]
 }
 ```
+
+- `channels` accepts only USB ids `0`/`1` and requires the USB device to be open; it may be empty
+  when only SocketCAN links are being started.
+- `socketcan` is optional (default `[]`); each entry is an interface name (1–15 characters of
+  `[A-Za-z0-9_.-]`), duplicates are ignored and at most 8 links may be started per request.
+- `baud`, `mode` and `filter` apply to USB channels only. A SocketCAN link keeps the bitrate
+  configured on the interface; `bitrate`/`state` in the status object report it.
+- Error cases: both lists empty → `至少选择一个 USB 通道或 SocketCAN 链路`; unknown interface →
+  `SocketCAN 接口 can9 不存在`; sysfs-visible but not up →
+  `SocketCAN 接口 can0 未启用: 请先执行 ip link set can0 up type can bitrate <速率>`.
+- If any channel/link started by this request fails, all channels and links started by the request
+  are rolled back before the error is returned (previously running links are not restored).
 
 Response: `{"ok": true, "status": { ... }}`
 
 ### `POST /api/filters`
 
-Updates filtering on **already running** channels without closing/reopening the device:
+Updates filtering on already running USB channels without closing/reopening the device; software
+filters apply to every link:
 
 ```json
 {
@@ -219,30 +266,40 @@ Updates filtering on **already running** channels without closing/reopening the 
 }
 ```
 
-- `software_filters` take effect immediately in the host worker.
+- `channels` lists USB ids (`0`/`1`) only and may be an **empty array** to update the global
+  software filters alone. A SocketCAN id in this list is rejected with
+  `SocketCAN 链路只支持软件滤波`; SocketCAN links have no hardware acceptance filter.
+- Every selected USB channel must be running; otherwise the request fails with a clear error.
+- `software_filters` take effect immediately in the host worker and apply to **all** links
+  (USB and SocketCAN).
 - If the hardware filter changed for a running channel, the worker re-runs `InitCAN` +
   `StartCAN` without `ResetCAN`/close; this is a fast hot re-initialization, not a channel stop.
 - If only software filters changed, no USB I/O is performed.
-- Every selected channel must be running; otherwise the request fails with a clear error.
 - The request also accepts listen-only channels (they still receive/filter).
 
 Response: `{"ok": true, "status": { ... }}`
 
 ### `POST /api/stop`
 
-Stops (resets) the given channels. An omitted `channels` field stops all running channels.
+Stops the given channel/link ids. An omitted `channels` field stops all running USB channels and
+SocketCAN links; ids that are not running are skipped.
 
 ```json
-{"channels": [0, 1]}
+{"channels": [0, 1, 2]}
 ```
+
+- `0`/`1` are USB channels, `2`–`65` SocketCAN link ids.
+- A stopped SocketCAN link stays registered (and keeps its id) but reports `running: false`; it must
+  be configured again to resume. Stopping a link never touches USB channels and vice versa.
 
 Response: `{"ok": true, "status": { ... }}`
 
 ### `POST /api/send`
 
-Sends one CAN frame on a running channel. The device must be open and the target channel
-started (for example with `mode: "self_test"` to see the frame loop back into the receiver).
-Listen-only channels reject sends.
+Sends one CAN frame on a running channel or link. For USB the device must be open and the target
+channel started (for example with `mode: "self_test"` to see the frame loop back into the receiver);
+USB listen-only channels reject sends. SocketCAN links are not subject to the listen-only mode and
+any error reported by the kernel is returned as a Chinese message.
 
 ```json
 {
@@ -255,6 +312,7 @@ Listen-only channels reject sends.
 }
 ```
 
+- `channel` accepts `0`/`1` (USB) and `2`–`65` (SocketCAN link ids from the status object).
 - `id` is validated against 0x7FF (standard) or 0x1FFFFFFF (extended).
 - `data` accepts spaced bytes (`"11 22 33"`), a contiguous string (`"112233"`) or tokens with
   `0x` prefixes; at most 8 bytes.
@@ -267,7 +325,9 @@ Response: `{"ok": true, "status": { ... }}`
 
 ### `POST /api/recording/start`
 
-No body. Starts a new CSV recording under `server.data_dir/recordings`.
+No body. Starts a new CSV recording under `server.data_dir/recordings`. At least one USB channel or
+SocketCAN link must be running; otherwise the request fails with `没有运行中的链路，无法开始录制`.
+The USB device does not have to be open when a SocketCAN link is running.
 
 Response: `{"ok": true, "file": "can-20261109-150000.csv", "status": { ... }}`
 
@@ -278,6 +338,19 @@ An error is returned when recording is already active.
 No body. Flushes and closes the current recording.
 
 Response: `{"ok": true, "file": "can-20261109-150000.csv", "frames": 1234, "status": { ... }}`
+
+### Recorded CSV format
+
+Recording files are UTF-8 CSV with this header:
+
+```text
+time,unix_ms,channel,link,id,id_hex,extended,remote,dlc,data
+```
+
+- `channel` keeps the historical 1-based numbering (`1`/`2` for USB, `3` for link id 2, …).
+- `link` is the routing name: `CAN1`, `CAN2` or the SocketCAN interface name (`can0`).
+- `id` is decimal, `id_hex` is `0x`-prefixed hex, `extended`/`remote` are `0`/`1`, `data` is
+  uppercase hex separated by single spaces.
 
 ### `POST /api/frames/clear`
 

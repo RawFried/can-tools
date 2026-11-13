@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use tokio::sync::oneshot;
 
-use crate::can::types::{DeviceInfo, FilterUpdateRequest, SendFrameRequest, StartConfig};
+use crate::can::types::{DeviceInfo, FilterUpdateRequest, LinkList, SendFrameRequest, StartConfig};
 use crate::state::SharedState;
 use recorder::RecordingSummary;
 
@@ -22,8 +22,8 @@ pub(crate) type Reply<T> = oneshot::Sender<std::result::Result<T, String>>;
 
 /// 工作线程命令。
 pub(crate) enum Command {
-    /// 枚举设备。
-    ListDevices { reply: Reply<Vec<DeviceInfo>> },
+    /// 枚举 USB 设备与 SocketCAN 链路。
+    ListDevices { reply: Reply<LinkList> },
     /// 打开设备。
     Open {
         index: usize,
@@ -81,8 +81,8 @@ impl CanService {
         })
     }
 
-    /// 枚举设备。
-    pub async fn list_devices(&self) -> Result<Vec<DeviceInfo>, String> {
+    /// 枚举 USB 设备与 SocketCAN 链路。
+    pub async fn list_devices(&self) -> Result<LinkList, String> {
         self.call(Duration::from_secs(5), |reply| Command::ListDevices {
             reply,
         })
