@@ -4,11 +4,10 @@
 import type {
   ConfigBody,
   DevicesResponseDto,
+  FilterUpdateBody,
   RecordingFileDto,
   SendBody,
-  SoftwareFilterDto,
   StatusDto,
-  AcceptanceFilterDto,
 } from './types';
 import {
   isNum,
@@ -89,16 +88,9 @@ export async function stopChannels(): Promise<StatusDto | null> {
   return statusOf(await api('/api/stop', 'POST', {}));
 }
 
-/**
- * 实时更新硬件/软件滤波（通道保持运行）。
- * channels 可为空数组：仅更新对所有链路生效的软件滤波。
- */
-export async function updateFilters(
-  channels: number[],
-  filter: AcceptanceFilterDto,
-  software_filters: SoftwareFilterDto[]
-): Promise<StatusDto | null> {
-  return statusOf(await api('/api/filters', 'POST', { channels, filter, software_filters }));
+/** 按通道实时更新硬件/软件滤波（通道保持运行）。 */
+export async function updateFilters(body: FilterUpdateBody): Promise<StatusDto | null> {
+  return statusOf(await api('/api/filters', 'POST', body));
 }
 
 export async function sendFrame(body: SendBody): Promise<StatusDto | null> {

@@ -38,6 +38,7 @@ export const els = {
   scanEmpty: byId<HTMLElement>('scanEmpty'),
 
   /* 滤波器 */
+  filterChannel: byId<HTMLSelectElement>('filterChannel'),
   filterRangeList: byId<HTMLElement>('filterRangeList'),
   filterEmpty: byId<HTMLElement>('filterEmpty'),
   hwFilterState: byId<HTMLElement>('hwFilterState'),

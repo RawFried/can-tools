@@ -6,6 +6,7 @@ import type {
   FrameDto,
   RecordingFileDto,
   SocketCanLinkDto,
+  SoftwareFilterDto,
   StatusDto,
 } from './types';
 
@@ -21,6 +22,10 @@ export interface AppState {
   scanSelected: Set<string>;
   /** 用户为各 SocketCAN 链路选择的速率（bps）；未设置时回退链路 bitrate/500000。 */
   scanRates: Map<string, number>;
+  /** 按通道保存的 ID 区间；key 为 `usb:0`/`usb:1`/`scan:<name>`。 */
+  filters: Map<string, SoftwareFilterDto[]>;
+  /** 滤波卡当前选中的通道 key；null 表示尚未初始化。 */
+  filterChannel: string | null;
   selectedDevice: number | null;
   recordings: RecordingFileDto[];
   ws: WebSocket | null;
@@ -41,6 +46,8 @@ export const state: AppState = {
   socketcan: [],
   scanSelected: new Set<string>(),
   scanRates: new Map<string, number>(),
+  filters: new Map<string, SoftwareFilterDto[]>(),
+  filterChannel: null,
   selectedDevice: null,
   recordings: [],
   ws: null,

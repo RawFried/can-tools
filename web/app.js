@@ -32,6 +32,7 @@
     scanList: byId("scanList"),
     scanEmpty: byId("scanEmpty"),
     /* 滤波器 */
+    filterChannel: byId("filterChannel"),
     filterRangeList: byId("filterRangeList"),
     filterEmpty: byId("filterEmpty"),
     hwFilterState: byId("hwFilterState"),
@@ -220,6 +221,19 @@
   function asMode(v) {
     return isStr(v) && MODES.includes(v) ? v : null;
   }
+  function parseSoftwareFilters(v) {
+    if (!Array.isArray(v)) return [];
+    const out = [];
+    for (const f of v) {
+      if (!isObj(f)) continue;
+      out.push({
+        extended: f["extended"] === true,
+        start: numOr(f["start"], 0),
+        end: numOr(f["end"], 0)
+      });
+    }
+    return out;
+  }
   function parseFrameDto(o) {
     return {
       seq: numOr(o["seq"], 0),
@@ -276,18 +290,8 @@
           mode: asMode(c["mode"]),
           filter,
           bitrate: isNum(c["bitrate"]) ? c["bitrate"] : null,
-          state: isStr(c["state"]) ? c["state"] : null
-        });
-      }
-    }
-    const software_filters = [];
-    if (Array.isArray(v["software_filters"])) {
-      for (const f of v["software_filters"]) {
-        if (!isObj(f)) continue;
-        software_filters.push({
-          extended: f["extended"] === true,
-          start: numOr(f["start"], 0),
-          end: numOr(f["end"], 0)
+          state: isStr(c["state"]) ? c["state"] : null,
+          software_filters: parseSoftwareFilters(c["software_filters"])
         });
       }
     }
@@ -297,7 +301,6 @@
     return {
       device: { open: dev["open"] === true, info },
       channels,
-      software_filters,
       recording: {
         active: rec["active"] === true,
         file: isStr(rec["file"]) ? rec["file"] : null,
@@ -442,8 +445,8 @@
   async function stopChannels() {
     return statusOf(await api("/api/stop", "POST", {}));
   }
-  async function updateFilters(channels, filter, software_filters) {
-    return statusOf(await api("/api/filters", "POST", { channels, filter, software_filters }));
+  async function updateFilters(body) {
+    return statusOf(await api("/api/filters", "POST", body));
   }
   async function sendFrame(body) {
     return statusOf(await api("/api/send", "POST", body));
@@ -1018,6 +1021,8 @@
     socketcan: [],
     scanSelected: /* @__PURE__ */ new Set(),
     scanRates: /* @__PURE__ */ new Map(),
+    filters: /* @__PURE__ */ new Map(),
+    filterChannel: null,
     selectedDevice: null,
     recordings: [],
     ws: null,
@@ -1540,17 +1545,142 @@
     }
     return ranges;
   }
+  function channelKey(ch) {
+    return ch.source === "usb" ? "usb:" + ch.index : "scan:" + ch.name;
+  }
+  function channelLabel(ch) {
+    return (ch.source === "usb" ? "USB · " : "socket · ") + ch.name;
+  }
+  function channelOptions(st) {
+    const options = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const ch of st?.channels ?? []) {
+      const key = channelKey(ch);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      options.push({ key, label: channelLabel(ch) });
+    }
+    for (const link of state.socketcan) {
+      const key = "scan:" + link.name;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      options.push({ key, label: "socket · " + link.name });
+    }
+    return options;
+  }
+  function filterChannelStatus(st) {
+    if (st === null || state.filterChannel === null) return null;
+    const key = state.filterChannel;
+    return st.channels.find((ch) => channelKey(ch) === key) ?? null;
+  }
+  var optionsSignature = null;
+  var panelRendered = false;
+  function renderFilterOptions(st) {
+    const options = channelOptions(st);
+    const signature = options.map((option) => option.key + "|" + option.label).join(",");
+    if (signature !== optionsSignature) {
+      optionsSignature = signature;
+      const frag = document.createDocumentFragment();
+      for (const option of options) {
+        const el = document.createElement("option");
+        el.value = option.key;
+        el.textContent = option.label;
+        frag.appendChild(el);
+      }
+      els.filterChannel.replaceChildren(frag);
+    }
+    els.filterChannel.value = state.filterChannel ?? "";
+  }
+  function renderRanges(key) {
+    const ranges = key !== null ? state.filters.get(key) ?? [] : [];
+    const frag = document.createDocumentFragment();
+    for (const f of ranges) {
+      frag.appendChild(buildRangeRow(f.extended, f.start, f.end));
+    }
+    els.filterRangeList.replaceChildren(frag);
+    notifyRangeRowsChanged();
+  }
+  function ensureSelection(st) {
+    const keys = channelOptions(st).map((option) => option.key);
+    if (state.filterChannel !== null && keys.includes(state.filterChannel)) return false;
+    const running = st?.channels.find((ch) => ch.running) ?? null;
+    state.filterChannel = running !== null ? channelKey(running) : keys.includes("usb:0") ? "usb:0" : keys[0] ?? null;
+    return true;
+  }
+  function syncFilters(st) {
+    for (const ch of st.channels) {
+      const key = channelKey(ch);
+      if (!state.filters.has(key)) {
+        state.filters.set(key, ch.software_filters.map((f) => ({ ...f })));
+      }
+    }
+    const changed = ensureSelection(st);
+    renderFilterOptions(st);
+    if (changed || !panelRendered) {
+      renderRanges(state.filterChannel);
+      panelRendered = true;
+    } else {
+      notifyRangeRowsChanged();
+    }
+  }
+  function initFilterPanel() {
+    if (state.status !== null) {
+      syncFilters(state.status);
+      return;
+    }
+    ensureSelection(null);
+    renderFilterOptions(null);
+    renderRanges(state.filterChannel);
+  }
+  function refreshFilterChannels() {
+    const st = state.status;
+    if (st !== null) {
+      const changed = ensureSelection(st);
+      renderFilterOptions(st);
+      if (changed) {
+        renderRanges(state.filterChannel);
+        renderHwPrefilter(st);
+      }
+      return;
+    }
+    renderFilterOptions(null);
+  }
+  function selectFilterChannel(key) {
+    if (key === state.filterChannel) return;
+    if (!channelOptions(state.status).some((option) => option.key === key)) {
+      els.filterChannel.value = state.filterChannel ?? "";
+      return;
+    }
+    const ranges = collectRanges();
+    if (ranges === null) {
+      els.filterChannel.value = state.filterChannel ?? "";
+      return;
+    }
+    if (state.filterChannel !== null) state.filters.set(state.filterChannel, ranges);
+    state.filterChannel = key;
+    panelRendered = true;
+    renderFilterOptions(state.status);
+    renderRanges(key);
+    if (state.status !== null) renderHwPrefilter(state.status);
+  }
   function scanBitrate(name) {
     const value = state.scanRates.get(name) ?? state.socketcan.find((link) => link.name === name)?.bitrate ?? null;
     return value !== null && Number.isFinite(value) && value >= 1e3 && value <= 1e6 ? value : 5e5;
   }
   function collectConfig() {
+    const current = collectRanges();
+    if (current === null) return null;
+    if (state.filterChannel !== null) state.filters.set(state.filterChannel, current);
     const usb = [];
-    if (els.ch1Check.checked) usb.push({ index: 0, baud: asBaud(els.ch1Baud.value) ?? "500k" });
-    if (els.ch2Check.checked) usb.push({ index: 1, baud: asBaud(els.ch2Baud.value) ?? "500k" });
+    for (const index of selectedChannels()) {
+      const ranges = state.filters.get("usb:" + index) ?? [];
+      const baud = asBaud(index === 0 ? els.ch1Baud.value : els.ch2Baud.value) ?? "500k";
+      usb.push({ index, baud, filter: deriveAcceptanceFilter(ranges), software_filters: ranges });
+    }
     const socketcan = [...state.scanSelected].map((name) => ({
       name,
-      bitrate: scanBitrate(name)
+      bitrate: scanBitrate(name),
+      software_filters: state.filters.get("scan:" + name) ?? []
     }));
     if (usb.length === 0 && socketcan.length === 0) {
       toast("请至少选择一个通道", "warn");
@@ -1558,32 +1688,30 @@
     }
     const checked = document.querySelector('input[name="mode"]:checked');
     const mode = checked ? asMode(checked.value) ?? "normal" : "normal";
-    const software_filters = collectRanges();
-    if (software_filters === null) return null;
-    return {
-      usb,
-      socketcan,
-      mode,
-      filter: deriveAcceptanceFilter(software_filters),
-      software_filters
-    };
+    return { usb, socketcan, mode };
   }
   function renderHwPrefilter(st) {
-    const running = st.channels.find((c) => c.running);
-    const ref = running ?? st.channels.find((c) => c.filter !== null) ?? st.channels[0] ?? null;
-    els.hwFilterState.textContent = describeHardwareFilter(
-      ref ? ref.filter : null,
-      st.software_filters
-    );
+    const ch = filterChannelStatus(st);
+    if (ch === null) {
+      els.hwFilterState.textContent = "—";
+      return;
+    }
+    if (ch.source === "socketcan") {
+      els.hwFilterState.textContent = "仅软件滤波（无硬件验收）";
+      return;
+    }
+    const ranges = state.filters.get(channelKey(ch)) ?? [];
+    els.hwFilterState.textContent = describeHardwareFilter(ch.filter, ranges);
   }
   function acceptAllRanges() {
     if (rangeRowCount() === 0) {
-      toast("区间列表已为空：当前即接收全部帧", "info");
+      toast("区间列表已为空：当前通道即接收全部帧", "info");
       return;
     }
     els.filterRangeList.replaceChildren();
+    if (state.filterChannel !== null) state.filters.set(state.filterChannel, []);
     notifyRangeRowsChanged();
-    toast("已清空全部区间：点击「实时应用滤波」后接收全部帧", "info");
+    toast("已清空当前通道的全部区间：点击「实时应用滤波」后接收全部帧", "info");
   }
   function addRangeRow() {
     const count = rangeRowCount();
@@ -1598,28 +1726,24 @@
     }
   }
   async function applyFiltersLive(applyStatus2) {
-    const checkedUsb = selectedChannels();
-    const st = state.status;
-    const channels = checkedUsb.filter(
-      (index) => st !== null && st.channels.some((c) => c.index === index && c.running)
-    );
-    if (checkedUsb.length > 0 && channels.length !== checkedUsb.length) {
-      toast("已勾选的 USB 通道未运行，请先启动或取消勾选", "warn");
+    const ch = filterChannelStatus(state.status);
+    if (ch === null) {
+      toast("请先在滤波器中选择一个通道", "warn");
       return;
     }
-    const anyRunning = st !== null && st.channels.some((c) => c.running);
-    if (checkedUsb.length === 0 && !anyRunning) {
-      toast("请至少勾选一个运行中的通道，或先启动一条链路", "warn");
+    if (!ch.running) {
+      toast("选中的通道未运行，请先启动该通道", "warn");
       return;
     }
-    const software_filters = collectRanges();
-    if (software_filters === null) return;
-    const filter = deriveAcceptanceFilter(software_filters);
-    const status = await updateFilters(channels, filter, software_filters);
+    const ranges = collectRanges();
+    if (ranges === null) return;
+    if (state.filterChannel !== null) state.filters.set(state.filterChannel, ranges);
+    const update = { channel: ch.index, software_filters: ranges };
+    if (ch.source === "usb") update.filter = deriveAcceptanceFilter(ranges);
+    const status = await updateFilters({ channels: [update] });
     if (status) applyStatus2(status);
-    const names = channels.length > 0 ? channels.map((index) => st?.channels.find((c) => c.index === index)?.name ?? "CAN" + (index + 1)).join("、") : "全部链路（仅软件滤波）";
-    toast("滤波已实时更新：" + names + "（通道未停止）", "success");
-    setLastLog("滤波已实时更新：" + names);
+    toast("滤波已实时更新：" + ch.name + "（通道未停止）", "success");
+    setLastLog("滤波已实时更新：" + ch.name);
   }
 
   // src/send.ts
@@ -1649,7 +1773,7 @@
     }
     return bytes.length <= 8 ? bytes : null;
   }
-  function channelLabel(channel) {
+  function channelLabel2(channel) {
     return channel.name + (channel.mode === "listen_only" ? "（只听）" : "");
   }
   function syncSendChannels(st) {
@@ -1670,7 +1794,7 @@
     const options = running.map((channel) => {
       const option = document.createElement("option");
       option.value = String(channel.index);
-      option.textContent = channelLabel(channel);
+      option.textContent = channelLabel2(channel);
       option.disabled = channel.mode === "listen_only";
       return option;
     });
@@ -1799,6 +1923,7 @@
     els.sendCount.textContent = fmtInt(st.stats.tx_frames);
     syncSendChannels(st);
     if (st.server.version) els.versionLabel.textContent = "v" + st.server.version;
+    syncFilters(st);
     renderHwPrefilter(st);
     syncFormOnce(st);
     updateControls();
@@ -1828,11 +1953,10 @@
     const anyRunning = channels.some((c) => c.running);
     const recActive = st !== null && st.recording.active;
     const anyChannelChecked = els.ch1Check.checked || els.ch2Check.checked;
-    const checkedChannels = selectedChannels();
-    const allCheckedRunning = checkedChannels.length > 0 && checkedChannels.every((index) => channels.some((c) => c.index === index && c.running));
-    const filterAllowed = checkedChannels.length > 0 ? allCheckedRunning : anyRunning;
+    const filterTarget = filterChannelStatus(state.status);
+    const filterRunning = filterTarget !== null && filterTarget.running;
     els.btnApplyConfig.disabled = !anyChannelChecked && state.scanSelected.size === 0;
-    els.btnApplyFilters.disabled = !filterAllowed;
+    els.btnApplyFilters.disabled = !filterRunning;
     els.btnStopChannels.disabled = !anyRunning;
     els.btnRecStart.disabled = !(open || anyRunning) || recActive;
     els.btnRecStop.disabled = !recActive;
@@ -1850,13 +1974,6 @@
     if (running.length > 0) {
       els.ch1Check.checked = running.some((c) => c.index === 0);
       els.ch2Check.checked = running.some((c) => c.index === 1);
-    }
-    if (st.software_filters.length > 0) {
-      const frag = document.createDocumentFragment();
-      for (const f of st.software_filters) {
-        frag.appendChild(buildRangeRow(f.extended, f.start, f.end));
-      }
-      els.filterRangeList.replaceChildren(frag);
     }
     updateControls();
   }
@@ -1895,6 +2012,7 @@
       busy.delete(btn);
       btn.classList.remove("busy");
       btn.removeAttribute("aria-busy");
+      btn.disabled = false;
       updateControls();
     }
   }
@@ -1999,6 +2117,7 @@
       state.socketcan = res.socketcan;
       state.selectedDevice = state.devices.length > 0 ? state.devices[0].index : null;
       renderScanList();
+      refreshFilterChannels();
       updateControls();
     } catch (err) {
       toast(errText(err), "error");
@@ -2313,6 +2432,9 @@
     });
     els.ch1Check.addEventListener("change", updateControls);
     els.ch2Check.addEventListener("change", updateControls);
+    els.filterChannel.addEventListener("change", () => {
+      selectFilterChannel(els.filterChannel.value);
+    });
     els.btnApplyConfig.addEventListener("click", () => {
       void runBusy(els.btnApplyConfig, async () => {
         const body = collectConfig();
@@ -2429,6 +2551,7 @@
       const ws = state.ws;
       if (!ws || ws.readyState > 1) connectWs();
     });
+    initFilterPanel();
   }
 
   // src/main.ts

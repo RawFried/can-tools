@@ -4,6 +4,7 @@
  */
 import { fetchDevices } from './api';
 import { els } from './dom';
+import { refreshFilterChannels } from './filters';
 import { errText, fmtScanMeta } from './format';
 import { state } from './state';
 import { updateControls } from './status';
@@ -117,6 +118,7 @@ export async function loadDevices(): Promise<void> {
     state.socketcan = res.socketcan;
     state.selectedDevice = state.devices.length > 0 ? state.devices[0].index : null;
     renderScanList();
+    refreshFilterChannels();
     updateControls();
   } catch (err) {
     toast(errText(err), 'error');

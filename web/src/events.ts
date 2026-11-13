@@ -13,7 +13,7 @@ import { els } from './dom';
 import { fmtInt } from './format';
 import { loadDevices } from './devices';
 import { loadRecordings } from './recordings';
-import { acceptAllRanges, addRangeRow, applyFiltersLive, collectConfig } from './filters';
+import { acceptAllRanges, addRangeRow, applyFiltersLive, collectConfig, initFilterPanel, selectFilterChannel } from './filters';
 import { clearLocalFrames, rebuildTable, setAutoscroll, setPaused } from './frames';
 import { applyStatus, runBusy, updateControls } from './status';
 import { sendCurrentFrame, updateSendControls, updateSendDlc } from './send';
@@ -28,6 +28,10 @@ export function bindEvents(): void {
 
   els.ch1Check.addEventListener('change', updateControls);
   els.ch2Check.addEventListener('change', updateControls);
+
+  els.filterChannel.addEventListener('change', () => {
+    selectFilterChannel(els.filterChannel.value);
+  });
 
   els.btnApplyConfig.addEventListener('click', () => {
     void runBusy(els.btnApplyConfig, async () => {
@@ -168,4 +172,7 @@ export function bindEvents(): void {
     const ws = state.ws;
     if (!ws || ws.readyState > 1) connectWs();
   });
+
+  /* 首个状态到达前先渲染滤波面板占位；状态到达后由 applyStatus 同步各通道区间 */
+  initFilterPanel();
 }

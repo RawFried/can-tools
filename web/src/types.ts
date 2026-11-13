@@ -53,6 +53,8 @@ export interface ChannelStatusDto {
   bitrate: number | null;
   /** SocketCAN 接口状态（up/down/unknown），USB 为 null。 */
   state: string | null;
+  /** 该通道当前生效的软件滤波区间（空数组 = 全部接收）。 */
+  software_filters: SoftwareFilterDto[];
 }
 
 /** GET /api/devices 中 socketcan 数组的项。 */
@@ -99,7 +101,6 @@ export interface ServerDto {
 export interface StatusDto {
   device: DeviceStatusDto;
   channels: ChannelStatusDto[];
-  software_filters: SoftwareFilterDto[];
   recording: RecordingStatusDto;
   stats: StatsDto;
   server: ServerDto;
@@ -123,25 +124,39 @@ export interface RecordingFileDto {
   modified_ms: number;
 }
 
-/** 单个 USB 通道的启动配置（v4：每通道独立波特率）。 */
+/** 单个 USB 通道的启动配置（v5：每通道独立波特率与滤波）。 */
 export interface UsbChannelConfigDto {
   index: number;
   baud: Baud;
+  filter: AcceptanceFilterDto;
+  software_filters: SoftwareFilterDto[];
 }
 
-/** 单条 SocketCAN 链路的启动配置。 */
+/** 单条 SocketCAN 链路的启动配置（无硬件验收滤波）。 */
 export interface SocketCanChannelConfigDto {
   name: string;
   bitrate: number;
+  software_filters: SoftwareFilterDto[];
 }
 
-/** POST /api/config 请求体（v4：按通道统一配置）。 */
+/** POST /api/config 请求体（v5：按通道统一配置与滤波）。 */
 export interface ConfigBody {
   usb: UsbChannelConfigDto[];
   socketcan: SocketCanChannelConfigDto[];
   mode: CanMode;
-  filter: AcceptanceFilterDto;
+}
+
+/** POST /api/filters 中单条通道更新。 */
+export interface FilterUpdateChannelDto {
+  channel: number;
+  /** USB 通道可带硬件验收滤波；SocketCAN 忽略该字段。 */
+  filter?: AcceptanceFilterDto;
   software_filters: SoftwareFilterDto[];
+}
+
+/** POST /api/filters 请求体（v5：按通道列表更新）。 */
+export interface FilterUpdateBody {
+  channels: FilterUpdateChannelDto[];
 }
 
 /** POST /api/send 请求体 */
@@ -193,6 +208,21 @@ export function asBaud(v: unknown): Baud | null {
 }
 export function asMode(v: unknown): CanMode | null {
   return isStr(v) && (MODES as readonly string[]).includes(v) ? (v as CanMode) : null;
+}
+
+/** 收窄某通道的软件滤波区间列表；非数组或非法项按空数组/跳过处理。 */
+function parseSoftwareFilters(v: unknown): SoftwareFilterDto[] {
+  if (!Array.isArray(v)) return [];
+  const out: SoftwareFilterDto[] = [];
+  for (const f of v) {
+    if (!isObj(f)) continue;
+    out.push({
+      extended: f['extended'] === true,
+      start: numOr(f['start'], 0),
+      end: numOr(f['end'], 0),
+    });
+  }
+  return out;
 }
 
 function parseFrameDto(o: Record<string, unknown>): FrameDto {
@@ -267,18 +297,7 @@ export function parseStatusDto(v: unknown): StatusDto | null {
         filter,
         bitrate: isNum(c['bitrate']) ? c['bitrate'] : null,
         state: isStr(c['state']) ? c['state'] : null,
-      });
-    }
-  }
-
-  const software_filters: SoftwareFilterDto[] = [];
-  if (Array.isArray(v['software_filters'])) {
-    for (const f of v['software_filters']) {
-      if (!isObj(f)) continue;
-      software_filters.push({
-        extended: f['extended'] === true,
-        start: numOr(f['start'], 0),
-        end: numOr(f['end'], 0),
+        software_filters: parseSoftwareFilters(c['software_filters']),
       });
     }
   }
@@ -290,7 +309,6 @@ export function parseStatusDto(v: unknown): StatusDto | null {
   return {
     device: { open: dev['open'] === true, info },
     channels,
-    software_filters,
     recording: {
       active: rec['active'] === true,
       file: isStr(rec['file']) ? rec['file'] : null,

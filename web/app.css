@@ -544,6 +544,10 @@ select.input { cursor: pointer; }
 .seg-mini span { padding: 4px 8px; font-size: 11.5px; }
 
 /* ---------- 滤波器区间行 ---------- */
+/* 滤波通道选择器：与其它 .input 同规格并独占整行；无选项时仍保留 30px 字段高度，
+   与上下字段的间距由 .card-body 的 gap 统一（12px） */
+#filterChannel { width: 100%; }
+
 /* minmax(0,1fr)：输入框有内在最小宽度（size 属性），auto 轨道会被撑开进而推破卡片；
    margin-top 让「标签 → 首行」与「行 → 行」的间距一致（否则标签会贴住第一行） */
 #filterRangeList {

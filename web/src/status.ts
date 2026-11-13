@@ -4,7 +4,7 @@
  */
 import { fetchHealthVersion, fetchStatus } from './api';
 import { els } from './dom';
-import { MAX_RANGE_ROWS, buildRangeRow, rangeRowCount, renderHwPrefilter, selectedChannels } from './filters';
+import { MAX_RANGE_ROWS, filterChannelStatus, rangeRowCount, renderHwPrefilter, syncFilters } from './filters';
 import { errText, fmtDur, fmtInt, fmtRate, fmtScanMeta } from './format';
 import { syncSendChannels, updateSendControls } from './send';
 import { BUFFER_CAP, busy, state } from './state';
@@ -65,12 +65,12 @@ export function applyStatus(st: StatusDto): void {
   /* 版本 */
   if (st.server.version) els.versionLabel.textContent = 'v' + st.server.version;
 
+  syncFilters(st);
   renderHwPrefilter(st);
   syncFormOnce(st);
   updateControls();
   updateEmpty();
 }
-
 /** 状态推送时原地刷新链路列表的运行态文案；不重建复选框，避免打断用户操作。 */
 function refreshScanMeta(st: StatusDto): void {
   for (const item of els.scanList.querySelectorAll<HTMLElement>('.scan-item')) {
@@ -98,15 +98,11 @@ export function updateControls(): void {
   const anyRunning = channels.some((c) => c.running);
   const recActive = st !== null && st.recording.active;
   const anyChannelChecked = els.ch1Check.checked || els.ch2Check.checked;
-  const checkedChannels = selectedChannels();
-  const allCheckedRunning =
-    checkedChannels.length > 0 &&
-    checkedChannels.every((index) => channels.some((c) => c.index === index && c.running));
-  /* 滤波：勾选的 USB 通道全部运行；未勾选 USB 但仍有运行中的链路（可为 SocketCAN）时只更新软件滤波 */
-  const filterAllowed = checkedChannels.length > 0 ? allCheckedRunning : anyRunning;
+  const filterTarget = filterChannelStatus(state.status);
+  const filterRunning = filterTarget !== null && filterTarget.running;
 
   els.btnApplyConfig.disabled = !anyChannelChecked && state.scanSelected.size === 0;
-  els.btnApplyFilters.disabled = !filterAllowed;
+  els.btnApplyFilters.disabled = !filterRunning;
   els.btnStopChannels.disabled = !anyRunning;
   els.btnRecStart.disabled = !(open || anyRunning) || recActive;
   els.btnRecStop.disabled = !recActive;
@@ -135,13 +131,6 @@ export function syncFormOnce(st: StatusDto): void {
     els.ch2Check.checked = running.some((c) => c.index === 1);
   }
 
-  if (st.software_filters.length > 0) {
-    const frag = document.createDocumentFragment();
-    for (const f of st.software_filters) {
-      frag.appendChild(buildRangeRow(f.extended, f.start, f.end));
-    }
-    els.filterRangeList.replaceChildren(frag);
-  }
   updateControls();
 }
 
@@ -187,6 +176,8 @@ export async function runBusy(btn: HTMLButtonElement, fn: () => Promise<void>): 
     busy.delete(btn);
     btn.classList.remove('busy');
     btn.removeAttribute('aria-busy');
+    /* 一次性按钮（如刷新设备）必须显式恢复可用，否则 updateControls 无法将其解锁 */
+    btn.disabled = false;
     updateControls();
   }
 }
