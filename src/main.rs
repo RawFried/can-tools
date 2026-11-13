@@ -1,6 +1,6 @@
 //! `can-tools` 二进制入口: 解析参数、启动 CAN 工作线程与 Web 服务。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 
@@ -9,6 +9,7 @@ use clap::Parser;
 use tokio::net::TcpListener;
 use tracing_subscriber::EnvFilter;
 
+use can_tools::can::dbc;
 use can_tools::paths;
 use can_tools::server::{self, AppState};
 use can_tools::service::CanService;
@@ -51,6 +52,7 @@ async fn main() -> Result<()> {
         data_dir: data_dir.display().to_string(),
     };
     let shared = SharedState::new(server_info);
+    load_persisted_dbc(&data_dir, &shared);
     let service = Arc::new(
         CanService::spawn(shared.clone(), recordings_dir).context("无法启动 CAN 工作线程")?,
     );
@@ -83,6 +85,38 @@ async fn main() -> Result<()> {
     service.shutdown().await;
     tracing::info!("已退出");
     Ok(())
+}
+
+/// 启动时加载 `<data_dir>/dbc` 下持久化的 DBC 定义。
+///
+/// 读取或解析失败只记录告警, 不阻止服务启动; 同一目录理论上只有一个 `.dbc`。
+fn load_persisted_dbc(data_dir: &Path, shared: &SharedState) {
+    let directory = data_dir.join("dbc");
+    let entries = match std::fs::read_dir(&directory) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+        Err(error) => {
+            tracing::warn!("无法读取 DBC 目录 {}: {error}", directory.display());
+            return;
+        }
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                tracing::warn!("读取 DBC 目录项失败: {error}");
+                continue;
+            }
+        };
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("dbc") {
+            continue;
+        }
+        match dbc::load_file(&path) {
+            Ok(definition) => shared.set_dbc(Some(Arc::new(definition))),
+            Err(error) => tracing::warn!("加载 DBC 失败: {error}"),
+        }
+    }
 }
 
 /// 在图形会话中打开默认浏览器; 无桌面环境时静默跳过。

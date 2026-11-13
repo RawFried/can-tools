@@ -95,6 +95,63 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
 reported by the device. `data` is uppercase hex separated by single spaces (empty string when
 `dlc` is 0).
 
+## DBC definition object
+
+A parsed DBC file is exposed as one definition. All fields are always present.
+
+```json
+{
+  "name": "demo.dbc",
+  "loaded_at_ms": 1762681234567,
+  "messages": [
+    {
+      "id": 291,
+      "extended": false,
+      "name": "EngineData",
+      "dlc": 8,
+      "sender": "ECU",
+      "signals": [
+        {
+          "name": "EngineSpeed",
+          "start_bit": 0,
+          "length": 16,
+          "little_endian": true,
+          "signed": false,
+          "factor": 0.25,
+          "offset": 0.0,
+          "min": 0.0,
+          "max": 16383.75,
+          "unit": "rpm",
+          "receivers": ["CLUSTER"],
+          "value_kind": "unsigned",
+          "mux": null,
+          "values": [
+            {"raw": 0, "label": "Off"},
+            {"raw": 1, "label": "On"}
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+- `id` never includes the frame-type flag: standard IDs are `0..=0x7FF`, extended IDs are
+  `0..=0x1FFFFFFF`; `extended` comes from bit 31 of the DBC `BO_` raw ID.
+- `dlc` is clamped to `0..=8` (larger values are stored as 8).
+- `value_kind` is `unsigned`, `signed`, `float` or `double`. The `SG_` sign selects signedness;
+  `SIG_VALTYPE_ <id> <signal> : 1` forces `float` and `: 2` forces `double` (both clear `signed`).
+- `mux` is `null` for a normal signal, `{"is_multiplexer": true, "value": null}` for `M`, and
+  `{"is_multiplexer": false, "value": 3}` for `m3`. `m<N>M` is reported with
+  `is_multiplexer: true` and `value: N`.
+- `values` is the `VAL_` table (`[]` when absent); `raw` is a signed 64-bit integer.
+- `receivers` keeps every receiver name verbatim, including `Vector__XXX`; it is `[]` when the
+  signal declares no receiver.
+- Unrelated DBC sections (`VERSION`, `NS_`, `BS_`, `BU_`, `CM_`, `BA_DEF_`, `BA_`, `VAL_TABLE_`,
+  `SGTYPE_`, `EV_`, …) are ignored. Lines starting with `//` are comments.
+- Limits: content ≤ 1 MiB, ≤ 5000 messages, ≤ 512 signals per message. Parse failures are
+  reported with a 1-based line number and a Chinese message.
+
 ## REST
 
 ### `GET /api/health`
@@ -227,6 +284,39 @@ Response: `{"ok": true, "file": "can-20261109-150000.csv", "frames": 1234, "stat
 Clears the in-memory live frame buffer and counter display (recorded files are untouched).
 Response: `{"ok": true}`
 
+### `POST /api/dbc`
+
+Uploads and parses a DBC file. The body carries the raw text:
+
+```json
+{"name": "demo.dbc", "content": "VERSION \"\"\n...\n"}
+```
+
+- `content` must not exceed 1 MiB.
+- On success the definition replaces the previous one, is persisted under
+  `<data_dir>/dbc/<safe-name>.dbc`, and a `dbc` WebSocket event is broadcast.
+- The safe name keeps only `[A-Za-z0-9._-]`, must end in `.dbc`, may not contain path
+  separators, and is at most 96 characters. Only one `.dbc` is kept in that directory.
+- Response: `{"ok": true, "dbc": { ... }}`
+- Parse or validation failure: `400` with `{"ok": false, "error": "第 12 行: ..."}`.
+
+### `GET /api/dbc`
+
+Returns the currently loaded definition, or `null` when none is loaded:
+
+```json
+{"dbc": { ... }}
+```
+
+```json
+{"dbc": null}
+```
+
+### `DELETE /api/dbc`
+
+Removes the loaded definition and deletes the persisted `.dbc` file. Succeeds even when nothing
+is loaded. Response: `{"ok": true}`
+
 ### `GET /api/recordings`
 
 ```json
@@ -250,17 +340,20 @@ On connect the server sends one snapshot message, then streams events. The clien
 Snapshot:
 
 ```json
-{"type": "snapshot", "status": { ... }, "frames": [ ... ]}
+{"type": "snapshot", "status": { ... }, "frames": [ ... ], "dbc": { ... }}
 ```
 
-Event variants:
+`dbc` is the full definition or `null`. Event variants:
 
 ```json
 {"type": "frames", "frames": [ ... ]}
 {"type": "status", "status": { ... }}
 {"type": "log", "level": "info", "message": "已启动 CAN1 (500k)"}
 {"type": "cleared"}
+{"type": "dbc", "dbc": { ... }}
 ```
 
-Status is also pushed at least once per second while frames flow. Clients should reconnect
-with backoff when the socket closes.
+A `dbc` event is broadcast after `POST /api/dbc` and `DELETE /api/dbc` (`dbc: null` for the
+latter). The `status` object is unchanged and does not contain DBC state. Status is also pushed
+at least once per second while frames flow. Clients should reconnect with backoff when the
+socket closes.

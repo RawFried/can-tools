@@ -1,0 +1,86 @@
+// CAN Tools DBC 演示文件
+// 覆盖: 标准/扩展 ID、Intel/Motorola、有符号、factor/offset、单位、
+//       VAL_ 取值表、float (SIG_VALTYPE_ 1) 与 multiplexed 信号。
+// 报文内容与示例帧:
+//   0x123  8A 1F C8 10 27 40 00 00
+//   0x2A0  88 13 10 27 00 00 00 01
+//   0x18FF50E5  10 27 03 88 13 00 00 00
+//   0x320  01 34 12 88 13 00 00 00
+
+VERSION ""
+
+
+NS_ :
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_: ECU CLUSTER MOTOR
+
+
+BO_ 291 EngineData: 8 ECU
+ SG_ EngineSpeed : 0|16@1+ (0.25,0) [0|16383.75] "rpm" CLUSTER
+ SG_ CoolantTemp : 16|8@1+ (1,-40) [-40|215] "degC" CLUSTER
+ SG_ EngineTorque : 24|16@1- (0.5,-1000) [-1000|1000] "Nm" CLUSTER
+ SG_ ThrottlePos : 40|8@1+ (0.3921568627,0) [0|100] "%" CLUSTER
+ SG_ EngineOn : 48|1@1+ (1,0) [0|1] "" CLUSTER
+
+BO_ 672 MotorStatus: 8 MOTOR
+ SG_ MotorRpm : 0|16@1+ (1,0) [0|65535] "rpm" CLUSTER
+ SG_ MotorCurrent : 16|16@1- (0.01,0) [-327.68|327.67] "A" CLUSTER
+ SG_ MotorTemp : 39|8@0+ (1,-40) [-40|215] "degC" CLUSTER
+ SG_ MotorMode : 48|8@1+ (1,0) [0|3] "" CLUSTER
+
+BO_ 2566869221 VehicleStatus: 8 MOTOR
+ SG_ VehicleSpeed : 0|16@1+ (0.01,0) [0|655.35] "km/h" CLUSTER
+ SG_ GearPosition : 16|8@1+ (1,0) [0|7] "" CLUSTER
+ SG_ SteeringAngle : 24|16@1- (0.1,0) [-3276.8|3276.7] "deg" CLUSTER
+ SG_ Odometer : 40|24@1+ (0.1,0) [0|1677721.5] "km" CLUSTER
+
+BO_ 800 MuxData: 8 ECU
+ SG_ MuxSelector M : 0|8@1+ (1,0) [0|3] "" CLUSTER
+ SG_ MuxCounter m1 : 8|16@1+ (1,0) [0|65535] "" CLUSTER
+ SG_ MuxVoltage m1 : 24|16@1+ (0.001,0) [0|65.535] "V" CLUSTER
+ SG_ MuxCurrent m2 : 8|16@1- (0.01,0) [-327.68|327.67] "A" CLUSTER
+ SG_ MuxFloat m3 : 8|32@1+ (1,0) [0|0] "" CLUSTER
+
+
+VAL_ 291 EngineOn 0 "Off" 1 "On" ;
+VAL_ 291 CoolantTemp 0 "Cold" 90 "Warm" 120 "Hot" ;
+VAL_ 672 MotorMode 0 "Idle" 1 "Drive" 2 "Regen" 3 "Fault" ;
+VAL_ 2566869221 GearPosition 0 "Park" 1 "Reverse" 2 "Neutral" 3 "Drive" ;
+VAL_ 800 MuxSelector 1 "Counter" 2 "Current" 3 "Float" ;
+
+SIG_VALTYPE_ 800 MuxFloat : 1;
+
+CM_ BO_ 291 "发动机基础数据";
+CM_ BO_ 672 "电机状态";
+CM_ BO_ 2566869221 "整车状态 (扩展帧)";
+CM_ BO_ 800 "多路复用演示";

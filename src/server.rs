@@ -14,6 +14,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio::sync::broadcast;
 
+use crate::can::dbc;
 use crate::can::types::{FilterUpdateRequest, SendFrameRequest, StartConfig};
 use crate::service::CanService;
 use crate::state::SharedState;
@@ -53,6 +54,7 @@ pub fn router(state: AppState) -> Router {
             "/api/recordings/{name}",
             get(download_recording).delete(delete_recording),
         )
+        .route("/api/dbc", get(get_dbc).post(upload_dbc).delete(delete_dbc))
         .route("/ws", get(websocket))
         .with_state(state)
 }
@@ -202,6 +204,124 @@ async fn clear_frames(State(state): State<AppState>) -> Result<Json<Value>, ApiE
     Ok(Json(json!({"ok": true})))
 }
 
+#[derive(Debug, Deserialize)]
+struct DbcUploadRequest {
+    /// 上传文件名, 用于展示与持久化。
+    name: String,
+    /// DBC 原始文本。
+    content: String,
+}
+
+async fn upload_dbc(
+    State(state): State<AppState>,
+    Json(request): Json<DbcUploadRequest>,
+) -> Result<Json<Value>, ApiError> {
+    if request.content.len() > dbc::MAX_CONTENT_BYTES {
+        return Err(ApiError::bad(format!(
+            "DBC 内容超过 1 MiB 上限 (实际 {} 字节)",
+            request.content.len()
+        )));
+    }
+    let file_name = dbc_file_name(&request.name)?;
+    // 定义名统一使用清洗后的文件名, 保证重启后从磁盘加载时的显示名一致。
+    let definition = dbc::parse(&file_name, &request.content).map_err(ApiError::bad)?;
+    persist_dbc(&state.data_dir, &file_name, &request.content).await?;
+    let definition = Arc::new(definition);
+    state.shared.set_dbc(Some(definition.clone()));
+    Ok(Json(json!({
+        "ok": true,
+        "dbc": definition.as_ref(),
+    })))
+}
+
+async fn get_dbc(State(state): State<AppState>) -> Json<Value> {
+    let dbc = state.shared.dbc();
+    Json(json!({"dbc": dbc.as_deref()}))
+}
+
+async fn delete_dbc(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
+    clear_dbc_files(&state.data_dir).await?;
+    state.shared.set_dbc(None);
+    Ok(Json(json!({"ok": true})))
+}
+
+/// 清洗上传的 DBC 文件名。
+///
+/// 拒绝路径分隔符、空名与非 `.dbc` 后缀; 其余字符只保留 `[A-Za-z0-9._-]`,
+/// 并限制长度, 避免把用户输入直接拼进数据目录。
+fn dbc_file_name(name: &str) -> Result<String, ApiError> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(ApiError::bad("DBC 文件名不能为空"));
+    }
+    if trimmed.contains('/') || trimmed.contains('\\') {
+        return Err(ApiError::bad("DBC 文件名不能包含路径分隔符"));
+    }
+    let cleaned: String = trimmed
+        .chars()
+        .filter(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-')
+        })
+        .collect();
+    if cleaned == ".dbc" {
+        return Err(ApiError::bad("DBC 文件名缺少名称部分"));
+    }
+    if !cleaned.ends_with(".dbc") {
+        return Err(ApiError::bad("DBC 文件名必须以 .dbc 结尾"));
+    }
+    if cleaned.len() > 96 {
+        return Err(ApiError::bad(format!(
+            "DBC 文件名过长 (最多 96 字符, 实际 {} 字符)",
+            cleaned.len()
+        )));
+    }
+    Ok(cleaned)
+}
+
+async fn persist_dbc(data_dir: &Path, file_name: &str, content: &str) -> Result<(), ApiError> {
+    let directory = data_dir.join("dbc");
+    tokio::fs::create_dir_all(&directory)
+        .await
+        .map_err(|error| ApiError::internal(format!("创建 DBC 目录失败: {error}")))?;
+    clear_dbc_files(data_dir).await?;
+    let path = directory.join(file_name);
+    tokio::fs::write(&path, content)
+        .await
+        .map_err(|error| ApiError::internal(format!("保存 DBC 文件失败: {error}")))?;
+    Ok(())
+}
+
+/// 删除 `<data_dir>/dbc` 下的全部 `.dbc` 文件; 目录不存在时视为成功。
+async fn clear_dbc_files(data_dir: &Path) -> Result<(), ApiError> {
+    let directory = data_dir.join("dbc");
+    let mut reader = match tokio::fs::read_dir(&directory).await {
+        Ok(reader) => reader,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(ApiError::internal(format!("读取 DBC 目录失败: {error}"))),
+    };
+    while let Some(entry) = reader
+        .next_entry()
+        .await
+        .map_err(|error| ApiError::internal(format!("读取 DBC 目录失败: {error}")))?
+    {
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) != Some("dbc") {
+            continue;
+        }
+        match tokio::fs::remove_file(&path).await {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(ApiError::internal(format!(
+                    "删除旧 DBC 文件 {} 失败: {error}",
+                    path.display()
+                )))
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug, serde::Serialize)]
 struct RecordingEntry {
     name: String,
@@ -293,10 +413,12 @@ async fn websocket(ws: WebSocketUpgrade, State(state): State<AppState>) -> Respo
 }
 
 async fn handle_socket(mut socket: WebSocket, shared: Arc<SharedState>) {
+    let dbc = shared.dbc();
     let snapshot = json!({
       "type": "snapshot",
       "status": shared.status(),
       "frames": shared.frames(),
+      "dbc": dbc.as_deref(),
     });
     if !send_json(&mut socket, &snapshot).await {
         return;
@@ -360,6 +482,7 @@ fn recording_path(data_dir: &Path, name: &str) -> Result<PathBuf, ApiError> {
 }
 
 /// API 错误响应。
+#[derive(Debug)]
 pub struct ApiError {
     status: StatusCode,
     message: String,
@@ -410,5 +533,24 @@ mod tests {
         assert!(recording_path(root, ".hidden.csv").is_err());
         assert!(recording_path(root, "notes.txt").is_err());
         assert!(recording_path(root, "can-20260101-120000.csv").is_ok());
+    }
+
+    #[test]
+    fn dbc_file_name_rejects_paths_and_non_dbc() {
+        assert!(dbc_file_name("../x.dbc").is_err());
+        assert!(dbc_file_name("a/b.dbc").is_err());
+        assert!(dbc_file_name("").is_err());
+        assert!(dbc_file_name("notes.txt").is_err());
+        assert!(dbc_file_name("   ").is_err());
+        assert!(dbc_file_name(".dbc").is_err());
+    }
+
+    #[test]
+    fn dbc_file_name_filters_unsafe_characters() {
+        assert_eq!(dbc_file_name(" demo.dbc ").unwrap(), "demo.dbc");
+        assert_eq!(dbc_file_name("我的 demo.dbc").unwrap(), "demo.dbc");
+        assert_eq!(dbc_file_name("a b@c.dbc").unwrap(), "abc.dbc");
+        let long = format!("{}.dbc", "a".repeat(100));
+        assert!(dbc_file_name(&long).is_err());
     }
 }

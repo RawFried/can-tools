@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use serde::Serialize;
 use tokio::sync::broadcast;
 
+use crate::can::dbc::DbcDefinition;
 use crate::can::types::{BaudRate, CanMode, DeviceInfo, FrameDto, HardwareFilter, SoftwareFilter};
 
 /// 前端实时帧缓冲上限。
@@ -148,12 +149,18 @@ pub enum Event {
     },
     /// 实时缓冲已清空。
     Cleared,
+    /// DBC 定义已加载或移除。
+    Dbc {
+        /// 新定义; 移除后为 `null`。
+        dbc: Option<DbcDefinition>,
+    },
 }
 
 /// 共享状态容器。
 pub struct SharedState {
     status: Mutex<Status>,
     frames: Mutex<VecDeque<FrameDto>>,
+    dbc: Mutex<Option<Arc<DbcDefinition>>>,
     events: broadcast::Sender<Event>,
     max_frames: usize,
 }
@@ -169,6 +176,7 @@ impl SharedState {
         Arc::new(Self {
             status: Mutex::new(Status::closed(server)),
             frames: Mutex::new(VecDeque::with_capacity(max_frames)),
+            dbc: Mutex::new(None),
             events,
             max_frames,
         })
@@ -232,6 +240,20 @@ impl SharedState {
         self.broadcast(Event::Cleared);
     }
 
+    /// 读取当前 DBC 定义; 未加载时为 `None`。
+    pub fn dbc(&self) -> Option<Arc<DbcDefinition>> {
+        self.lock_dbc().clone()
+    }
+
+    /// 替换 DBC 定义并广播 `dbc` 事件。
+    ///
+    /// 广播内容序列化为完整的定义 (而非 `Arc`), 因为 `serde` 未启用 `rc` feature。
+    pub fn set_dbc(&self, dbc: Option<Arc<DbcDefinition>>) {
+        let event_dbc = dbc.as_deref().cloned();
+        *self.lock_dbc() = dbc;
+        self.broadcast(Event::Dbc { dbc: event_dbc });
+    }
+
     /// 广播一条日志。
     pub fn log(&self, level: &str, message: impl Into<String>) {
         let message = message.into();
@@ -259,6 +281,12 @@ impl SharedState {
 
     fn lock_frames(&self) -> MutexGuard<'_, VecDeque<FrameDto>> {
         self.frames
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    fn lock_dbc(&self) -> MutexGuard<'_, Option<Arc<DbcDefinition>>> {
+        self.dbc
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
@@ -333,5 +361,54 @@ mod tests {
         .unwrap();
         assert_eq!(frames["type"], "frames");
         assert_eq!(frames["frames"][0]["seq"], 1);
+    }
+
+    fn dbc_definition() -> DbcDefinition {
+        DbcDefinition {
+            name: "demo.dbc".to_string(),
+            loaded_at_ms: 1,
+            messages: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn dbc_event_uses_documented_tag_and_null() {
+        let definition = dbc_definition();
+        let with_value = serde_json::to_value(Event::Dbc {
+            dbc: Some(definition.clone()),
+        })
+        .unwrap();
+        assert_eq!(with_value["type"], "dbc");
+        assert_eq!(with_value["dbc"]["name"], "demo.dbc");
+        assert_eq!(with_value["dbc"]["messages"], serde_json::json!([]));
+
+        let cleared = serde_json::to_value(Event::Dbc { dbc: None }).unwrap();
+        assert_eq!(cleared, serde_json::json!({"type": "dbc", "dbc": null}));
+    }
+
+    #[test]
+    fn dbc_set_and_get_round_trip() {
+        let shared = SharedState::new(server_info());
+        assert!(shared.dbc().is_none());
+
+        let definition = dbc_definition();
+        shared.set_dbc(Some(Arc::new(definition.clone())));
+        assert_eq!(shared.dbc().as_deref(), Some(&definition));
+
+        shared.set_dbc(None);
+        assert!(shared.dbc().is_none());
+    }
+
+    #[test]
+    fn dbc_set_broadcasts_event() {
+        let shared = SharedState::new(server_info());
+        let mut receiver = shared.subscribe();
+        shared.set_dbc(Some(Arc::new(dbc_definition())));
+        match receiver.try_recv().unwrap() {
+            Event::Dbc { dbc } => {
+                assert_eq!(dbc.map(|dbc| dbc.name), Some("demo.dbc".to_string()));
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
     }
 }
