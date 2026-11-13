@@ -197,6 +197,33 @@ SKIP_BUILD=1 ./packaging/build-appimage.sh
 ./can-tools-0.1.0-x86_64.AppImage --appimage-extract-and-run
 ```
 
+## 交叉编译（cargo-zigbuild）
+
+在较旧的发行版（glibc ≥ 2.17）或不同架构上运行时，用 `cargo-zigbuild` 以 zig 自带的
+glibc 头文件构建，避免把宿主机的 glibc 版本带进二进制：
+
+```bash
+# 前置：zig、cargo-zigbuild、对应 rustup target，且已生成前端产物
+cargo install cargo-zigbuild
+rustup target add x86_64-unknown-linux-gnu     # aarch64: aarch64-unknown-linux-gnu
+(cd web && npm ci && npm run build)
+
+./packaging/build-zig.sh                                   # x86_64, glibc 2.17 基线
+TARGET=aarch64-unknown-linux-gnu.2.17 ./packaging/build-zig.sh
+```
+
+产物在 `target/<triple>/release/can-tools`（例如
+`target/x86_64-unknown-linux-gnu/release/can-tools`），可直接 scp 到目标机：
+
+```bash
+scp target/x86_64-unknown-linux-gnu/release/can-tools jz@<host>:~/
+```
+
+脚本设置 `LIBUDEV_NO_PKG_CONFIG=1`：vendored libusb 不做 udev 探测，避免把宿主的
+`/usr/include` 与 glibc 2.38+ 符号带进目标二进制；应用只按需枚举设备，不依赖热插拔。
+目标机仍需配置 USB 权限（见「设备权限」）。构建后可用
+`objdump -T <binary> | grep -o 'GLIBC_[0-9.]*' | sort -V | tail -1` 检查所需的最高 glibc 版本。
+
 ## 测试与规范
 
 ```bash
