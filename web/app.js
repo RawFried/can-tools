@@ -45,6 +45,7 @@
     scanList: byId("scanList"),
     scanEmpty: byId("scanEmpty"),
     scanStates: byId("scanStates"),
+    scanBitrate: byId("scanBitrate"),
     /* 滤波器 */
     filterRangeList: byId("filterRangeList"),
     filterEmpty: byId("filterEmpty"),
@@ -1579,6 +1580,8 @@
       return null;
     }
     const baud = asBaud(els.baudSelect.value) ?? "500k";
+    const rawBitrate = Number(els.scanBitrate.value);
+    const socketcan_bitrate = Number.isFinite(rawBitrate) && rawBitrate >= 1e3 && rawBitrate <= 1e6 ? rawBitrate : 5e5;
     const checked = document.querySelector('input[name="mode"]:checked');
     const mode = checked ? asMode(checked.value) ?? "normal" : "normal";
     const software_filters = collectRanges();
@@ -1589,7 +1592,8 @@
       mode,
       filter: deriveAcceptanceFilter(software_filters),
       software_filters,
-      socketcan
+      socketcan,
+      socketcan_bitrate
     };
   }
   function renderHwPrefilter(st) {

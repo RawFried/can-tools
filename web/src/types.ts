@@ -132,6 +132,8 @@ export interface ConfigBody {
   software_filters: SoftwareFilterDto[];
   /** 要启动/重启的 SocketCAN 接口名；channels 与 socketcan 不可同时为空。 */
   socketcan: string[];
+  /** 启动 SocketCAN 链路时使用的速率（bps，1000–1000000，默认 500000）。 */
+  socketcan_bitrate: number;
 }
 
 /** POST /api/send 请求体 */

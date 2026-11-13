@@ -51,6 +51,7 @@ export const els = {
   scanList: byId<HTMLElement>('scanList'),
   scanEmpty: byId<HTMLElement>('scanEmpty'),
   scanStates: byId<HTMLElement>('scanStates'),
+  scanBitrate: byId<HTMLSelectElement>('scanBitrate'),
 
   /* 滤波器 */
   filterRangeList: byId<HTMLElement>('filterRangeList'),

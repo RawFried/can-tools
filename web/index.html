@@ -124,7 +124,20 @@
           <div class="scan-list" id="scanList" role="group" aria-labelledby="lb-scan"></div>
           <div class="scan-empty" id="scanEmpty" hidden>未发现 SocketCAN 接口（需在系统中先创建 canX）</div>
         </div>
-        <p class="hint">SocketCAN 链路的速率由系统配置决定，可与 USB 通道同时启动；链路未启用时启动会给出提示，可先在系统中启用接口（如 <code>ip link set can0 up</code>）。「刷新设备与链路」会同时扫描 USB 设备与 SocketCAN 接口。</p>
+        <div class="field">
+          <label class="field-label" for="scanBitrate" id="lb-scan-bitrate">未启用链路的启用速率</label>
+          <select class="input" id="scanBitrate">
+            <option value="10000">10 kbps</option>
+            <option value="20000">20 kbps</option>
+            <option value="50000">50 kbps</option>
+            <option value="100000">100 kbps</option>
+            <option value="125000">125 kbps</option>
+            <option value="250000">250 kbps</option>
+            <option value="500000" selected>500 kbps</option>
+            <option value="800000">800 kbps</option>
+            <option value="1000000">1000 kbps</option>
+          </select>
+        </div>
         <div class="btn-row">
           <button class="btn btn-primary" id="btnApplyConfig" type="button" disabled>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5 10 17.5 19 6.5"/></svg>
@@ -132,6 +145,7 @@
           </button>
           <button class="btn" id="btnStopChannels" type="button" disabled><span>停止采集</span></button>
         </div>
+        <p class="hint">SocketCAN 链路可与 USB 通道同时启动，已启用的链路沿用其系统速率；未启用的链路会在启动时按上方速率自动启用，需要 root 或 CAP_NET_ADMIN 权限（普通用户仍可使用已启用的链路），失败时页面会给出提示。「刷新设备与链路」会同时扫描 USB 设备与 SocketCAN 接口。</p>
       </div>
     </section>
 

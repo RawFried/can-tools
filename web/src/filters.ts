@@ -123,6 +123,12 @@ export function collectConfig(): ConfigBody | null {
   }
 
   const baud = asBaud(els.baudSelect.value) ?? '500k';
+  /* 链路速率下拉缺失或值非法时回退默认 500 kbps（后端允许 1000–1000000） */
+  const rawBitrate = Number(els.scanBitrate.value);
+  const socketcan_bitrate =
+    Number.isFinite(rawBitrate) && rawBitrate >= 1000 && rawBitrate <= 1_000_000
+      ? rawBitrate
+      : 500_000;
   const checked = document.querySelector<HTMLInputElement>('input[name="mode"]:checked');
   const mode = checked ? asMode(checked.value) ?? 'normal' : 'normal';
   const software_filters = collectRanges();
@@ -136,6 +142,7 @@ export function collectConfig(): ConfigBody | null {
     filter: deriveAcceptanceFilter(software_filters),
     software_filters,
     socketcan,
+    socketcan_bitrate,
   };
 }
 
