@@ -260,61 +260,142 @@
       </div>
     </section>
 
-    <section class="card panel-frames" id="framesPanel" aria-labelledby="h-frames">
-      <header class="card-head frames-head">
-        <span class="card-index">05</span><h2 id="h-frames">实时报文</h2>
-        <div class="tools">
-          <div class="search">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
-            <input type="search" id="frameFilter" placeholder="过滤 ID / 数据 / 通道（按 / 聚焦）" aria-label="快速过滤报文">
-          </div>
-          <label class="switch" title="开启时始终跟随最新报文；关闭后可向上查看历史"><input type="checkbox" id="autoscrollCheck" checked><span class="track" aria-hidden="true"></span>自动滚动</label>
-          <button class="btn" id="btnPauseView" type="button" aria-pressed="false" disabled title="暂停或恢复显示（不影响接收与录制）">
-            <span class="ic ic-pause" id="icPause"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M9.5 6v12M14.5 6v12"/></svg></span>
-            <span class="ic ic-play" id="icPlay" hidden><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.2 18 12l-9 5.8z" fill="currentColor"/></svg></span>
-            <span id="btnPauseLabel">暂停显示</span>
+    <!-- 数据区：实时报文 / 信号曲线（同一卡片，零 JS 选项卡切换） -->
+    <section class="card panel-data" id="framesPanel" aria-labelledby="h-frames">
+      <header class="card-head data-head">
+        <span class="card-index">05</span>
+        <input class="view-radio" type="radio" name="data-view" id="dataViewFrames" checked>
+        <label class="view-tab" for="dataViewFrames">实时报文</label>
+        <input class="view-radio" type="radio" name="data-view" id="dataViewSignals">
+        <label class="view-tab" for="dataViewSignals">信号曲线</label>
+        <div class="dbc-meta">
+          <span class="dbc-name" id="dbcName">未加载 DBC</span>
+          <span class="dbc-summary" id="dbcSummary"></span>
+        </div>
+        <div class="dbc-actions">
+          <button class="btn btn-sm" id="btnDbcLoad" type="button">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m0 0L7.5 7.5M12 3l4.5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>
+            <span>加载 DBC</span>
           </button>
-          <button class="btn btn-ghost" id="btnClearView" type="button" title="清空实时缓冲（不影响录制文件）">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M8 7l.9 12h6.2L16 7M10.5 10.5v5M13.5 10.5v5"/></svg>
-            <span>清空</span>
+          <button class="btn btn-sm btn-danger" id="btnDbcRemove" type="button" disabled>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M8 7l.9 12h6.2L16 7M10.5 10.5v5M13.5 10.5v5"/></svg>
+            <span>移除</span>
           </button>
         </div>
       </header>
-      <div class="table-area">
-        <div class="table-wrap" id="tableWrap" tabindex="0" aria-label="报文列表，区域可滚动">
-          <table class="frames">
-            <caption class="sr-only">实时 CAN 报文</caption>
-            <colgroup>
-              <col style="width:88px"><col style="width:118px"><col style="width:80px"><col style="width:134px"><col style="width:92px"><col style="width:52px"><col style="width:100%">
-            </colgroup>
-            <thead>
-              <tr><th class="num" scope="col">序列</th><th scope="col">时间</th><th scope="col">通道</th><th scope="col">ID</th><th scope="col">类型</th><th class="num" scope="col">DLC</th><th scope="col">数据</th></tr>
-            </thead>
-            <tbody id="framesBody"></tbody>
-          </table>
+
+      <!-- 视觉隐藏（保留可激活性，label 点击可唤起选择器）；键盘路径走 btnDbcLoad -->
+      <input class="sr-only" type="file" id="dbcFileInput" accept=".dbc,text/plain" tabindex="-1" aria-hidden="true">
+
+      <!-- 视图一：实时报文（默认） -->
+      <div class="view view-frames">
+        <h2 id="h-frames" class="sr-only">实时报文</h2>
+        <div class="frames-tools">
+          <div class="tools">
+            <div class="search">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+              <input type="search" id="frameFilter" placeholder="过滤 ID / 数据 / 通道（按 / 聚焦）" aria-label="快速过滤报文">
+            </div>
+            <label class="switch" title="开启时始终跟随最新报文；关闭后可向上查看历史"><input type="checkbox" id="autoscrollCheck" checked><span class="track" aria-hidden="true"></span>自动滚动</label>
+            <button class="btn" id="btnPauseView" type="button" aria-pressed="false" disabled title="暂停或恢复显示（不影响接收与录制）">
+              <span class="ic ic-pause" id="icPause"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M9.5 6v12M14.5 6v12"/></svg></span>
+              <span class="ic ic-play" id="icPlay" hidden><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6.2 18 12l-9 5.8z" fill="currentColor"/></svg></span>
+              <span id="btnPauseLabel">暂停显示</span>
+            </button>
+            <button class="btn btn-ghost" id="btnClearView" type="button" title="清空实时缓冲（不影响录制文件）">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M8 7l.9 12h6.2L16 7M10.5 10.5v5M13.5 10.5v5"/></svg>
+              <span>清空</span>
+            </button>
+          </div>
         </div>
-        <div class="empty" id="frameEmpty">
-          <svg viewBox="0 0 200 110" aria-hidden="true">
-            <path d="M16 44h26V22h26v44h26V22h26v44h26V22h26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" opacity=".3" stroke-dasharray="6 5"/>
-            <path d="M16 82h168" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".45"/>
-            <circle cx="52" cy="82" r="8" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/>
-            <circle cx="100" cy="82" r="8" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/>
-            <circle cx="148" cy="82" r="8" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/>
-          </svg>
-          <p class="t" id="emptyTitle">等待报文</p>
-          <p class="h" id="emptyHint">打开设备并启动通道后，捕获的报文将显示在这里。</p>
+        <div class="table-area">
+          <div class="table-wrap" id="tableWrap" tabindex="0" aria-label="报文列表，区域可滚动">
+            <table class="frames">
+              <caption class="sr-only">实时 CAN 报文</caption>
+              <colgroup>
+                <col style="width:88px"><col style="width:118px"><col style="width:80px"><col style="width:134px"><col style="width:92px"><col style="width:52px"><col style="width:100%">
+              </colgroup>
+              <thead>
+                <tr><th class="num" scope="col">序列</th><th scope="col">时间</th><th scope="col">通道</th><th scope="col">ID</th><th scope="col">类型</th><th class="num" scope="col">DLC</th><th scope="col">数据</th></tr>
+              </thead>
+              <tbody id="framesBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="frameEmpty">
+            <svg viewBox="0 0 200 110" aria-hidden="true">
+              <path d="M16 44h26V22h26v44h26V22h26v44h26V22h26" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" opacity=".3" stroke-dasharray="6 5"/>
+              <path d="M16 82h168" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".45"/>
+              <circle cx="52" cy="82" r="8" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/>
+              <circle cx="100" cy="82" r="8" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/>
+              <circle cx="148" cy="82" r="8" fill="none" stroke="currentColor" stroke-width="2" opacity=".45"/>
+            </svg>
+            <p class="t" id="emptyTitle">等待报文</p>
+            <p class="h" id="emptyHint">打开设备并启动通道后，捕获的报文将显示在这里。</p>
+          </div>
+          <div class="paused-badge" id="pausedBadge" hidden>已暂停 · <span id="pausedCount">0</span> 帧未显示</div>
         </div>
-        <div class="paused-badge" id="pausedBadge" hidden>已暂停 · <span id="pausedCount">0</span> 帧未显示</div>
+        <footer class="strip">
+          <span class="log" id="lastLogMsg">就绪</span>
+          <span class="strip-right"><span id="visibleCount">显示 0 行</span><span id="bufferUsage">缓冲 0 / 5,000</span></span>
+        </footer>
       </div>
-      <footer class="strip">
-        <span class="log" id="lastLogMsg">就绪</span>
-        <span class="strip-right"><span id="visibleCount">显示 0 行</span><span id="bufferUsage">缓冲 0 / 5,000</span></span>
-      </footer>
+
+      <!-- 视图二：信号曲线（DBC） -->
+      <section class="view view-signals panel-signals" id="dbcPanel" aria-labelledby="h-dbc">
+        <h2 id="h-dbc" class="sr-only">信号曲线（DBC）</h2>
+
+        <div class="dbc-empty" id="dbcEmpty">
+          <svg viewBox="0 0 220 104" aria-hidden="true">
+            <path d="M16 16v68h190" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".45"/>
+            <path d="M16 74C44 68 52 50 80 54c28 4 36 22 64 16 24-5 40-24 60-18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="5 5" opacity=".4"/>
+            <path d="M16 68 44 52l22 8 26-30 26 16 24-22 26 20 36-14" fill="none" stroke="var(--can1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+            <circle cx="204" cy="30" r="3.4" fill="var(--can1)"/>
+          </svg>
+          <p class="t">加载 DBC 报文定义</p>
+          <p class="h">解析 .dbc 文件后，收到的报文会按定义解码为信号值；选择要观察的信号，即可在此绘制实时曲线。定义会同步到所有已打开的页面。</p>
+          <label class="btn btn-primary" for="dbcFileInput">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m0 0L7.5 7.5M12 3l4.5 4.5"/><path d="M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>
+            <span>加载 DBC 文件</span>
+          </label>
+        </div>
+
+        <div class="dbc-body" id="dbcBody" hidden>
+          <div class="dbc-msg-pane">
+            <div class="dbc-pane-head"><span>报文</span><span class="dbc-pane-tip">点击切换</span></div>
+            <div class="dbc-msg-list" id="dbcMsgList" role="group" aria-label="DBC 报文列表"></div>
+          </div>
+
+          <div class="dbc-chart-pane">
+            <div class="dbc-chart-tools">
+              <label class="dbc-win" for="dbcWindowSelect">时间窗</label>
+              <select class="input" id="dbcWindowSelect">
+                <option value="10000">10 秒</option>
+                <option value="30000" selected>30 秒</option>
+                <option value="60000">1 分钟</option>
+                <option value="300000">5 分钟</option>
+              </select>
+              <span class="head-spacer"></span>
+              <button class="btn btn-sm btn-ghost" id="btnChartClear" type="button" title="清空全部信号曲线数据">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M8 7l.9 12h6.2L16 7M10.5 10.5v5M13.5 10.5v5"/></svg>
+                <span>清空曲线</span>
+              </button>
+            </div>
+            <div class="dbc-signal-bar" id="dbcSignalBar" role="group" aria-label="信号开关"></div>
+            <div class="dbc-signal-empty" id="signalEmpty" hidden>选择左侧报文，并开启要观察的信号，曲线将绘制在这里。</div>
+            <div class="dbc-chart-box">
+              <canvas id="signalChart" role="img" aria-label="所选信号的实时曲线图：横轴为相对时间，每个信号独立缩放"></canvas>
+            </div>
+            <div class="dbc-legend" id="signalLegend"></div>
+          </div>
+        </div>
+
+        <p class="hint dbc-hint" id="dbcHint" aria-live="polite">未加载 DBC：点击「加载 DBC」选择 .dbc 文件，信号曲线将在此显示。</p>
+      </section>
     </section>
 
     <section class="card panel-recs" aria-labelledby="h-files">
       <header class="card-head">
-        <span class="card-index">06</span><h2 id="h-files">录制文件</h2>
+        <span class="card-index">07</span><h2 id="h-files">录制文件</h2>
         <span class="count-badge" id="recordingsCount">0</span>
         <span class="head-spacer"></span>
         <button class="btn btn-sm" id="btnRefreshRecordings" type="button">
