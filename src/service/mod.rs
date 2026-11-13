@@ -45,6 +45,8 @@ pub(crate) enum Command {
     StartRecording { reply: Reply<String> },
     /// 停止录制。
     StopRecording { reply: Reply<RecordingSummary> },
+    /// 切换录制目录 (下一个录制文件写入新目录)。
+    SetRecordingsDir { path: PathBuf, reply: Reply<()> },
     /// 清空实时帧与统计。
     ClearFrames { reply: Reply<()> },
     /// 发送一帧。
@@ -133,6 +135,15 @@ impl CanService {
     /// 停止录制。
     pub async fn stop_recording(&self) -> Result<RecordingSummary, String> {
         self.call(Duration::from_secs(5), |reply| Command::StopRecording {
+            reply,
+        })
+        .await
+    }
+
+    /// 切换录制目录; 正在写入的文件继续写到原路径。
+    pub async fn set_recordings_dir(&self, path: PathBuf) -> Result<(), String> {
+        self.call(Duration::from_secs(5), |reply| Command::SetRecordingsDir {
+            path,
             reply,
         })
         .await

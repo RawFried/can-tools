@@ -66,6 +66,7 @@ async fn socketcan_link_receives_sends_records_and_stops() {
     let shared = SharedState::new(ServerInfo {
         version: "test".to_string(),
         data_dir: "/tmp/can-tools-socketcan-test".to_string(),
+        recordings_dir: "/tmp/can-tools-socketcan-test/recordings".to_string(),
     });
     let directory = tempfile::tempdir().unwrap();
     let service = CanService::spawn(shared.clone(), directory.path().join("recordings")).unwrap();
@@ -289,6 +290,7 @@ async fn socketcan_link_is_brought_up_automatically() {
     let shared = SharedState::new(ServerInfo {
         version: "test".to_string(),
         data_dir: "/tmp/can-tools-socketcan-test".to_string(),
+        recordings_dir: "/tmp/can-tools-socketcan-test/recordings".to_string(),
     });
     let directory = tempfile::tempdir().unwrap();
     let service = CanService::spawn(shared.clone(), directory.path().join("recordings")).unwrap();
@@ -357,6 +359,7 @@ async fn per_link_software_filters_are_independent() {
     let shared = SharedState::new(ServerInfo {
         version: "test".to_string(),
         data_dir: "/tmp/can-tools-socketcan-test".to_string(),
+        recordings_dir: "/tmp/can-tools-socketcan-test/recordings".to_string(),
     });
     let directory = tempfile::tempdir().unwrap();
     let service = CanService::spawn(shared.clone(), directory.path().join("recordings")).unwrap();

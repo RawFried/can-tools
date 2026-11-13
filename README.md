@@ -28,7 +28,7 @@ cargo run --release
 ```text
 -H, --host <HOST>        监听地址 [default: 127.0.0.1]
 -p, --port <PORT>        监听端口 [default: 8787]
-    --data-dir <DIR>     数据目录（录制文件在其 recordings 子目录）
+    --data-dir <DIR>     数据目录（默认录制到其 recordings 子目录，可在页面修改）
     --no-browser         不自动打开浏览器
 ```
 
@@ -119,7 +119,9 @@ cargo test --test hw_selftest -- --ignored --nocapture
 录制文件保存的是**接收帧**；正常总线模式下发送帧不会被本机回显，除非设备/总线回环。
 
 ## 报文保存
-点击“开始录制”后，每帧写入 `recordings/can-YYYYmmdd-HHMMSS.csv`：
+点击“开始录制”后，每帧写入当前录制目录下的 `can-YYYYmmdd-HHMMSS.csv`。录制目录默认是
+`<数据目录>/recordings`，可在页面指定任意绝对路径（需要可写；设置会持久化到
+`<数据目录>/recording-dir.txt`，重启后仍生效；正在录制时切换会保留当前文件、下一次录制写入新目录）。
 
 ```text
 time,unix_ms,channel,link,id,id_hex,extended,remote,dlc,data

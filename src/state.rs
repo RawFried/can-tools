@@ -1,6 +1,7 @@
 //! 进程内共享状态: 最新状态快照、实时帧环形缓冲与事件广播。
 
 use std::collections::VecDeque;
+use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use serde::Serialize;
@@ -103,8 +104,10 @@ pub struct Stats {
 pub struct ServerInfo {
     /// 程序版本。
     pub version: String,
-    /// 数据目录 (录制文件位于其 `recordings` 子目录)。
+    /// 数据目录 (DBC、录制目录持久化文件等位于此)。
     pub data_dir: String,
+    /// 当前生效的录制目录 (绝对路径)。
+    pub recordings_dir: String,
 }
 
 /// `/api/status` 与 WebSocket 状态事件的完整快照。
@@ -176,8 +179,12 @@ pub enum Event {
 }
 
 /// 共享状态容器。
+///
+/// `server` 单独保存, 是 `Status.server` 的唯一权威来源: 工作线程发布状态时
+/// 常带着稍早克隆的 `Status` 快照, 若把 `server` 当作快照字段会被旧值覆盖。
 pub struct SharedState {
     status: Mutex<Status>,
+    server: Mutex<ServerInfo>,
     frames: Mutex<VecDeque<FrameDto>>,
     dbc: Mutex<Option<Arc<DbcDefinition>>>,
     events: broadcast::Sender<Event>,
@@ -193,7 +200,8 @@ impl SharedState {
     fn with_limits(server: ServerInfo, max_frames: usize, event_capacity: usize) -> Arc<Self> {
         let (events, _) = broadcast::channel(event_capacity);
         Arc::new(Self {
-            status: Mutex::new(Status::closed(server)),
+            status: Mutex::new(Status::closed(server.clone())),
+            server: Mutex::new(server),
             frames: Mutex::new(VecDeque::with_capacity(max_frames)),
             dbc: Mutex::new(None),
             events,
@@ -206,9 +214,37 @@ impl SharedState {
         self.events.subscribe()
     }
 
-    /// 读取最新状态快照。
+    /// 读取最新状态快照; `server` 始终来自当前 [`ServerInfo`]。
     pub fn status(&self) -> Status {
-        self.lock_status().clone()
+        let mut status = self.lock_status().clone();
+        status.server = self.server_info();
+        status
+    }
+
+    /// 当前服务端信息 (含生效的录制目录)。
+    fn server_info(&self) -> ServerInfo {
+        self.lock_server().clone()
+    }
+
+    /// 更新当前录制目录并广播一次状态变化。
+    ///
+    /// 只负责内存状态: 切换 Worker 目录与磁盘持久化由调用方完成。
+    pub fn set_recordings_dir(&self, directory: &Path) {
+        let display = directory.display().to_string();
+        let changed = {
+            let mut server = self.lock_server();
+            if server.recordings_dir == display {
+                false
+            } else {
+                server.recordings_dir = display;
+                true
+            }
+        };
+        if changed {
+            self.broadcast(Event::Status {
+                status: Box::new(self.status()),
+            });
+        }
     }
 
     /// 读取实时帧缓冲快照。
@@ -216,19 +252,22 @@ impl SharedState {
         self.lock_frames().iter().cloned().collect()
     }
 
-    /// 替换状态并广播。
-    pub fn set_status(&self, status: Status) {
+    /// 替换状态并广播; `server` 会被当前 [`ServerInfo`] 覆盖, 避免旧快照回写。
+    pub fn set_status(&self, mut status: Status) {
+        status.server = self.server_info();
         *self.lock_status() = status.clone();
         self.broadcast(Event::Status {
             status: Box::new(status),
         });
     }
 
-    /// 原地修改状态并广播。
+    /// 原地修改状态并广播; 同样以当前 [`ServerInfo`] 覆盖 `server`。
     pub fn update_status(&self, update: impl FnOnce(&mut Status)) {
+        let server = self.server_info();
         let status = {
             let mut guard = self.lock_status();
             update(&mut guard);
+            guard.server = server;
             guard.clone()
         };
         self.broadcast(Event::Status {
@@ -298,6 +337,12 @@ impl SharedState {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
+    fn lock_server(&self) -> MutexGuard<'_, ServerInfo> {
+        self.server
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     fn lock_frames(&self) -> MutexGuard<'_, VecDeque<FrameDto>> {
         self.frames
             .lock()
@@ -319,6 +364,7 @@ mod tests {
         ServerInfo {
             version: "0.1.0".to_string(),
             data_dir: "/tmp/can-tools".to_string(),
+            recordings_dir: "/tmp/can-tools/recordings".to_string(),
         }
     }
 
@@ -361,6 +407,61 @@ mod tests {
         );
         shared.clear_frames();
         assert!(shared.frames().is_empty());
+    }
+
+    #[test]
+    fn status_uses_authoritative_server_info() {
+        let shared = SharedState::new(server_info());
+
+        // 模拟工作线程用切换前的旧快照发布状态。
+        let mut stale = shared.status();
+        stale.server.recordings_dir = "/stale/recordings".to_string();
+        shared.set_status(stale);
+        assert_eq!(
+            shared.status().server.recordings_dir,
+            server_info().recordings_dir
+        );
+
+        shared.update_status(|status| {
+            status.server.recordings_dir = "/stale/update".to_string();
+            status.stats.rx_frames = 9;
+        });
+        let status = shared.status();
+        assert_eq!(status.server.recordings_dir, server_info().recordings_dir);
+        assert_eq!(status.stats.rx_frames, 9);
+    }
+
+    #[test]
+    fn set_recordings_dir_survives_stale_status_snapshot() {
+        let shared = SharedState::new(server_info());
+        let mut receiver = shared.subscribe();
+
+        shared.set_recordings_dir(Path::new("/tmp/custom-recordings"));
+        assert_eq!(
+            shared.status().server.recordings_dir,
+            "/tmp/custom-recordings"
+        );
+        match receiver.try_recv().unwrap() {
+            Event::Status { status } => {
+                assert_eq!(status.server.recordings_dir, "/tmp/custom-recordings");
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+
+        // Worker 用切换前的快照发布状态时, 不能把新目录覆盖回旧值。
+        let mut stale = shared.status();
+        stale.server.recordings_dir = "/tmp/old-recordings".to_string();
+        shared.set_status(stale);
+        assert_eq!(
+            shared.status().server.recordings_dir,
+            "/tmp/custom-recordings"
+        );
+        // 丢弃上面的状态广播。
+        let _ = receiver.try_recv();
+
+        // 相同目录不再重复广播。
+        shared.set_recordings_dir(Path::new("/tmp/custom-recordings"));
+        assert!(receiver.try_recv().is_err());
     }
 
     #[test]

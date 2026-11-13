@@ -139,6 +139,10 @@ impl Worker {
                 let result = self.stop_recording();
                 send(reply, result);
             }
+            Command::SetRecordingsDir { path, reply } => {
+                let result = self.set_recordings_dir(path);
+                send(reply, result);
+            }
             Command::ClearFrames { reply } => {
                 self.shared.clear_frames();
                 self.stats = Stats::default();
@@ -712,6 +716,15 @@ impl Worker {
         Ok(())
     }
 
+    /// 切换录制目录: 只影响下一次 `Recorder::create`, 已打开的文件继续写到原路径。
+    fn set_recordings_dir(&mut self, path: PathBuf) -> Result<(), String> {
+        let display = path.display().to_string();
+        self.recordings_dir = path;
+        self.shared
+            .log("info", format!("录制目录已切换为 {display}"));
+        Ok(())
+    }
+
     fn start_recording(&mut self) -> Result<String, String> {
         // 录制与传输介质解耦: 只要还有任一运行中的通道/链路即可录制。
         let usb_running = self.device.is_some() && self.channels.iter().any(Option::is_some);
@@ -1045,6 +1058,7 @@ mod tests {
             SharedState::new(ServerInfo {
                 version: "test".to_string(),
                 data_dir: directory.display().to_string(),
+                recordings_dir: directory.join("recordings").display().to_string(),
             }),
             directory.join("recordings"),
         )

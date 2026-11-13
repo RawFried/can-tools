@@ -59,7 +59,8 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
   },
   "server": {
     "version": "0.1.0",
-    "data_dir": "/home/user/.local/share/can-tools"
+    "data_dir": "/home/user/.local/share/can-tools",
+    "recordings_dir": "/home/user/.local/share/can-tools/recordings"
   }
 }
 ```
@@ -95,6 +96,8 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
   software layer; USB channels apply it after their hardware acceptance filter.
 - `stats.rx_frames`/`stats.rx_rate` cover frames accepted from all links; `stats.tx_frames` counts
   frames successfully sent through any link since the device was opened or the counters cleared.
+- `server.recordings_dir` is the absolute directory new recordings are written to. It defaults to
+  `<data_dir>/recordings` and can be changed with `POST /api/recording/dir`.
 
 ## Frame object
 
@@ -355,7 +358,7 @@ Response: `{"ok": true, "status": { ... }}`
 
 ### `POST /api/recording/start`
 
-No body. Starts a new CSV recording under `server.data_dir/recordings`. At least one USB channel or
+No body. Starts a new CSV recording under `server.recordings_dir`. At least one USB channel or
 SocketCAN link must be running; otherwise the request fails with `没有运行中的链路，无法开始录制`.
 The USB device does not have to be open when a SocketCAN link is running.
 
@@ -368,6 +371,29 @@ An error is returned when recording is already active.
 No body. Flushes and closes the current recording.
 
 Response: `{"ok": true, "file": "can-20261109-150000.csv", "frames": 1234, "status": { ... }}`
+
+### `POST /api/recording/dir`
+
+Selects the directory used for new recordings:
+
+```json
+{"path": "/absolute/path/to/recordings"}
+```
+
+- An empty/blank `path` restores the default `<data_dir>/recordings` and deletes the persisted
+  setting.
+- The path must be **absolute**; relative input fails with
+  `录制目录必须是绝对路径: <value>`.
+- Missing directories are created and then probed for writability (a temporary file is written and
+  removed). A non-directory path fails with `录制目录不是目录: <path>`; create/write failures
+  return `创建录制目录 <path> 失败: <reason>` / `录制目录不可写 <path>: <reason>`.
+- On success the worker switches directories, `server.recordings_dir` is updated (a `status` event
+  is broadcast), the path is persisted to `<data_dir>/recording-dir.txt`, and the response is
+  `{"ok": true, "status": { ... }}`.
+- Switching while recording is active is allowed: the already open file keeps being written to its
+  original path, and the **next** recording uses the new directory.
+- At startup the persisted file is loaded; if it is missing, blank, not absolute or points to a
+  directory that no longer exists, the default directory is used.
 
 ### Recorded CSV format
 
@@ -422,18 +448,20 @@ is loaded. Response: `{"ok": true}`
 
 ### `GET /api/recordings`
 
+Lists `.csv` files in the current `server.recordings_dir`:
+
 ```json
 {"recordings": [{"name": "can-20261109-150000.csv", "size": 12345, "modified_ms": 1762681250000}]}
 ```
 
 ### `GET /api/recordings/{name}`
 
-Downloads one CSV recording with `Content-Type: text/csv` and an attachment filename.
-`{name}` must be a plain file name ending in `.csv`.
+Downloads one CSV recording from the current `server.recordings_dir` with `Content-Type: text/csv`
+and an attachment filename. `{name}` must be a plain file name ending in `.csv` (no separators).
 
 ### `DELETE /api/recordings/{name}`
 
-Deletes a recording. Response: `{"ok": true}`
+Deletes a recording from the current `server.recordings_dir`. Response: `{"ok": true}`
 
 ## WebSocket `/ws`
 

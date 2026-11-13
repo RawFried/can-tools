@@ -12,6 +12,7 @@ async fn worker_rejects_operations_without_device_and_shuts_down() {
     let shared = SharedState::new(ServerInfo {
         version: "test".to_string(),
         data_dir: "/tmp/can-tools-test".to_string(),
+        recordings_dir: "/tmp/can-tools-test/recordings".to_string(),
     });
     let dir = tempfile::tempdir().unwrap();
     let service = CanService::spawn(shared.clone(), dir.path().join("recordings")).unwrap();
@@ -67,6 +68,7 @@ async fn worker_reports_missing_socketcan_interface() {
     let shared = SharedState::new(ServerInfo {
         version: "test".to_string(),
         data_dir: "/tmp/can-tools-test".to_string(),
+        recordings_dir: "/tmp/can-tools-test/recordings".to_string(),
     });
     let dir = tempfile::tempdir().unwrap();
     let service = CanService::spawn(shared.clone(), dir.path().join("recordings")).unwrap();
@@ -91,6 +93,28 @@ async fn worker_reports_missing_socketcan_interface() {
         .channels
         .iter()
         .all(|channel| !channel.running));
+
+    service.shutdown().await;
+}
+
+#[tokio::test]
+async fn worker_accepts_recordings_dir_without_device() {
+    let shared = SharedState::new(ServerInfo {
+        version: "test".to_string(),
+        data_dir: "/tmp/can-tools-test".to_string(),
+        recordings_dir: "/tmp/can-tools-test/recordings".to_string(),
+    });
+    let dir = tempfile::tempdir().unwrap();
+    let service = CanService::spawn(shared.clone(), dir.path().join("recordings")).unwrap();
+
+    // 切换录制目录不需要 USB 设备, 也不要求正在录制。
+    let target = dir.path().join("custom-recordings");
+    service
+        .set_recordings_dir(target)
+        .await
+        .expect("set recordings dir without device");
+    assert!(service.stop(None).await.is_ok());
+    assert!(!shared.status().device.open);
 
     service.shutdown().await;
 }

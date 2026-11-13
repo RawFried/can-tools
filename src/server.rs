@@ -16,6 +16,7 @@ use tokio::sync::broadcast;
 
 use crate::can::dbc;
 use crate::can::types::{FilterUpdateRequest, LinkList, SendFrameRequest, StartConfig};
+use crate::paths;
 use crate::service::CanService;
 use crate::state::SharedState;
 
@@ -26,7 +27,7 @@ pub struct AppState {
     pub shared: Arc<SharedState>,
     /// CAN 工作线程句柄。
     pub service: Arc<CanService>,
-    /// 数据目录根 (录制文件位于其 `recordings` 子目录)。
+    /// 数据目录根 (录制目录默认是其 `recordings` 子目录, 可另行指定)。
     pub data_dir: PathBuf,
 }
 
@@ -48,6 +49,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/filters", post(update_filters))
         .route("/api/recording/start", post(start_recording))
         .route("/api/recording/stop", post(stop_recording))
+        .route("/api/recording/dir", post(set_recording_dir))
         .route("/api/frames/clear", post(clear_frames))
         .route("/api/recordings", get(list_recordings))
         .route(
@@ -199,6 +201,33 @@ async fn stop_recording(State(state): State<AppState>) -> Result<Json<Value>, Ap
     })))
 }
 
+/// 切换录制目录的请求体; 空字符串表示恢复默认目录。
+#[derive(Debug, Deserialize)]
+struct RecordingDirRequest {
+    #[serde(default)]
+    path: String,
+}
+
+/// 切换录制目录; 正在写入的录制文件继续写到原路径, 下一次录制使用新目录。
+async fn set_recording_dir(
+    State(state): State<AppState>,
+    Json(request): Json<RecordingDirRequest>,
+) -> Result<Json<Value>, ApiError> {
+    let reset = request.path.trim().is_empty();
+    let directory =
+        paths::resolve_recordings_dir(&state.data_dir, &request.path).map_err(ApiError::bad)?;
+    // 先持久化再切换运行时状态, 避免返回错误却已经改变行为。
+    paths::save_recordings_dir(&state.data_dir, if reset { None } else { Some(&directory) })
+        .map_err(|error| ApiError::internal(format!("保存录制目录设置失败: {error}")))?;
+    state
+        .service
+        .set_recordings_dir(directory.clone())
+        .await
+        .map_err(ApiError::bad)?;
+    state.shared.set_recordings_dir(&directory);
+    Ok(Json(json!({"ok": true, "status": state.shared.status()})))
+}
+
 async fn clear_frames(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
     state.service.clear_frames().await.map_err(ApiError::bad)?;
     Ok(Json(json!({"ok": true})))
@@ -330,7 +359,7 @@ struct RecordingEntry {
 }
 
 async fn list_recordings(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
-    let directory = recordings_dir(&state.data_dir);
+    let directory = recordings_dir(&state.shared);
     let mut entries = Vec::new();
     let mut reader = match tokio::fs::read_dir(&directory).await {
         Ok(reader) => reader,
@@ -374,7 +403,7 @@ async fn download_recording(
     State(state): State<AppState>,
     AxumPath(name): AxumPath<String>,
 ) -> Result<Response, ApiError> {
-    let path = recording_path(&state.data_dir, &name)?;
+    let path = recording_path(&recordings_dir(&state.shared), &name)?;
     let bytes = tokio::fs::read(&path).await.map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
             ApiError::not_found("录制文件不存在")
@@ -397,7 +426,7 @@ async fn delete_recording(
     State(state): State<AppState>,
     AxumPath(name): AxumPath<String>,
 ) -> Result<Json<Value>, ApiError> {
-    let path = recording_path(&state.data_dir, &name)?;
+    let path = recording_path(&recordings_dir(&state.shared), &name)?;
     tokio::fs::remove_file(&path).await.map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
             ApiError::not_found("录制文件不存在")
@@ -463,11 +492,12 @@ async fn send_json(socket: &mut WebSocket, value: &impl serde::Serialize) -> boo
     socket.send(Message::Text(text.into())).await.is_ok()
 }
 
-fn recordings_dir(data_dir: &Path) -> PathBuf {
-    data_dir.join("recordings")
+/// 当前生效的录制目录 (来自状态快照, 由 `/api/recording/dir` 更新)。
+fn recordings_dir(shared: &SharedState) -> PathBuf {
+    PathBuf::from(shared.status().server.recordings_dir)
 }
 
-fn recording_path(data_dir: &Path, name: &str) -> Result<PathBuf, ApiError> {
+fn recording_path(directory: &Path, name: &str) -> Result<PathBuf, ApiError> {
     let valid = !name.is_empty()
         && name.len() <= 128
         && name.ends_with(".csv")
@@ -478,7 +508,7 @@ fn recording_path(data_dir: &Path, name: &str) -> Result<PathBuf, ApiError> {
     if !valid {
         return Err(ApiError::bad("非法录制文件名"));
     }
-    Ok(recordings_dir(data_dir).join(name))
+    Ok(directory.join(name))
 }
 
 /// API 错误响应。
@@ -524,10 +554,37 @@ impl IntoResponse for ApiError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::ServerInfo;
+
+    #[test]
+    fn recordings_dir_follows_status_snapshot() {
+        let shared = SharedState::new(ServerInfo {
+            version: "test".to_string(),
+            data_dir: "/tmp/can-tools".to_string(),
+            recordings_dir: "/tmp/can-tools/recordings".to_string(),
+        });
+        assert_eq!(
+            recordings_dir(&shared),
+            PathBuf::from("/tmp/can-tools/recordings")
+        );
+        shared.set_recordings_dir(Path::new("/tmp/custom-recordings"));
+        assert_eq!(
+            recordings_dir(&shared),
+            PathBuf::from("/tmp/custom-recordings")
+        );
+        // 用旧快照发布状态不会把目录回滚。
+        let mut stale = shared.status();
+        stale.server.recordings_dir = "/tmp/stale-recordings".to_string();
+        shared.set_status(stale);
+        assert_eq!(
+            recordings_dir(&shared),
+            PathBuf::from("/tmp/custom-recordings")
+        );
+    }
 
     #[test]
     fn recording_path_rejects_traversal_and_non_csv() {
-        let root = Path::new("/tmp/can-tools");
+        let root = Path::new("/tmp/can-tools/recordings");
         assert!(recording_path(root, "../secret.csv").is_err());
         assert!(recording_path(root, "a/b.csv").is_err());
         assert!(recording_path(root, ".hidden.csv").is_err());

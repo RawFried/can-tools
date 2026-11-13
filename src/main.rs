@@ -25,7 +25,7 @@ struct Cli {
     /// 监听端口。
     #[arg(short, long, default_value_t = 8787)]
     port: u16,
-    /// 数据目录 (录制文件写入其中的 recordings 子目录)。
+    /// 数据目录 (DBC 与录制目录设置; 默认录制到其 recordings 子目录)。
     #[arg(long)]
     data_dir: Option<PathBuf>,
     /// 启动后不自动打开浏览器。
@@ -45,16 +45,21 @@ async fn main() -> Result<()> {
     let data_dir = cli.data_dir.unwrap_or_else(paths::default_data_dir);
     std::fs::create_dir_all(&data_dir)
         .with_context(|| format!("无法创建数据目录 {}", data_dir.display()))?;
-    let recordings_dir = data_dir.join("recordings");
+    // 状态与录制目录统一使用绝对路径。
+    let data_dir = std::fs::canonicalize(&data_dir).unwrap_or(data_dir);
+    let recordings_dir = paths::load_recordings_dir(&data_dir)
+        .unwrap_or_else(|| paths::default_recordings_dir(&data_dir));
 
     let server_info = ServerInfo {
         version: env!("CARGO_PKG_VERSION").to_string(),
         data_dir: data_dir.display().to_string(),
+        recordings_dir: recordings_dir.display().to_string(),
     };
     let shared = SharedState::new(server_info);
     load_persisted_dbc(&data_dir, &shared);
     let service = Arc::new(
-        CanService::spawn(shared.clone(), recordings_dir).context("无法启动 CAN 工作线程")?,
+        CanService::spawn(shared.clone(), recordings_dir.clone())
+            .context("无法启动 CAN 工作线程")?,
     );
     let state = AppState {
         shared: shared.clone(),
@@ -73,6 +78,7 @@ async fn main() -> Result<()> {
     let url = format!("http://{display_host}:{}/", address.port());
     println!("CAN Tools {} 已启动: {url}", env!("CARGO_PKG_VERSION"));
     println!("数据目录: {}", data_dir.display());
+    println!("录制目录: {}", recordings_dir.display());
     if !cli.no_browser {
         open_browser(&url);
     }
