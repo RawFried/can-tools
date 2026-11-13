@@ -50,7 +50,7 @@
 
     <section class="card card-chan" aria-labelledby="h-chan">
       <header class="card-head">
-        <span class="card-index">01</span><h2 id="h-chan">通道与速率</h2>
+        <span class="card-index">01</span><h2 id="h-chan">通道与滤波</h2>
         <span class="head-spacer"></span>
         <button class="btn btn-sm" id="btnRefreshDevices" type="button" title="同时扫描 USBCAN 设备与 SocketCAN 接口">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
@@ -113,40 +113,38 @@
           <button class="btn" id="btnStopChannels" type="button" disabled><span>停止采集</span></button>
         </div>
         <p class="hint">每个通道独立设置速率；勾选 USB 通道后「应用配置并启动」会自动打开设备。未启用的 SocketCAN 链路按该行速率自动启用，需要 root 或 CAP_NET_ADMIN 权限（已启用的链路无需特权）；软件滤波对所有通道生效。</p>
-      </div>
-    </section>
 
-    <section class="card" aria-labelledby="h-filter">
-      <header class="card-head"><span class="card-index">02</span><h2 id="h-filter">滤波器</h2></header>
-      <div class="card-body">
-        <p class="hint">滤波按通道独立配置：每个通道可有自己的 ID 区间（十六进制，命中任一区间即保留）；列表为空表示该通道接收全部，运行中应用立即生效。</p>
-        <div class="field">
-          <label class="field-label" for="filterChannel">滤波通道</label>
-          <select class="input" id="filterChannel" aria-label="选择要配置滤波的通道"></select>
+        <div class="card-section" role="group" aria-labelledby="h-filter">
+          <h3 class="section-head" id="h-filter">滤波器</h3>
+          <p class="hint">滤波按通道独立配置：每个通道可有自己的 ID 区间（十六进制，命中任一区间即保留）；列表为空表示该通道接收全部，运行中应用立即生效。</p>
+          <div class="field">
+            <label class="field-label" for="filterChannel">滤波通道</label>
+            <select class="input" id="filterChannel" aria-label="选择要配置滤波的通道"></select>
+          </div>
+          <div class="field">
+            <span class="field-label" id="lb-ranges">ID 区间（最多 16 条）</span>
+            <div id="filterRangeList" role="group" aria-labelledby="lb-ranges"></div>
+            <div class="empty-inline filter-empty" id="filterEmpty">未添加 ID 区间 —— 该通道将接收全部帧。</div>
+          </div>
+          <div class="hw-state">
+            <span class="hw-label">硬件预过滤（USB）</span>
+            <span class="hw-val" id="hwFilterState">—</span>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="btnAddFilter" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              <span>添加 ID 区间</span>
+            </button>
+            <button class="btn" id="btnAcceptAll" type="button" title="清空当前通道的 ID 区间（应用后该通道接收所有帧）"><span>接收全部</span></button>
+            <button class="btn" id="btnApplyFilters" type="button" disabled><span>实时应用滤波</span></button>
+          </div>
+          <p class="hint">硬件预过滤只对 USB 通道生效，是粗筛，会放行覆盖全部区间的整段范围；范围最终由软件滤波精筛（帧类型一致且「起始 ≤ ID ≤ 结束」）。SocketCAN 链路没有硬件预过滤，只走软件滤波；运行中应用滤波不会停止通道。</p>
         </div>
-        <div class="field">
-          <span class="field-label" id="lb-ranges">ID 区间（最多 16 条）</span>
-          <div id="filterRangeList" role="group" aria-labelledby="lb-ranges"></div>
-          <div class="empty-inline filter-empty" id="filterEmpty">未添加 ID 区间 —— 该通道将接收全部帧。</div>
-        </div>
-        <div class="hw-state">
-          <span class="hw-label">硬件预过滤（USB）</span>
-          <span class="hw-val" id="hwFilterState">—</span>
-        </div>
-        <div class="btn-row">
-          <button class="btn" id="btnAddFilter" type="button">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-            <span>添加 ID 区间</span>
-          </button>
-          <button class="btn" id="btnAcceptAll" type="button" title="清空当前通道的 ID 区间（应用后该通道接收所有帧）"><span>接收全部</span></button>
-          <button class="btn" id="btnApplyFilters" type="button" disabled><span>实时应用滤波</span></button>
-        </div>
-        <p class="hint">硬件预过滤只对 USB 通道生效，是粗筛，会放行覆盖全部区间的整段范围；范围最终由软件滤波精筛（帧类型一致且「起始 ≤ ID ≤ 结束」）。SocketCAN 链路没有硬件预过滤，只走软件滤波；运行中应用滤波不会停止通道。</p>
       </div>
     </section>
 
     <section class="card" aria-labelledby="h-rec">
-      <header class="card-head"><span class="card-index">03</span><h2 id="h-rec">保存报文（CSV）</h2></header>
+      <header class="card-head"><span class="card-index">02</span><h2 id="h-rec">保存报文（CSV）</h2></header>
       <div class="card-body">
         <div class="rec-active" id="recActive" hidden aria-live="polite">
           <div class="rec-head"><span class="rec-dot"></span><span class="rec-file" id="recActiveFile">—</span></div>
@@ -255,7 +253,7 @@
     <!-- 数据区：实时报文 / 信号曲线（同一卡片，零 JS 选项卡切换） -->
     <section class="card panel-data" id="framesPanel" aria-labelledby="h-frames">
       <header class="card-head data-head">
-        <span class="card-index">04</span>
+        <span class="card-index">03</span>
         <input class="view-radio" type="radio" name="data-view" id="dataViewFrames" checked>
         <label class="view-tab" for="dataViewFrames">实时报文</label>
         <input class="view-radio" type="radio" name="data-view" id="dataViewSignals">
@@ -387,7 +385,7 @@
 
     <section class="card panel-recs" aria-labelledby="h-files">
       <header class="card-head">
-        <span class="card-index">05</span><h2 id="h-files">录制文件</h2>
+        <span class="card-index">04</span><h2 id="h-files">录制文件</h2>
         <span class="count-badge" id="recordingsCount">0</span>
         <span class="head-spacer"></span>
         <button class="btn btn-sm" id="btnRefreshRecordings" type="button">

@@ -275,6 +275,21 @@ a { color: var(--can1); }
 
 .card-body { padding: 14px; display: grid; gap: 12px; }
 
+/* 卡片内分区：通道与滤波共处一卡，用细分隔线 + 弱化小标题区分；
+   不嵌套卡片，避免叠加边框与内边距 */
+.card-section {
+  display: grid; gap: 12px; min-width: 0;
+  margin-top: 2px; padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* 分区标题：字号小于卡片标题（13px/600），颜色降一档，保持从属关系 */
+.section-head {
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-mid);
+}
+
 /* ---------- 表单 ---------- */
 .field { display: grid; gap: 6px; min-width: 0; }
 .field-label { font-size: 12px; color: var(--text-mid); }
