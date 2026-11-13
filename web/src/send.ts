@@ -39,9 +39,18 @@ export function parseSendData(raw: string): number[] | null {
   return bytes.length <= 8 ? bytes : null;
 }
 
-/** 下拉框显示名：通道 name（USB 为 CAN1/CAN2，SocketCAN 为接口名），USB 只听模式加后缀。 */
+/** 发送下拉的来源前缀（与通道卡一致）。 */
+function sourcePrefix(channel: ChannelStatusDto): string {
+  return channel.source === 'socketcan' ? 'SOCKET · ' : 'USB · ';
+}
+
+/** 下拉框显示名：来源前缀 + 通道名（USB 为 CAN1/CAN2，SocketCAN 为 CAN0），只听模式加后缀。 */
 function channelLabel(channel: ChannelStatusDto): string {
-  return displayChannelName(channel.name) + (channel.mode === 'listen_only' ? '（只听）' : '');
+  return (
+    sourcePrefix(channel) +
+    displayChannelName(channel.name) +
+    (channel.mode === 'listen_only' ? '（只听）' : '')
+  );
 }
 
 /** 依据运行中的通道重建发送通道下拉框；保留用户选择。 */
@@ -169,7 +178,9 @@ export async function sendCurrentFrame(applyStatus: (st: StatusDto) => void): Pr
   const status = await sendFrame(body);
   if (status) applyStatus(status);
   const channelInfo = state.status?.channels.find((item) => item.index === channel) ?? null;
-  const channelName = channelInfo ? displayChannelName(channelInfo.name) : 'CH' + (channel + 1);
+  const channelName = channelInfo
+    ? sourcePrefix(channelInfo) + displayChannelName(channelInfo.name)
+    : 'CH' + (channel + 1);
   const label = channelName + ' 0x' + id.toString(16).toUpperCase();
   const detail = remote ? '远程帧 DLC ' + dlc : bytes.length + ' 字节';
   toast('已发送 ' + label + ' （' + detail + '）', 'success');

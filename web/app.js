@@ -1925,8 +1925,11 @@
     }
     return bytes.length <= 8 ? bytes : null;
   }
+  function sourcePrefix(channel) {
+    return channel.source === "socketcan" ? "SOCKET · " : "USB · ";
+  }
   function channelLabel(channel) {
-    return displayChannelName(channel.name) + (channel.mode === "listen_only" ? "（只听）" : "");
+    return sourcePrefix(channel) + displayChannelName(channel.name) + (channel.mode === "listen_only" ? "（只听）" : "");
   }
   function syncSendChannels(st) {
     const running = st.channels.filter((channel) => channel.running);
@@ -2027,7 +2030,7 @@
     const status = await sendFrame(body);
     if (status) applyStatus2(status);
     const channelInfo = state.status?.channels.find((item) => item.index === channel) ?? null;
-    const channelName = channelInfo ? displayChannelName(channelInfo.name) : "CH" + (channel + 1);
+    const channelName = channelInfo ? sourcePrefix(channelInfo) + displayChannelName(channelInfo.name) : "CH" + (channel + 1);
     const label = channelName + " 0x" + id.toString(16).toUpperCase();
     const detail = remote ? "远程帧 DLC " + dlc : bytes.length + " 字节";
     toast("已发送 " + label + " （" + detail + "）", "success");
