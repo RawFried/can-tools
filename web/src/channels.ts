@@ -2,7 +2,7 @@
  * 通道卡（v6）：选一个通道 → 显示其速率/运行状态/模式，并单独启动或停止。
  * 依赖单向：channels → {filters, state, dom, api, filters-model, format, toast, types}。
  */
-import { applyConfig, openDevice, stopChannels } from './api';
+import { applyConfig, fetchDevices, openDevice, stopChannels } from './api';
 import { els } from './dom';
 import { channelKey, deriveAcceptanceFilter, renderHwPrefilter, renderRangesFor, saveCurrentRanges, syncFilters } from './filters';
 import { state } from './state';
@@ -260,6 +260,18 @@ export function setChannelRate(label: string): void {
   state.rates.set(state.channelKey, asBaud(label) ?? '500k');
 }
 
+/**
+ * 主动探测一次 USB 设备与 SocketCAN 链路，更新可选通道。
+ * 刷新按钮、页面启动与启动通道前都会调用，避免插拔后列表过期。
+ */
+export async function probeDevices(): Promise<void> {
+  const res = await fetchDevices();
+  state.devices = res.devices;
+  state.socketcan = res.socketcan;
+  state.selectedDevice = state.devices.length > 0 ? state.devices[0].index : null;
+  refreshChannelOptions();
+}
+
 /** 启动/重启当前通道；USB 设备未打开时先用首个已发现设备自动打开。 */
 export async function startChannel(applyStatus: (st: StatusDto) => void): Promise<void> {
   const st = state.status;
@@ -284,6 +296,8 @@ export async function startChannel(applyStatus: (st: StatusDto) => void): Promis
       return;
     }
     if (st?.device.open !== true) {
+      /* 启动前主动探测一次，插入设备后无需先点刷新 */
+      await probeDevices().catch(() => undefined);
       const first = state.devices[0];
       if (!first) {
         toast('未检测到 USBCAN 设备', 'error');

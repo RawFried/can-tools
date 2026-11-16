@@ -1,6 +1,7 @@
 /**
  * WebSocket 数据链路：连接/指数退避重连、心跳、WS 消息分发（status/frames/log/cleared）。
  */
+import { loadDevices } from './devices';
 import { els } from './dom';
 import { applyDbc, seedDbcFrames } from './dbc';
 import { acceptFrames, clearLocalFrames, rebuildTable } from './frames';
@@ -59,6 +60,8 @@ export function connectWs(): void {
     if (state.ws !== ws) return;
     state.wsAttempt = 0;
     setWsUi('online');
+    /* 启动/重连后主动探测一次设备与链路 */
+    void loadDevices();
     if (pingTimer === null) {
       pingTimer = window.setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send('ping');
