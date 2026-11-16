@@ -7,8 +7,8 @@
 
 use std::time::{Duration, Instant};
 
-use can_tools::can::device::{self, UsbCan};
 use can_tools::can::types::{BaudRate, CanFrame, CanMode, HardwareFilter};
+use usbcan::device::{self, UsbCan};
 
 fn parse_baud(s: &str) -> BaudRate {
     match s {

@@ -1,9 +1,10 @@
 //! 通道抽象: 工作线程只持有堆上的 [`Box<dyn CanChannel>`], 不感知驱动细节。
 //!
-//! USB 与 SocketCAN 各自在独立模块实现本 trait; 上层只通过 trait 方法收发、
-//! 停止与更新滤波, 不再直接调用 `init_can`/`drain`/`write_frame` 等驱动函数。
+//! USB 与 SocketCAN 各自在独立 crate/模块实现本 trait; 上层只通过 trait 方法
+//! 收发、停止与更新滤波, 不再直接调用 `init_can`/`drain`/`write_frame` 等驱动
+//! 函数。
 
-use crate::can::types::{BaudRate, CanFrame, CanMode, ChannelSource, HardwareFilter};
+use crate::types::{BaudRate, CanFrame, CanMode, ChannelSource, HardwareFilter};
 
 /// 通道的配置快照。
 ///

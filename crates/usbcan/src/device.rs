@@ -11,9 +11,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rusb::{Context, DeviceHandle, UsbContext};
 
-use crate::can::error::{Error, Result};
-use crate::can::protocol::{self, Endpoints};
-use crate::can::types::{BaudRate, CanFrame, CanMode, DeviceInfo, HardwareFilter};
+use can_core::{BaudRate, CanFrame, CanMode, DeviceInfo, HardwareFilter};
+
+use crate::error::{Error, Result};
+use crate::protocol::{self, Endpoints};
 
 /// 命令/控制传输超时。
 const COMMAND_TIMEOUT: Duration = Duration::from_millis(1000);

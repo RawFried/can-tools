@@ -8,14 +8,14 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crate::can::channel::{CanChannel, ChannelConfig};
-use crate::can::error::Error;
 use crate::can::socketcan::{self, SocketCanLink};
 use crate::can::types::{
     CanFrame, CanMode, ChannelSource, FilterUpdateRequest, LinkList, SendFrameRequest,
     SocketCanConfig, SocketCanLinkInfo, SoftwareFilter, StartConfig, UsbChannelConfig, MAX_CHANNEL,
 };
-use crate::can::usb::UsbCanBus;
+use crate::can::Error;
+use crate::can::UsbCanBus;
+use crate::can::{CanChannel, ChannelConfig};
 use crate::service::recorder::{Recorder, RecordingSummary};
 use crate::service::{now_ms, Command, Reply};
 use crate::state::{ChannelStatus, DeviceStatus, RecordingStatus, SharedState, Stats, Status};

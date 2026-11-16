@@ -15,8 +15,8 @@ use socketcan::{
     CanAddr, CanFrame as SocketFrame, CanInterface, CanSocket, EmbeddedFrame, Frame, Socket,
 };
 
-use crate::can::channel::{CanChannel, ChannelConfig};
 use crate::can::types::{CanFrame, ChannelSource, HardwareFilter};
+use crate::can::{CanChannel, ChannelConfig};
 
 /// sysfs 网络设备目录 (可通过 [`list_interfaces`] 的参数替换, 便于测试)。
 pub const SYSFS_NET: &str = "/sys/class/net";

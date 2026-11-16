@@ -183,22 +183,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
+name = "can-core"
+version = "0.4.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "can-tools"
 version = "0.4.0"
 dependencies = [
  "anyhow",
  "axum",
+ "can-core",
  "chrono",
  "clap",
- "rusb",
  "serde",
  "serde_json",
  "socketcan",
  "tempfile",
- "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "usbcan",
 ]
 
 [[package]]
@@ -1271,6 +1278,16 @@ name = "unicode-ident"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
+
+[[package]]
+name = "usbcan"
+version = "0.4.0"
+dependencies = [
+ "can-core",
+ "rusb",
+ "thiserror",
+ "tracing",
+]
 
 [[package]]
 name = "utf8parse"

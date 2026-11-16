@@ -1,0 +1,20 @@
+[package]
+name = "usbcan"
+version = "0.4.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Chuangxin USBCAN/CANalyst-II (04d8:0053) USB driver for can-tools"
+license = "MIT"
+publish = false
+
+[dependencies]
+can-core = { path = "../can-core" }
+rusb = { version = "0.9", features = ["vendored"] }
+thiserror = "2"
+tracing = "0.1"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"

@@ -17,13 +17,17 @@
 ## 2. 仓库结构与职责
 
 ```
+crates/can-core/        共享驱动类型 + CanChannel trait（无 rusb / 无 app 依赖）
+  src/types.rs          BaudRate/CanMode/HardwareFilter/CanFrame/DeviceInfo/ChannelSource
+  src/channel.rs        CanChannel trait 与 ChannelConfig 快照
+crates/usbcan/          USBCAN USB 驱动（依赖 can-core + rusb）
+  src/protocol.rs       USBCAN 字节级协议编解码（改动需硬件实测）
+  src/device.rs         USB 设备打开/初始化/收发的底层句柄
+  src/usb.rs            USB 总线与通道（UsbCanBus/UsbChannel，实现 CanChannel）
+  src/error.rs          驱动错误类型
 src/                  Rust 后端（bin + lib）
-  can/protocol.rs     USBCAN 字节级协议编解码（改动需硬件实测）
-  can/device.rs       USB 设备打开/初始化/收发的底层句柄
-  can/usb.rs          USB 总线与通道（UsbCanBus/UsbChannel，实现 CanChannel）
   can/socketcan.rs    SocketCAN 接口发现/启用与链路（实现 CanChannel）
-  can/channel.rs      通道抽象 Box<dyn CanChannel> 与配置快照
-  can/types.rs        API DTO、滤波类型、校验
+  can/types.rs        应用层 API DTO、软件滤波与校验（重导出 can-core 共享类型）
   service/            worker 线程（只持有 Box<dyn CanChannel>）、录制、状态发布
   server.rs           axum 路由与 HTTP/WS 处理
   paths.rs            数据目录解析（CAN_TOOLS_DATA_DIR → XDG）
@@ -86,8 +90,8 @@ packaging/            AppImage 打包
 ```bash
 cd web && npm run build             # 生成 app.js/app.css（不入库）；cargo 编译前必须存在
 cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
-cargo test --all-targets            # hw_* 需要真实硬件；无硬件时至少跑非 hw 用例
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets  # hw_* 需要真实硬件；无硬件时至少跑非 hw 用例
 ```
 
 需要真机时：`tests/hw_*.rs` 与 `docs/protocol.md` 中的实测结论是基准，失败先怀疑接线/波特率，再怀疑代码。

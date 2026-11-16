@@ -171,7 +171,7 @@ npm run build     # esbuild -> web/app.js（src/main.ts）与 web/app.css（src/
 npm run check     # 只做类型检查
 cd ..
 cargo build --release
-cargo test
+cargo test --workspace --all-targets
 ```
 
 `web/app.js` 与 `web/app.css` 是构建产物、不入库；后端在编译时用 `include_str!` 嵌入它们，
@@ -254,8 +254,8 @@ scp target/x86_64-unknown-linux-gnu/release/can-tools jz@<host>:~/
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy --all-targets -- -D warnings
-cargo test --all-targets
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace --all-targets
 ```
 
 - 硬件冒烟测试（需要真实设备，默认忽略）：

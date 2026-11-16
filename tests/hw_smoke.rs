@@ -5,8 +5,8 @@
 //! 使用只听模式启动双通道, 避免在总线上产生 ACK; 未接总线时仍应能完成
 //! 初始化、启动、抽取与关闭流程。测试结束会执行完整关闭序列。
 
-use can_tools::can::device;
 use can_tools::can::types::{BaudRate, CanMode, HardwareFilter};
+use usbcan::device;
 
 #[test]
 #[ignore = "requires USBCAN hardware (04d8:0053)"]

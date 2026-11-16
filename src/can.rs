@@ -1,15 +1,11 @@
-//! USBCAN 驱动层: 协议编解码、设备生命周期与公共类型。
+//! CAN 后端: 领域类型、通道抽象、SocketCAN 链路与 DBC 支持。
+//!
+//! 共享驱动类型与 [`CanChannel`] 由 `can-core` 提供, USBCAN 驱动由 `usbcan`
+//! 提供; 本模块只保留应用层类型、SocketCAN 与 DBC。
 
-pub mod channel;
 pub mod dbc;
-pub mod device;
-pub mod error;
-pub mod protocol;
 pub mod socketcan;
 pub mod types;
-pub mod usb;
 
-pub use channel::{CanChannel, ChannelConfig};
-pub use device::UsbCan;
-pub use error::{Error, Result};
-pub use usb::UsbCanBus;
+pub use can_core::{CanChannel, ChannelConfig};
+pub use usbcan::{Error, UsbCanBus};

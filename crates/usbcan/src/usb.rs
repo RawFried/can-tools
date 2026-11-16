@@ -6,10 +6,13 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use crate::can::channel::{CanChannel, ChannelConfig};
-use crate::can::device::{self, UsbCan};
-use crate::can::error::Error;
-use crate::can::types::{BaudRate, CanFrame, CanMode, ChannelSource, DeviceInfo, HardwareFilter};
+use can_core::{
+    BaudRate, CanChannel, CanFrame, CanMode, ChannelConfig, ChannelSource, DeviceInfo,
+    HardwareFilter,
+};
+
+use crate::device::{self, UsbCan};
+use crate::error::Error;
 
 /// 已打开的 USBCAN 设备及其通道工厂。
 pub struct UsbCanBus {

@@ -11,7 +11,7 @@
 //! 协议来源: `can_service/usbcan_driver_gs/src/usbcan_protocol.c` 与
 //! `can_service/multi-can/crates/usbcan-async/AGENTS.md`。
 
-use crate::can::types::{BaudRate, CanFrame, CanMode, HardwareFilter};
+use can_core::{BaudRate, CanFrame, CanMode, HardwareFilter};
 
 /// 设备厂商 ID。
 pub const VID: u16 = 0x04D8;

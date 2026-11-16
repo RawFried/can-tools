@@ -4,9 +4,9 @@
 
 use std::time::Duration;
 
-use can_tools::can::device;
 use can_tools::can::types::{BaudRate, CanFrame, CanMode, HardwareFilter};
-use can_tools::can::UsbCan;
+use usbcan::device;
+use usbcan::UsbCan;
 
 fn make_frame(id: u32, marker: u8) -> CanFrame {
     let mut data = [0u8; 8];
