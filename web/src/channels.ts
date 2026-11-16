@@ -22,7 +22,10 @@ interface ChannelOption {
 function channelOptions(st: StatusDto | null): ChannelOption[] {
   const options: ChannelOption[] = [];
   const seen = new Set<string>();
+  /* 未检测到（也未打开）USB 设备时不展示 USB 通道，避免拔出后仍可选。 */
+  const usbAvailable = st?.device.open === true || state.devices.length > 0;
   for (const ch of st?.channels ?? []) {
+    if (ch.source === 'usb' && !usbAvailable) continue;
     const key = channelKey(ch);
     if (seen.has(key)) continue;
     seen.add(key);

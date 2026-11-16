@@ -146,6 +146,29 @@ impl UsbCan {
         &self.info
     }
 
+    /// 检查设备是否仍在线。
+    ///
+    /// 用标准 GET_DESCRIPTOR 控制传输探测句柄: 设备拔出后内核句柄失效,
+    /// 会返回 `NoDevice`; 其它错误 (STALL/超时等) 不判定为拔出。
+    pub fn is_present(&self) -> bool {
+        let Some(handle) = self.handle.as_ref() else {
+            return false;
+        };
+        let mut descriptor = [0u8; 18];
+        match handle.read_control(
+            0x80,
+            0x06,
+            0x0100,
+            0,
+            &mut descriptor,
+            Duration::from_millis(200),
+        ) {
+            Ok(_) => true,
+            Err(rusb::Error::NoDevice) | Err(rusb::Error::NotFound) => false,
+            Err(_) => true,
+        }
+    }
+
     /// 初始化通道; 成功时缓存配置包供 StartCAN 复用。
     pub fn init_can(
         &mut self,

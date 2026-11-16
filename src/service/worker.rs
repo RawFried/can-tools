@@ -172,10 +172,16 @@ impl Worker {
 
     /// 枚举 USB 设备与 SocketCAN 链路。
     fn list_devices(&mut self) -> Result<LinkList, String> {
-        let devices = match self.device.as_ref() {
-            Some(device) => vec![device.info().clone()],
-            None => self.list_devices_with_retry()?,
-        };
+        /* 刷新列表时校验已打开的句柄, 拔出后立即释放, 避免返回陈旧设备。 */
+        if self
+            .device
+            .as_ref()
+            .is_some_and(|device| !device.is_present())
+        {
+            self.shared.log("warn", "USB 设备已断开, 已释放设备句柄");
+            self.disconnect();
+        }
+        let devices = self.list_devices_with_retry()?;
         self.refresh_links(true);
         Ok(LinkList {
             devices,
@@ -283,7 +289,16 @@ impl Worker {
 
     fn open_device(&mut self, index: usize) -> Result<crate::can::types::DeviceInfo, String> {
         if self.device.is_some() {
-            return Err("设备已打开, 请先关闭后再切换".to_string());
+            if self
+                .device
+                .as_ref()
+                .is_some_and(|device| device.is_present())
+            {
+                return Err("设备已打开, 请先关闭后再切换".to_string());
+            }
+            self.shared
+                .log("warn", "USB 设备已断开, 释放旧句柄后重新打开");
+            self.disconnect();
         }
         // 关闭设备后 USB 需重新枚举 (~0.4s 宿主 / 数秒容器), 近期关闭过则重试。
         let recently_closed = self
@@ -363,6 +378,22 @@ impl Worker {
                 links.push(entry);
             }
         }
+        // 句柄可能因拔插失效; 启动前校验并尝试重新打开。
+        if !usb_channels.is_empty()
+            && self
+                .device
+                .as_ref()
+                .is_some_and(|device| !device.is_present())
+        {
+            let index = self.device.as_ref().map_or(0, |device| device.info().index);
+            self.shared.log("warn", "USB 设备已断开, 尝试重新打开");
+            self.disconnect();
+            if let Err(error) = self.open_device(index) {
+                self.publish_status();
+                return Err(error);
+            }
+        }
+
         // USB 通道只在本次请求真的要配置时才要求设备已打开; SocketCAN 可独立启动。
         if !usb_channels.is_empty() && self.device.is_none() {
             return Err("设备未打开, 请先打开设备".to_string());
@@ -395,7 +426,11 @@ impl Worker {
                 None => Err(Error::NotOpen),
             };
             if let Err(error) = result {
+                let disconnected = matches!(&error, Error::NoDevice);
                 self.rollback_config(&started_usb, &[]);
+                if disconnected {
+                    self.disconnect();
+                }
                 self.publish_status();
                 return Err(format!("启动 CAN{} 失败: {error}", channel + 1));
             }
@@ -646,6 +681,14 @@ impl Worker {
         if self.device.is_none() {
             return Err("设备未打开, 无法发送".to_string());
         }
+        if self
+            .device
+            .as_ref()
+            .is_some_and(|device| !device.is_present())
+        {
+            self.disconnect();
+            return Err("设备已断开, 请重新连接".to_string());
+        }
         if self.channels[channel as usize].is_none() {
             return Err(format!("CAN{} 未启动, 请先应用配置", channel + 1));
         }
@@ -660,7 +703,12 @@ impl Worker {
             Some(device) => device.send_frame(channel, &frame),
             None => Err(Error::NotOpen),
         };
-        result.map_err(|error| format!("发送失败: {error}"))?;
+        if let Err(error) = result {
+            if matches!(&error, Error::NoDevice) {
+                self.disconnect();
+            }
+            return Err(format!("发送失败: {error}"));
+        }
         self.stats.tx_frames += 1;
         self.publish_status();
         let detail = if frame.remote {
