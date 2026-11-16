@@ -122,7 +122,7 @@ install -d -o can -g can -m 0755 /var/lib/can-tools || true
 
 if command -v udevadm >/dev/null 2>&1; then
   udevadm control --reload-rules || true
-  udevadm trigger --subsystem-match=usb || true
+  udevadm trigger --subsystem-match=usb --action=add || true
 fi
 
 if command -v systemctl >/dev/null 2>&1; then
@@ -159,12 +159,14 @@ exit 0
 EOF
 chmod 0755 "${STAGE}/DEBIAN/postinst" "${STAGE}/DEBIAN/prerm" "${STAGE}/DEBIAN/postrm"
 
+# 旧版 dpkg（如 Ubuntu 16.04 的 1.18）不识别 zstd；显式用 xz 以保证兼容。
+COMPRESS="${DEB_COMPRESS:-xz}"
 if dpkg-deb --help 2>&1 | grep -q -- '--root-owner-group'; then
-  dpkg-deb --root-owner-group --build "${STAGE}" "${OUT}"
+  dpkg-deb --root-owner-group -Z"${COMPRESS}" --build "${STAGE}" "${OUT}"
 elif command -v fakeroot >/dev/null 2>&1; then
-  fakeroot dpkg-deb --build "${STAGE}" "${OUT}"
+  fakeroot dpkg-deb -Z"${COMPRESS}" --build "${STAGE}" "${OUT}"
 else
-  dpkg-deb --build "${STAGE}" "${OUT}"
+  dpkg-deb -Z"${COMPRESS}" --build "${STAGE}" "${OUT}"
 fi
 
 echo "产物: ${OUT}"
