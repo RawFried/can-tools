@@ -19,9 +19,12 @@
 ```
 src/                  Rust 后端（bin + lib）
   can/protocol.rs     USBCAN 字节级协议编解码（改动需硬件实测）
-  can/device.rs       USB 设备打开/初始化/收发
+  can/device.rs       USB 设备打开/初始化/收发的底层句柄
+  can/usb.rs          USB 总线与通道（UsbCanBus/UsbChannel，实现 CanChannel）
+  can/socketcan.rs    SocketCAN 接口发现/启用与链路（实现 CanChannel）
+  can/channel.rs      通道抽象 Box<dyn CanChannel> 与配置快照
   can/types.rs        API DTO、滤波类型、校验
-  service/            worker 线程、录制、状态发布
+  service/            worker 线程（只持有 Box<dyn CanChannel>）、录制、状态发布
   server.rs           axum 路由与 HTTP/WS 处理
   paths.rs            数据目录解析（CAN_TOOLS_DATA_DIR → XDG）
 web/                  前端（无框架 TypeScript + CSS，源码按职责拆模块于 src/）

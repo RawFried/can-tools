@@ -15,7 +15,8 @@ use socketcan::{
     CanAddr, CanFrame as SocketFrame, CanInterface, CanSocket, EmbeddedFrame, Frame, Socket,
 };
 
-use crate::can::types::CanFrame;
+use crate::can::channel::{CanChannel, ChannelConfig};
+use crate::can::types::{CanFrame, ChannelSource, HardwareFilter};
 
 /// sysfs 网络设备目录 (可通过 [`list_interfaces`] 的参数替换, 便于测试)。
 pub const SYSFS_NET: &str = "/sys/class/net";
@@ -225,11 +226,28 @@ impl SocketCanLink {
     pub fn state(&self) -> &'static str {
         self.state
     }
+}
+
+impl CanChannel for SocketCanLink {
+    fn source(&self) -> ChannelSource {
+        ChannelSource::SocketCan
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn config(&self) -> ChannelConfig {
+        ChannelConfig::SocketCan {
+            bitrate: self.bitrate,
+            state: self.state.to_string(),
+        }
+    }
 
     /// 非阻塞读取最多 `max` 帧; 错误帧被丢弃, 远程帧正常转换。
     ///
     /// 返回的错误由调用方负责关闭链路并写日志, 本方法不改变链路状态。
-    pub fn try_read(&self, max: usize) -> Result<Vec<CanFrame>, String> {
+    fn read(&mut self, max: usize) -> Result<Vec<CanFrame>, String> {
         let mut frames = Vec::new();
         while frames.len() < max {
             match self.socket.read_frame() {
@@ -247,11 +265,26 @@ impl SocketCanLink {
     }
 
     /// 向链路写入一帧。
-    pub fn write(&self, frame: &CanFrame) -> Result<(), String> {
+    fn write(&mut self, frame: &CanFrame) -> Result<(), String> {
         let socket_frame = to_socket_frame(frame)?;
         self.socket
             .write_frame(&socket_frame)
             .map_err(|error| error.to_string())
+    }
+
+    /// 停止链路: 本实现不发送任何命令, socket 随 [`SocketCanLink`] 被丢弃而关闭。
+    fn stop(&mut self) -> Result<(), String> {
+        Ok(())
+    }
+
+    /// 接口仍存在时返回 `true`; 链路失效也由 [`CanChannel::read`] 的错误上报。
+    fn is_alive(&self) -> bool {
+        CanAddr::from_iface(&self.name).is_ok()
+    }
+
+    /// SocketCAN 没有硬件验收滤波, 只支持上层软件区间。
+    fn update_hardware_filter(&mut self, _filter: &HardwareFilter) -> Result<(), String> {
+        Err("SocketCAN 链路只支持软件滤波".to_string())
     }
 }
 
