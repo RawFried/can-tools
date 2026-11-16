@@ -1,0 +1,16 @@
+[Unit]
+Description=CAN Tools web host (USBCAN + SocketCAN)
+Documentation=file:/usr/share/doc/can-tools/README.md
+After=network.target
+
+[Service]
+Type=simple
+User=can
+Group=can
+WorkingDirectory=/var/lib/can-tools
+ExecStart=/usr/bin/can-tools --no-browser --port 8787 --data-dir /var/lib/can-tools
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

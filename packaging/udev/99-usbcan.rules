@@ -1,0 +1,3 @@
+# Chuangxin USBCAN / CANalyst-II (04d8:0053) — give the `can` group access.
+ACTION=="add", SUBSYSTEMS=="usb", ATTRS{idVendor}=="04d8", ATTRS{idProduct}=="0053", \
+  GROUP="can", MODE="0660", ENV{ID_MM_DEVICE_IGNORE}="1"
