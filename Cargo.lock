@@ -184,14 +184,14 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "can-core"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "can-tools"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -1281,7 +1281,7 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "usbcan"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "can-core",
  "rusb",
