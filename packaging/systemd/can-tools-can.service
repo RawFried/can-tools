@@ -1,0 +1,12 @@
+[Unit]
+Description=Bring up SocketCAN interfaces for CAN Tools
+Documentation=file:/usr/share/doc/can-tools/README.md
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/can-tools/can-up.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

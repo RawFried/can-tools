@@ -1,0 +1,3 @@
+# 开机自动启用的 SocketCAN 接口，格式 "接口:速率"，空格分隔。
+# 例如: CAN_INTERFACES="can0:500000 can1:250000"
+CAN_INTERFACES="can0:500000"

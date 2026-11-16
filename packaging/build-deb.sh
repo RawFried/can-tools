@@ -86,10 +86,18 @@ mkdir -p \
 install -m 0755 "${BIN}" "${STAGE}/usr/bin/can-tools"
 install -m 0644 "${ROOT}/packaging/systemd/can-tools.service" \
   "${STAGE}/lib/systemd/system/can-tools.service"
+install -D -m 0755 "${ROOT}/packaging/can-up.sh" \
+  "${STAGE}/usr/lib/can-tools/can-up.sh"
+install -D -m 0644 "${ROOT}/packaging/systemd/can-tools-can.service" \
+  "${STAGE}/lib/systemd/system/can-tools-can.service"
+install -D -m 0644 "${ROOT}/packaging/default/can-tools-can" \
+  "${STAGE}/etc/default/can-tools-can"
 install -m 0644 "${ROOT}/packaging/udev/99-usbcan.rules" \
   "${STAGE}/lib/udev/rules.d/99-usbcan.rules"
 install -m 0644 "${ROOT}/README.md" "${STAGE}/usr/share/doc/can-tools/README.md"
 install -m 0644 "${ROOT}/LICENSE" "${STAGE}/usr/share/doc/can-tools/copyright"
+
+printf '%s\n' /etc/default/can-tools-can > "${STAGE}/DEBIAN/conffiles"
 
 SIZE_KB="$(du -sk "${STAGE}" | cut -f1)"
 cat > "${STAGE}/DEBIAN/control" <<EOF
@@ -127,10 +135,11 @@ fi
 
 if command -v systemctl >/dev/null 2>&1; then
   systemctl daemon-reload || true
-  systemctl enable can-tools.service || true
-  if [ "$1" = "configure" ]; then
-    systemctl restart can-tools.service || true
-  fi
+  # 应用改为手动启动: 安装/升级不再自动启用或启动 can-tools.service
+  systemctl disable can-tools.service >/dev/null 2>&1 || true
+  # CAN 接口仍开机自动 UP (按 /etc/default/can-tools-can)
+  systemctl enable can-tools-can.service || true
+  systemctl restart can-tools-can.service || true
 fi
 exit 0
 EOF
@@ -142,6 +151,8 @@ if [ "$1" = "remove" ] || [ "$1" = "deconfigure" ]; then
   if command -v systemctl >/dev/null 2>&1; then
     systemctl stop can-tools.service || true
     systemctl disable can-tools.service || true
+    systemctl stop can-tools-can.service || true
+    systemctl disable can-tools-can.service || true
   fi
 fi
 exit 0

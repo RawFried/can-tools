@@ -179,9 +179,11 @@ cargo test --workspace --all-targets
 
 ## Debian / Ubuntu 包（.deb）
 
-适用于 Ubuntu/Debian 工控机；包内包含 `can-tools` 二进制、systemd 服务
-`can-tools.service`（默认 `127.0.0.1:8787`、数据目录 `/var/lib/can-tools`）与
-`99-usbcan.rules`（把 USB 设备授权给 `can` 组）：
+适用于 Ubuntu/Debian 工控机；包内包含：
+
+- `can-tools` 二进制与 `can-tools.service`（默认 `127.0.0.1:8787`、数据目录 `/var/lib/can-tools`）；
+- `can-tools-can.service`：开机按 `/etc/default/can-tools-can` 自动把 SocketCAN 接口 up；
+- `99-usbcan.rules`：把 USB 设备授权给 `can` 组。
 
 ```bash
 # 默认本机架构；基于 zigbuild，glibc 2.17 基线
@@ -191,16 +193,23 @@ ARCH=arm64 ./packaging/build-deb.sh
 # 仅用本机工具链（产物要求构建机的 glibc）
 ZIG=0 ./packaging/build-deb.sh
 
-# 安装（自动创建 can 用户/组、安装 udev 规则并启用服务）
+# 安装（创建 can 用户/组、udev 规则与 CAN 自启服务；应用不会自动启动）
 sudo dpkg -i dist/can-tools_<version>_<arch>.deb
-systemctl status can-tools
 ```
 
-- 安装后访问 `http://127.0.0.1:8787/`；远程查看用
+- **应用手动启动**：
+  ```bash
+  sudo systemctl start can-tools          # 本次启动
+  sudo systemctl enable --now can-tools   # 需要开机自启时
+  ```
+  安装/升级不会自动启用或启动 `can-tools.service`；如果之前已被自动启用，升级会移除自启（不停止正在运行的进程）。
+- **CAN 接口自动 up**：`can-tools-can.service` 开机读取
+  `/etc/default/can-tools-can`（默认 `CAN_INTERFACES="can0:500000"`）；修改接口/速率后
+  `sudo systemctl restart can-tools-can`。已 UP 的接口会跳过。
+- 访问 `http://127.0.0.1:8787/`；远程查看用
   `ssh -L 8787:127.0.0.1:8787 jz@<host>`。
 - USB 权限由包内 udev 规则授予 `can` 组，首次安装后重新插拔设备。
-- `can0` 等 SocketCAN 接口的速率/UP 仍需系统配置，可参考
-  `packaging/systemd/can0.service.example`（复制到 `/etc/systemd/system/` 后 enable）。
+- 升级二进制后若应用正在运行，需要手动 `sudo systemctl restart can-tools` 才会用上新版本。
 - 卸载：`sudo apt remove can-tools`（保留 `/var/lib/can-tools` 数据）。
 
 ## AppImage（可选）
