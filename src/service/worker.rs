@@ -18,7 +18,9 @@ use crate::can::UsbCanBus;
 use crate::can::{CanChannel, ChannelConfig};
 use crate::service::recorder::{Recorder, RecordingSummary};
 use crate::service::{now_ms, Command, Reply};
-use crate::state::{ChannelStatus, DeviceStatus, RecordingStatus, SharedState, Stats, Status};
+use crate::state::{
+    ChannelMetrics, ChannelStatus, DeviceStatus, RecordingStatus, SharedState, Stats, Status,
+};
 
 /// USB 通道数; 通道 `0..USB_CHANNELS` 固定属于 USB 设备。
 const USB_CHANNELS: u8 = 2;
@@ -41,6 +43,7 @@ struct Slot {
     bitrate: Option<u64>,
     state: Option<String>,
     software_filters: Vec<SoftwareFilter>,
+    metrics: ChannelMetricsState,
 }
 
 impl Slot {
@@ -53,6 +56,7 @@ impl Slot {
             bitrate: None,
             state: None,
             software_filters: Vec::new(),
+            metrics: ChannelMetricsState::default(),
         }
     }
 
@@ -65,11 +69,58 @@ impl Slot {
             bitrate,
             state: Some(state),
             software_filters: Vec::new(),
+            metrics: ChannelMetricsState::default(),
         }
     }
 
     fn is_running(&self) -> bool {
         self.channel.is_some()
+    }
+
+    /// 通道位速率 (bit/s); 未运行或速率未知时为 `None`。
+    ///
+    /// USB 取当前波特率, SocketCAN 取 sysfs 可见速率 (缺失时回退打开时快照)。
+    fn bitrate_bps(&self) -> Option<u64> {
+        let config = self.channel.as_ref()?.config();
+        match config {
+            ChannelConfig::Usb { baud, .. } => Some(baud.bps()),
+            ChannelConfig::SocketCan { bitrate, .. } => self.bitrate.or(bitrate),
+        }
+    }
+
+    /// 将累计计数转换为对外快照 (发布状态时调用)。
+    fn metrics_snapshot(&self) -> ChannelMetrics {
+        ChannelMetrics {
+            rx_frames: self.metrics.rx_frames,
+            rx_rate: self.metrics.rx_rate,
+            bus_load: self.metrics.bus_load,
+        }
+    }
+}
+
+/// 单通道带宽统计累加器。
+///
+/// `rx_frames`/`window_frames` 只统计通过软件滤波的帧; `window_bits` 统计
+/// 通道上的全部帧 (含被滤掉的), 用于总线负载估算。
+#[derive(Debug, Default)]
+struct ChannelMetricsState {
+    rx_frames: u64,
+    window_frames: u64,
+    window_bits: u64,
+    rx_rate: f64,
+    bus_load: Option<f64>,
+}
+
+impl ChannelMetricsState {
+    /// 清零累计与窗口计数 (通道启动/停止或统计被清空时调用)。
+    fn reset(&mut self) {
+        *self = Self::default();
+    }
+
+    /// 只清空窗口计数, 保留累计帧数 (每次周期性发布后调用)。
+    fn reset_window(&mut self) {
+        self.window_frames = 0;
+        self.window_bits = 0;
     }
 }
 
@@ -173,6 +224,9 @@ impl Worker {
                 self.seq = 0;
                 self.rate_frames = 0;
                 self.rate_start = Instant::now();
+                for slot in &mut self.slots {
+                    slot.metrics.reset();
+                }
                 self.publish_status();
                 send(reply, Ok(()));
             }
@@ -459,6 +513,7 @@ impl Worker {
                         .expect("USB 槽位固定存在");
                     self.slots[index].channel = Some(opened);
                     self.slots[index].software_filters = entry.software_filters.clone();
+                    self.slots[index].metrics.reset();
                     started_usb.push(channel);
                 }
                 Err(error) => {
@@ -496,6 +551,7 @@ impl Worker {
             self.refresh_links(false);
             // 已运行的链路重新出现在请求中 = 关闭后重开。
             self.slots[index].channel = None;
+            self.slots[index].metrics.reset();
             match SocketCanLink::open(name) {
                 Ok(link) => {
                     let slot = &mut self.slots[index];
@@ -547,6 +603,7 @@ impl Worker {
         }
         for &index in links {
             self.slots[index].channel = None;
+            self.slots[index].metrics.reset();
         }
     }
 
@@ -598,6 +655,7 @@ impl Worker {
                 stopped.push(format!("CAN{}", channel + 1));
             } else {
                 self.slots[index].channel = None;
+                self.slots[index].metrics.reset();
                 stopped.push(name);
             }
         }
@@ -850,6 +908,7 @@ impl Worker {
                     } else {
                         // 单条链路失败只关闭该链路, 不影响 USB 与其它链路。
                         self.slots[index].channel = None;
+                        self.slots[index].metrics.reset();
                         self.shared
                             .log("error", format!("SocketCAN 链路 {name} 接收失败: {error}"));
                     }
@@ -914,10 +973,11 @@ impl Worker {
         }
     }
 
-    /// 释放 USB 通道并清空其区间 (停止后的 USB 状态不保留软件滤波)。
+    /// 释放 USB 通道并清空其区间与统计 (停止后的 USB 状态不保留软件滤波)。
     fn clear_usb_channel(&mut self, index: usize) {
         self.slots[index].channel = None;
         self.slots[index].software_filters.clear();
+        self.slots[index].metrics.reset();
     }
 
     /// 是否仍有运行中的 SocketCAN 链路。
@@ -969,6 +1029,15 @@ impl Worker {
             let filters = self.channel_software_filters(channel);
             filters.is_empty() || filters.iter().any(|filter| filter.matches(frame))
         };
+        let bits = frame_bits(frame);
+        if let Some(slot) = self.slots.iter_mut().find(|slot| slot.id == channel) {
+            // 负载按总线上的真实流量统计: 被软件滤掉的帧同样占用总线时间。
+            slot.metrics.window_bits = slot.metrics.window_bits.saturating_add(bits);
+            if accepted {
+                slot.metrics.window_frames = slot.metrics.window_frames.saturating_add(1);
+                slot.metrics.rx_frames = slot.metrics.rx_frames.saturating_add(1);
+            }
+        }
         if !accepted {
             self.stats.filtered_frames += 1;
             return;
@@ -1029,6 +1098,7 @@ impl Worker {
         self.reset_usb_slots();
         for slot in &mut self.slots {
             slot.channel = None;
+            slot.metrics.reset();
         }
         self.publish_status();
     }
@@ -1039,6 +1109,17 @@ impl Worker {
         }
         let elapsed = self.rate_start.elapsed().as_secs_f64().max(0.001);
         self.stats.rx_rate = self.rate_frames as f64 / elapsed;
+        for slot in &mut self.slots {
+            if !slot.is_running() {
+                slot.metrics.reset();
+                continue;
+            }
+            let bitrate = slot.bitrate_bps();
+            slot.metrics.rx_rate = slot.metrics.window_frames as f64 / elapsed;
+            slot.metrics.bus_load =
+                bitrate.map(|bps| bus_load_percent(slot.metrics.window_bits as f64 / elapsed, bps));
+            slot.metrics.reset_window();
+        }
         self.rate_frames = 0;
         self.rate_start = Instant::now();
         self.stats.recorded_frames = self.recorder.as_ref().map_or(0, Recorder::frames);
@@ -1085,6 +1166,7 @@ fn slot_status(slot: &Slot) -> ChannelStatus {
             bitrate: None,
             state: None,
             software_filters: slot.software_filters.clone(),
+            metrics: slot.metrics_snapshot(),
         },
         Some(ChannelConfig::SocketCan { bitrate, state }) => ChannelStatus {
             index: slot.id,
@@ -1098,6 +1180,7 @@ fn slot_status(slot: &Slot) -> ChannelStatus {
             bitrate: slot.bitrate.or(bitrate),
             state: slot.state.clone().or(Some(state)),
             software_filters: slot.software_filters.clone(),
+            metrics: slot.metrics_snapshot(),
         },
         None => ChannelStatus {
             index: slot.id,
@@ -1122,8 +1205,30 @@ fn slot_status(slot: &Slot) -> ChannelStatus {
             } else {
                 slot.software_filters.clone()
             },
+            metrics: slot.metrics_snapshot(),
         },
     }
+}
+
+/// 一帧在总线上占用的近似位数 (经典 CAN, 不含位填充)。
+///
+/// 标准帧固定开销 47 位 (含 3 位帧间隔), 扩展帧 67 位; 数据帧再加 `8 × DLC`。
+/// 远程帧没有数据段, 只计固定开销。位填充不参与估算, 因此实际负载可能略高。
+fn frame_bits(frame: &CanFrame) -> u64 {
+    let overhead = if frame.extended { 67 } else { 47 };
+    if frame.remote {
+        return overhead;
+    }
+    overhead + u64::from(frame.dlc.min(8)) * 8
+}
+
+/// 总线负载百分比 = 每秒位数 ÷ 通道位速率 × 100, 保留两位小数。
+fn bus_load_percent(bits_per_second: f64, bitrate_bps: u64) -> f64 {
+    if bitrate_bps == 0 {
+        return 0.0;
+    }
+    let load = bits_per_second / bitrate_bps as f64 * 100.0;
+    (load * 100.0).round() / 100.0
 }
 
 fn mode_label(mode: CanMode) -> &'static str {
@@ -1256,6 +1361,7 @@ mod tests {
                 start: 0x200,
                 end: 0x2FF,
             }],
+            metrics: ChannelMetricsState::default(),
         });
 
         let mut batch = Vec::new();
@@ -1263,6 +1369,9 @@ mod tests {
         assert_eq!(worker.stats.filtered_frames, 1);
         assert_eq!(worker.stats.rx_frames, 0);
         assert!(batch.is_empty());
+        // 被软件滤波丢弃的帧不计入通道帧率, 但仍占用总线。
+        assert_eq!(worker.slots[0].metrics.window_frames, 0);
+        assert_eq!(worker.slots[0].metrics.window_bits, 47 + 2 * 8);
 
         worker.ingest(0, "CAN1", &frame(0x123), 1_700_000_000_000, &mut batch);
         assert_eq!(worker.stats.rx_frames, 1);
@@ -1292,6 +1401,26 @@ mod tests {
     }
 
     #[test]
+    fn frame_bits_and_bus_load_use_classic_can_lengths() {
+        let mut data = frame(0x123);
+        assert_eq!(frame_bits(&data), 47 + 2 * 8);
+        data.dlc = 8;
+        assert_eq!(frame_bits(&data), 47 + 64);
+        data.extended = true;
+        assert_eq!(frame_bits(&data), 67 + 64);
+        data.remote = true;
+        assert_eq!(frame_bits(&data), 67);
+
+        assert_eq!(bus_load_percent(0.0, 500_000), 0.0);
+        // 500 kbit/s 上每秒 5 000 位 → 1%。
+        assert_eq!(bus_load_percent(5_000.0, 500_000), 1.0);
+        // 结果保留两位小数。
+        assert_eq!(bus_load_percent(1_111.0, 500_000), 0.22);
+        // 速率未知时不产生除零。
+        assert_eq!(bus_load_percent(1_000.0, 0), 0.0);
+    }
+
+    #[test]
     fn status_lists_registered_socketcan_links() {
         let directory = tempfile::tempdir().unwrap();
         let mut worker = test_worker(directory.path());
@@ -1307,6 +1436,7 @@ mod tests {
                 start: 0x100,
                 end: 0x1FF,
             }],
+            metrics: ChannelMetricsState::default(),
         });
 
         let status = worker.status();
@@ -1323,6 +1453,10 @@ mod tests {
         assert!(link.baud.is_none() && link.mode.is_none() && link.filter.is_none());
         assert_eq!(link.software_filters.len(), 1);
         assert_eq!(link.software_filters[0].start, 0x100);
+        // 未运行的通道统计为零。
+        assert_eq!(link.metrics.rx_frames, 0);
+        assert_eq!(link.metrics.rx_rate, 0.0);
+        assert!(link.metrics.bus_load.is_none());
         // 未运行的 USB 通道也带空区间字段 (形状统一)。
         assert!(status.channels[0].software_filters.is_empty());
     }
@@ -1448,6 +1582,7 @@ mod tests {
             bitrate: None,
             state: Some("up".to_string()),
             software_filters: Vec::new(),
+            metrics: ChannelMetricsState::default(),
         });
 
         worker.poll_frames();

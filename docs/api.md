@@ -35,14 +35,17 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
       "filter": {"acc_code": 0, "acc_mask": 4294967295, "mode": 1},
       "bitrate": null,
       "state": null,
-      "software_filters": [{"extended": false, "start": 256, "end": 511}]
+      "software_filters": [{"extended": false, "start": 256, "end": 511}],
+      "metrics": {"rx_frames": 1234, "rx_rate": 420.5, "bus_load": 12.34}
     },
     {"index": 1, "source": "usb", "name": "CAN2", "running": false, "baud": null,
      "mode": null, "filter": null, "bitrate": null, "state": null,
-     "software_filters": []},
+     "software_filters": [],
+     "metrics": {"rx_frames": 0, "rx_rate": 0.0, "bus_load": null}},
     {"index": 2, "source": "socketcan", "name": "can0", "running": true, "baud": null,
      "mode": null, "filter": null, "bitrate": 500000, "state": "up",
-     "software_filters": [{"extended": false, "start": 512, "end": 767}]}
+     "software_filters": [{"extended": false, "start": 512, "end": 767}],
+     "metrics": {"rx_frames": 512, "rx_rate": 87.2, "bus_load": 5.02}}
   ],
   "recording": {
     "active": true,
@@ -94,6 +97,19 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
   to that channel, `[]` meaning "accept everything". A frame passes when at least one record matches
   both its standard/extended flag and `start <= id <= end`. SocketCAN links only apply this
   software layer; USB channels apply it after their hardware acceptance filter.
+- `metrics` is **per channel**, computed by the worker once per second:
+  - `rx_frames` counts frames accepted on that channel since it was started (software filters
+    applied), and resets when the channel stops, restarts or `POST /api/frames/clear` runs.
+  - `rx_rate` is the accepted frame rate over the last statistics window (frames/s).
+  - `bus_load` is the estimated bus load in **percent** (0–100, two decimals) for that channel:
+    `(bits/s ÷ channel bit rate) × 100`. Bit counts use classic CAN frame lengths without bit
+    stuffing — standard frames `47 + 8 × dlc`, extended frames `67 + 8 × dlc`, remote frames
+    `47`/`67` (no data) — and **include frames dropped by software filters**, because they still
+    occupy the bus. USB uses the channel `baud` rate, SocketCAN uses its sysfs `bitrate`; the value
+    is `null` when the channel is stopped or its rate is unknown (for example a `vcan` interface
+    without bit timing), and stopped channels report
+    `{"rx_frames": 0, "rx_rate": 0.0, "bus_load": null}`. A misconfigured rate can push the
+    estimate above 100 (it is not clamped).
 - `stats.rx_frames`/`stats.rx_rate` cover frames accepted from all links; `stats.tx_frames` counts
   frames successfully sent through any link since the device was opened or the counters cleared.
 - `server.recordings_dir` is the absolute directory new recordings are written to. It defaults to

@@ -41,6 +41,16 @@ export interface AcceptanceFilterDto {
 /** 通道来源：USB 硬件的 CAN1/CAN2，或 Linux SocketCAN 链路。 */
 export type ChannelSource = 'usb' | 'socketcan';
 
+/** 通道帧率与总线负载（后端每秒计算一次）。 */
+export interface ChannelMetricsDto {
+  /** 该通道自启动以来放行的帧数。 */
+  rx_frames: number;
+  /** 最近一个统计窗口的帧率（帧/秒）。 */
+  rx_rate: number;
+  /** 总线负载百分比（0–100 估算值）；速率未知时为 null。 */
+  bus_load: number | null;
+}
+
 export interface ChannelStatusDto {
   index: number;
   source: ChannelSource;
@@ -55,6 +65,8 @@ export interface ChannelStatusDto {
   state: string | null;
   /** 该通道当前生效的软件滤波区间（空数组 = 全部接收）。 */
   software_filters: SoftwareFilterDto[];
+  /** 该通道的帧率与总线负载；停止时为零值。 */
+  metrics: ChannelMetricsDto;
 }
 
 /** GET /api/devices 中 socketcan 数组的项。 */
@@ -227,6 +239,16 @@ function parseSoftwareFilters(v: unknown): SoftwareFilterDto[] {
   return out;
 }
 
+/** 收窄通道统计；旧版后端没有 metrics 字段时按零值处理。 */
+function parseChannelMetrics(v: unknown): ChannelMetricsDto {
+  if (!isObj(v)) return { rx_frames: 0, rx_rate: 0, bus_load: null };
+  return {
+    rx_frames: numOr(v['rx_frames'], 0),
+    rx_rate: numOr(v['rx_rate'], 0),
+    bus_load: isNum(v['bus_load']) ? v['bus_load'] : null,
+  };
+}
+
 function parseFrameDto(o: Record<string, unknown>): FrameDto {
   return {
     seq: numOr(o['seq'], 0),
@@ -300,6 +322,7 @@ export function parseStatusDto(v: unknown): StatusDto | null {
         bitrate: isNum(c['bitrate']) ? c['bitrate'] : null,
         state: isStr(c['state']) ? c['state'] : null,
         software_filters: parseSoftwareFilters(c['software_filters']),
+        metrics: parseChannelMetrics(c['metrics']),
       });
     }
   }

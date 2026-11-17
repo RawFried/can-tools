@@ -89,6 +89,22 @@ impl BaudRate {
         }
     }
 
+    /// 速率 (bit/s), 如 `500k` → `500_000`; 用于总线负载估算。
+    pub const fn bps(self) -> u64 {
+        match self {
+            Self::Kbps5 => 5_000,
+            Self::Kbps10 => 10_000,
+            Self::Kbps20 => 20_000,
+            Self::Kbps50 => 50_000,
+            Self::Kbps100 => 100_000,
+            Self::Kbps125 => 125_000,
+            Self::Kbps250 => 250_000,
+            Self::Kbps500 => 500_000,
+            Self::Kbps800 => 800_000,
+            Self::Kbps1000 => 1_000_000,
+        }
+    }
+
     /// 短名称 (与 JSON 取值一致), 如 `500k`。
     pub const fn short_label(self) -> &'static str {
         match self {
@@ -249,4 +265,18 @@ pub enum ChannelSource {
     Usb,
     /// Linux SocketCAN 链路。
     SocketCan,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn baud_rate_bps_follows_short_labels() {
+        for rate in BaudRate::ALL {
+            let label = rate.short_label();
+            let expected = label.trim_end_matches('k').parse::<u64>().unwrap() * 1_000;
+            assert_eq!(rate.bps(), expected, "{label}");
+        }
+    }
 }

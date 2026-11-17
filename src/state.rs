@@ -26,6 +26,23 @@ pub struct DeviceStatus {
     pub info: Option<DeviceInfo>,
 }
 
+/// 单通道统计。
+///
+/// 由工作线程按统计窗口 (~1 秒) 计算。`rx_frames`/`rx_rate` 只统计通过软件
+/// 滤波的帧; `bus_load` 统计该通道上的全部帧, 因为被软件滤掉的帧同样占用总线。
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ChannelMetrics {
+    /// 该通道自启动以来接收并放行的帧数。
+    pub rx_frames: u64,
+    /// 最近一个统计窗口的接收帧率 (帧/秒)。
+    pub rx_rate: f64,
+    /// 最近一个统计窗口的总线负载百分比 (0–100 的估算值, 两位小数)。
+    ///
+    /// 按经典 CAN 帧位数估算 (标准帧 47 + 8×DLC, 扩展帧 67 + 8×DLC, 不含
+    /// 位填充); 通道未运行或速率未知 (如无 bit timing 的 vcan) 时为 `None`。
+    pub bus_load: Option<f64>,
+}
+
 /// 单通道状态。
 ///
 /// USB 与 SocketCAN 共用同一形状; USB 项的 `bitrate`/`state` 为 `null`,
@@ -52,6 +69,8 @@ pub struct ChannelStatus {
     pub state: Option<String>,
     /// 该通道当前生效的应用层 ID 区间; 空数组表示接收全部。
     pub software_filters: Vec<SoftwareFilter>,
+    /// 该通道的帧率与总线负载统计 (停止时为全零/`null`)。
+    pub metrics: ChannelMetrics,
 }
 
 impl ChannelStatus {
@@ -67,6 +86,7 @@ impl ChannelStatus {
             bitrate: None,
             state: None,
             software_filters: Vec::new(),
+            metrics: ChannelMetrics::default(),
         }
     }
 }
@@ -393,6 +413,12 @@ mod tests {
             .channels
             .iter()
             .all(|channel| channel.software_filters.is_empty()));
+        assert!(status
+            .channels
+            .iter()
+            .all(|channel| channel.metrics.rx_frames == 0
+                && channel.metrics.rx_rate == 0.0
+                && channel.metrics.bus_load.is_none()));
         assert!(status.recording.file.is_none());
     }
 

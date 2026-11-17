@@ -7,7 +7,7 @@ import { els } from './dom';
 import { channelKey, deriveAcceptanceFilter, renderHwPrefilter, renderRangesFor, saveCurrentRanges, syncFilters } from './filters';
 import { state } from './state';
 import { toast } from './toast';
-import { displayChannelName } from './format';
+import { displayChannelName, fmtRate } from './format';
 import { asBaud, asMode, BAUDS } from './types';
 import type { CanMode, ChannelStatusDto, SocketCanLinkDto, StatusDto } from './types';
 
@@ -169,7 +169,13 @@ function renderChannelState(st: StatusDto | null): void {
   els.channelState.classList.toggle('running', running);
 
   if (running) {
-    els.channelState.textContent = '运行中 · ' + statusRate(st, key, option);
+    const parts = ['运行中 · ' + statusRate(st, key, option)];
+    /* 统计由后端每秒推送；只有已注册到 status 的通道才有 metrics。 */
+    if (ch !== null) {
+      parts.push(fmtRate(ch.metrics.rx_rate) + ' 帧/秒');
+      if (ch.metrics.bus_load !== null) parts.push('负载 ' + fmtRate(ch.metrics.bus_load) + '%');
+    }
+    els.channelState.textContent = parts.join(' · ');
     return;
   }
   const ifaceState = ch !== null && ch.source === 'socketcan' ? ch.state : link?.state ?? null;
