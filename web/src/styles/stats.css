@@ -1,39 +1,83 @@
-/* ---------- 统计卡 ---------- */
-.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+/* ---------- 通道统计（HUD 面板） ---------- */
+/* 主区顶部读数带：每个运行中通道一行，展示速率、帧率、总线负载与累计接收。
+   数据每秒随状态推送重绘，因此表格只保留紧凑的静态排版（入场节奏见 layout.css）。 */
 
-.stat {
-  position: relative;
-  background-color: var(--surface);
-  background-image: var(--panel-grad);
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  padding: 12px 14px;
-  display: grid; gap: 5px;
-  align-content: start;
+.stats-note {
+  font: 400 10.5px/1 var(--font-mono);
+  color: var(--text-faint);
+  letter-spacing: 0.06em;
 }
-/* 顶部细扫描线：把四个数字块串成一条 HUD 读数带 */
-.stat::before {
-  content: "";
-  position: absolute; left: 10px; right: 10px; top: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--can1-line), transparent);
-  opacity: 0.75;
-  pointer-events: none;
-}
-.stat-head {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 11px; letter-spacing: 0.06em; color: var(--text-faint);
-}
-.stat-head svg { flex: none; color: var(--text-faint); }
-.s-rx .stat-head svg { color: var(--can1); }
-.s-rate .stat-head svg { color: var(--ok); }
-.s-filtered .stat-head svg { color: var(--warn); }
-.s-recorded .stat-head svg { color: var(--err); }
 
-.stat-val {
-  display: flex; align-items: baseline; gap: 6px; min-width: 0;
-  font: 600 24px/1.15 var(--font-mono);
+.channel-stats-wrap { overflow-x: auto; }
+
+table.channel-stats-table {
+  width: 100%;
+  border-collapse: collapse;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.01em;
 }
-.stat-val .unit { font: 400 11px/1 var(--font-ui); color: var(--text-faint); letter-spacing: 0.02em; }
-.stat-sub { font-size: 11px; color: var(--text-faint); }
+
+table.channel-stats-table th {
+  text-align: left;
+  font: 600 10.5px/1.2 var(--font-mono);
+  color: var(--text-faint); letter-spacing: 0.07em;
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+
+table.channel-stats-table td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-soft);
+  font: 400 12px/1.35 var(--font-mono);
+  color: var(--text-mid);
+  white-space: nowrap;
+}
+table.channel-stats-table tbody tr:last-child td { border-bottom: 0; }
+table.channel-stats-table tbody tr:hover td { background: var(--row-hover); }
+table.channel-stats-table th.num, table.channel-stats-table td.num { text-align: right; }
+
+/* 通道列允许换行，窄屏下不挤出横向滚动 */
+table.channel-stats-table td.cs-ch { white-space: normal; color: var(--text); font-weight: 600; }
+.cs-name { margin-right: 6px; overflow-wrap: anywhere; }
+
+.src-tag {
+  display: inline-block;
+  font: 600 9.5px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 5px;
+  vertical-align: 1px;
+}
+
+.unit-sm {
+  font: 400 10px/1 var(--font-ui);
+  color: var(--text-faint);
+  margin-left: 3px; letter-spacing: 0.02em;
+}
+
+/* 负载：数值 + 4px 细进度条；未知速率只显示占位破折号 */
+td.cs-load { min-width: 108px; }
+.load-cell { display: flex; align-items: center; gap: 8px; }
+.load-val { min-width: 40px; }
+.load-track {
+  flex: 1 1 auto; min-width: 36px;
+  height: 4px; border-radius: 999px;
+  background: var(--input-bg);
+  overflow: hidden;
+}
+.load-fill {
+  height: 100%; border-radius: 999px;
+  background: var(--ok);
+  transition: width 0.3s ease;
+}
+.load-fill.over { background: var(--err); }
+
+/* 底部提示行：与其它卡片 hint 一致（顶部细分隔线 + 小号弱化文本） */
+.channel-stats-hint {
+  padding: 7px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; line-height: 1.6;
+  color: var(--text-faint);
+}

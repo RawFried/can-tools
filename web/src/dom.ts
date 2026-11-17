@@ -51,11 +51,9 @@ export const els = {
   dataDirInput: byId<HTMLInputElement>('dataDirInput'),
   btnApplyDir: byId<HTMLButtonElement>('btnApplyDir'),
 
-  /* 统计 */
-  statRx: byId<HTMLElement>('statRx'),
-  statRate: byId<HTMLElement>('statRate'),
-  statFiltered: byId<HTMLElement>('statFiltered'),
-  statRecorded: byId<HTMLElement>('statRecorded'),
+  /* 通道统计 */
+  channelStatsBody: byId<HTMLTableSectionElement>('channelStatsBody'),
+  channelStatsEmpty: byId<HTMLElement>('channelStatsEmpty'),
 
   /* 发送报文 */
   sendChannel: byId<HTMLSelectElement>('sendChannel'),
@@ -92,13 +90,6 @@ export const els = {
   recordingsCount: byId<HTMLElement>('recordingsCount'),
   btnRefreshRecordings: byId<HTMLButtonElement>('btnRefreshRecordings'),
 
-  /* 运行日志 */
-  btnRefreshLogs: byId<HTMLButtonElement>('btnRefreshLogs'),
-  logsList: byId<HTMLTableSectionElement>('logsList'),
-  logsEmpty: byId<HTMLElement>('logsEmpty'),
-  logsCount: byId<HTMLElement>('logsCount'),
-  logsDir: byId<HTMLElement>('logsDir'),
-
   /* DBC 信号曲线 */
   dbcPanel: byId<HTMLElement>('dbcPanel'),
   dbcName: byId<HTMLElement>('dbcName'),
@@ -122,10 +113,8 @@ export const els = {
   rowTpl: byId<HTMLTemplateElement>('rowTpl'),
   recRowTpl: byId<HTMLTemplateElement>('recRowTpl'),
   filterRowTpl: byId<HTMLTemplateElement>('filterRowTpl'),
-  logRowTpl: byId<HTMLTemplateElement>('logRowTpl'),
 };
 
 export const rowTplRow = els.rowTpl.content.firstElementChild as HTMLTableRowElement | null;
 export const recTplRow = els.recRowTpl.content.firstElementChild as HTMLTableRowElement | null;
 export const filterTplRow = els.filterRowTpl.content.firstElementChild as HTMLElement | null;
-export const logTplRow = els.logRowTpl.content.firstElementChild as HTMLTableRowElement | null;

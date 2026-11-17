@@ -5,7 +5,6 @@ import type {
   ConfigBody,
   DevicesResponseDto,
   FilterUpdateBody,
-  LogsResponseDto,
   RecordingFileDto,
   SendBody,
   StatusDto,
@@ -15,7 +14,6 @@ import {
   isObj,
   isStr,
   parseDevicesDto,
-  parseLogsDto,
   parseRecordingsDto,
   parseStatusDto,
 } from './types';
@@ -66,11 +64,6 @@ export async function fetchDevices(): Promise<DevicesResponseDto> {
 
 export async function fetchRecordings(): Promise<RecordingFileDto[]> {
   return parseRecordingsDto(await api('/api/recordings'));
-}
-
-/** 运行日志列表：日志目录 + 文件（当前与轮转，按修改时间倒序）。 */
-export async function fetchLogs(): Promise<LogsResponseDto> {
-  return parseLogsDto(await api('/api/logs'));
 }
 
 /** /api/health 的版本号；缺失时返回 null（调用方决定是否回退）。 */

@@ -6,7 +6,6 @@ import { initDbc } from './dbc';
 import { bindEvents } from './events';
 import { setRangeRowsChangedHandler } from './filters';
 import { fmtDur } from './format';
-import { initLogs } from './logs';
 import { renderRecordings, loadRecordings } from './recordings';
 import { loadDevices } from './devices';
 import { updateSendControls, updateSendDlc } from './send';
@@ -35,7 +34,6 @@ function init(): void {
   void loadDevices();
   void loadRecordings();
   void loadHealth();
-  void initLogs();
   connectWs();
   window.setInterval(tickTimers, 1000);
 }

@@ -1,34 +1,22 @@
-    <section class="stats" aria-label="统计">
-      <div class="stat s-rx">
-        <div class="stat-head">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg>
-          <span>接收报文</span>
-        </div>
-        <div class="stat-val"><span id="statRx">—</span><span class="unit">帧</span></div>
-        <div class="stat-sub">累计接收</div>
+    <section class="card panel-channel-stats" aria-labelledby="h-channel-stats">
+      <header class="card-head">
+        <span class="card-index">HUD</span>
+        <h2 id="h-channel-stats">通道统计</h2>
+        <span class="head-spacer"></span>
+        <span class="stats-note">每秒刷新</span>
+      </header>
+      <div class="channel-stats-wrap">
+        <table class="channel-stats-table">
+          <caption class="sr-only">运行中通道的帧率与总线负载</caption>
+          <colgroup>
+            <col style="width:26%"><col style="width:18%"><col style="width:18%"><col style="width:24%"><col style="width:14%">
+          </colgroup>
+          <thead>
+            <tr><th scope="col">通道</th><th scope="col">速率</th><th class="num" scope="col">帧率</th><th scope="col">总线负载</th><th class="num" scope="col">累计接收</th></tr>
+          </thead>
+          <tbody id="channelStatsBody"></tbody>
+        </table>
+        <div class="empty-inline" id="channelStatsEmpty">暂无运行中的通道；启动后显示帧率与总线负载。</div>
       </div>
-      <div class="stat s-rate">
-        <div class="stat-head">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="m12 16 3.5-4.5"/></svg>
-          <span>接收速率</span>
-        </div>
-        <div class="stat-val"><span id="statRate">—</span><span class="unit">帧/秒</span></div>
-        <div class="stat-sub">最近 1 秒</div>
-      </div>
-      <div class="stat s-filtered">
-        <div class="stat-head">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6.2 7.2V19l-3.6 2v-8.8L4 5z"/></svg>
-          <span>已过滤</span>
-        </div>
-        <div class="stat-val"><span id="statFiltered">—</span><span class="unit">帧</span></div>
-        <div class="stat-sub">被滤波丢弃</div>
-      </div>
-      <div class="stat s-recorded">
-        <div class="stat-head">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>
-          <span>已录制</span>
-        </div>
-        <div class="stat-val"><span id="statRecorded">—</span><span class="unit">帧</span></div>
-        <div class="stat-sub">写入 CSV</div>
-      </div>
+      <p class="hint channel-stats-hint">负载按经典 CAN 帧位数估算（不含位填充），包含被软件滤波丢弃的帧。</p>
     </section>

@@ -144,8 +144,8 @@ SocketCAN 链路在运行则继续录制）；写入失败会停止录制并记�
 - 轮转：单文件 8 MiB，保留当前文件 + 3 个轮转文件（`can-tools.log.1`..`.3`，共约 32 MiB）。
 - 级别：默认 `can_tools=info,canalyst_ii=info`；用 `RUST_LOG` 覆盖，例如
   `RUST_LOG=can_tools=debug,canalyst_ii=debug ./can-tools`。
-- 获取方式：页面「运行日志」卡片直接下载；或 `GET /api/logs` 列出文件、
-  `GET /api/logs/{name}` 下载；systemd 部署也可 `journalctl -u can-tools`。
+- 获取方式：直接读取上述目录；或 `GET /api/logs` 列出文件、`GET /api/logs/{name}`
+  下载（供开发/运维使用，页面不设入口）；systemd 部署也可 `journalctl -u can-tools`。
 - 日志可能包含设备序列号、录制路径等本机信息，回传前请自行确认。
 
 ## 架构

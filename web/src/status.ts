@@ -3,16 +3,17 @@
  * 统计与通道卡；以及以按钮 busy 态执行异步操作的 runBusy。
  */
 import { fetchHealthVersion, fetchStatus } from './api';
+import { renderChannelStats } from './channel-stats';
 import { selectedChannel, syncChannels } from './channels';
 import { els } from './dom';
 import { MAX_RANGE_ROWS, rangeRowCount } from './filters';
-import { errText, fmtDur, fmtInt, fmtRate } from './format';
+import { errText, fmtDur, fmtInt } from './format';
 import { syncSendChannels, updateSendControls } from './send';
 import { BUFFER_CAP, busy, state } from './state';
 import { toast } from './toast';
 import type { StatusDto } from './types';
 
-/** 将服务端 StatusDto 应用到顶栏、通道状态、录制、统计与全部控件可用性。 */
+/** 将服务端 StatusDto 应用到顶栏、通道状态、录制、通道统计与全部控件可用性。 */
 export function applyStatus(st: StatusDto): void {
   state.status = st;
 
@@ -50,11 +51,8 @@ export function applyStatus(st: StatusDto): void {
     els.dataDirInput.value = st.server.recordings_dir;
   }
 
-  /* 统计 */
-  els.statRx.textContent = fmtInt(st.stats.rx_frames);
-  els.statRate.textContent = fmtRate(st.stats.rx_rate);
-  els.statFiltered.textContent = fmtInt(st.stats.filtered_frames);
-  els.statRecorded.textContent = fmtInt(st.stats.recorded_frames);
+  /* 通道统计（运行中通道的帧率与总线负载）与发送计数 */
+  renderChannelStats(st.channels);
   els.sendCount.textContent = fmtInt(st.stats.tx_frames);
 
   syncSendChannels(st);
