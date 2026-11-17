@@ -20,7 +20,7 @@
 crates/can-core/        共享驱动类型 + CanChannel trait（无 rusb / 无 app 依赖）
   src/types.rs          BaudRate/CanMode/HardwareFilter/CanFrame/DeviceInfo/ChannelSource
   src/channel.rs        CanChannel trait 与 ChannelConfig 快照
-crates/usbcan/          USBCAN USB 驱动（只做协议与设备 I/O，依赖 can-core + rusb）
+crates/canalyst-ii/     USBCAN/CANalyst-II USB 驱动（只做协议与设备 I/O，依赖 can-core + rusb）
   src/protocol.rs       USBCAN 字节级协议编解码（改动需硬件实测）
   src/device.rs         USB 设备打开/初始化/收发的底层句柄
   src/error.rs          驱动错误类型
@@ -60,7 +60,7 @@ packaging/            AppImage 打包
 - 命名与文档：类型 `CamelCase`，函数/变量 `snake_case`，常量 `SCREAMING_SNAKE_CASE`。公开项写 `///` 文档注释（中文，说明约束与失败条件）。
 - 错误：库内用 `Result<_, String>` / `thiserror`；不要 `panic!` 处理可恢复错误。面向用户的错误文案为中文且包含实际值。
 - 协议常量（`acc_code`/`acc_mask` 位布局、帧头、端点）不得凭猜测修改；改动必须附硬件复现记录。
-- 分层约束：`crates/usbcan` 只做协议与设备 I/O，**不得实现 `CanChannel`** 或依赖工作线程/共享状态；USB 通道适配放 `src/can/usb.rs`，与 `can/socketcan.rs` 同层。
+- 分层约束：`crates/canalyst-ii`（Rust 路径 `canalyst_ii`）只做协议与设备 I/O，**不得实现 `CanChannel`** 或依赖工作线程/共享状态；USB 通道适配放 `src/can/usb.rs`，与 `can/socketcan.rs` 同层。
 - 单元测试放在源文件末尾 `#[cfg(test)] mod tests`，测试名描述行为（`software_filter_matches_range_and_frame_kind`）。
 
 ## 4. TypeScript / 前端约束

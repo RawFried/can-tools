@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/can-core", "crates/usbcan"]
+members = ["crates/can-core", "crates/canalyst-ii"]
 resolver = "2"
 
 [package]
@@ -32,7 +32,7 @@ tokio = { version = "1", features = [
 ] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-usbcan = { path = "crates/usbcan" }
+canalyst-ii = { path = "crates/canalyst-ii" }
 
 [dev-dependencies]
 tempfile = "3"

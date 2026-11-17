@@ -8,7 +8,7 @@
 use std::time::Duration;
 
 use can_tools::can::types::{BaudRate, CanFrame, CanMode, HardwareFilter};
-use usbcan::device;
+use canalyst_ii::device;
 
 #[test]
 #[ignore = "requires USBCAN hardware (04d8:0053) with self-test loopback"]

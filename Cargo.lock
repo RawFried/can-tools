@@ -196,6 +196,7 @@ dependencies = [
  "anyhow",
  "axum",
  "can-core",
+ "canalyst-ii",
  "chrono",
  "clap",
  "serde",
@@ -205,7 +206,16 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "usbcan",
+]
+
+[[package]]
+name = "canalyst-ii"
+version = "0.4.2"
+dependencies = [
+ "can-core",
+ "rusb",
+ "thiserror",
+ "tracing",
 ]
 
 [[package]]
@@ -1278,16 +1288,6 @@ name = "unicode-ident"
 version = "1.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
-
-[[package]]
-name = "usbcan"
-version = "0.4.2"
-dependencies = [
- "can-core",
- "rusb",
- "thiserror",
- "tracing",
-]
 
 [[package]]
 name = "utf8parse"

@@ -1,6 +1,6 @@
 //! USBCAN 应用层适配: 把驱动 crate 的单设备句柄包装成总线与通道。
 //!
-//! `usbcan` crate 只负责协议编解码与设备 I/O, 不依赖通道抽象; [`CanChannel`]
+//! `canalyst-ii` crate 只负责协议编解码与设备 I/O, 不依赖通道抽象; [`CanChannel`]
 //! 的实现、通道命名与共享句柄策略属于应用层, 因此放在这里。
 //!
 //! 一个 [`UsbCanBus`] 对应一台设备, 内部用 `Arc<Mutex<UsbCan>>` 让两个
@@ -13,8 +13,8 @@ use can_core::{
     BaudRate, CanChannel, CanFrame, CanMode, ChannelConfig, ChannelSource, DeviceInfo,
     HardwareFilter,
 };
-use usbcan::device::{self, UsbCan};
-use usbcan::Error;
+use canalyst_ii::device::{self, UsbCan};
+use canalyst_ii::Error;
 
 /// 已打开的 USBCAN 设备及其通道工厂。
 pub struct UsbCanBus {

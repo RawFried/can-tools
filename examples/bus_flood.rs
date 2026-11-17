@@ -8,7 +8,7 @@
 use std::time::{Duration, Instant};
 
 use can_tools::can::types::{BaudRate, CanFrame, CanMode, HardwareFilter};
-use usbcan::device::{self, UsbCan};
+use canalyst_ii::device::{self, UsbCan};
 
 fn parse_baud(s: &str) -> BaudRate {
     match s {
@@ -35,7 +35,7 @@ fn open(channel: u8, baud: BaudRate) -> UsbCan {
             }
         }
         if Instant::now() >= deadline {
-            panic!("open usbcan failed after retries");
+            panic!("open canalyst-ii device failed after retries");
         }
         std::thread::sleep(Duration::from_millis(400));
     }

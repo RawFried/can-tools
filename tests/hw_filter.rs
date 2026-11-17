@@ -12,8 +12,8 @@
 use std::time::Duration;
 
 use can_tools::can::types::{BaudRate, CanFrame, CanMode, HardwareFilter};
-use usbcan::device;
-use usbcan::UsbCan;
+use canalyst_ii::device;
+use canalyst_ii::UsbCan;
 
 fn make_frame(id: u32, extended: bool, marker: u8) -> CanFrame {
     let mut data = [0u8; 8];

@@ -6,7 +6,7 @@
 //! 初始化、启动、抽取与关闭流程。测试结束会执行完整关闭序列。
 
 use can_tools::can::types::{BaudRate, CanMode, HardwareFilter};
-use usbcan::device;
+use canalyst_ii::device;
 
 #[test]
 #[ignore = "requires USBCAN hardware (04d8:0053)"]
