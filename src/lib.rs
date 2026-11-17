@@ -6,6 +6,7 @@
 #![warn(missing_docs)]
 
 pub mod can;
+pub mod logging;
 pub mod paths;
 pub mod server;
 pub mod service;

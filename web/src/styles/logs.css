@@ -1,0 +1,12 @@
+/* ---------- 运行日志 ---------- */
+/* 列表与空状态复用 recordings.css 的 recs-table / empty-inline（响应式规则同样生效：
+   ≤760px 隐藏「大小」列、操作按钮退化为图标；≤520px 隐藏「修改时间」列），
+   此处只补卡片入场节奏（接在 03 录制之后）与底部目录提示行。 */
+.main .panel-logs { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) 0.18s backwards; }
+
+/* 面板底部提示行：目录 + 轮转策略（排版沿用 .hint，结构参考 .dbc-hint） */
+.logs-hint {
+  padding: 7px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; line-height: 1.6;
+}

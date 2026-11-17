@@ -11,6 +11,7 @@ import { initChannelPanel, selectChannel, setChannelRate, startChannel, stopChan
 import { els } from './dom';
 import { fmtInt } from './format';
 import { loadDevices } from './devices';
+import { loadLogs } from './logs';
 import { loadRecordings } from './recordings';
 import { acceptAllRanges, addRangeRow, applyFiltersLive } from './filters';
 import { clearLocalFrames, rebuildTable, setAutoscroll, setPaused } from './frames';
@@ -83,6 +84,10 @@ export function bindEvents(): void {
 
   els.btnRefreshRecordings.addEventListener('click', () => {
     void runBusy(els.btnRefreshRecordings, loadRecordings);
+  });
+
+  els.btnRefreshLogs.addEventListener('click', () => {
+    void runBusy(els.btnRefreshLogs, loadLogs);
   });
 
   els.btnPauseView.addEventListener('click', () => {

@@ -56,6 +56,8 @@ pub fn router(state: AppState) -> Router {
             "/api/recordings/{name}",
             get(download_recording).delete(delete_recording),
         )
+        .route("/api/logs", get(list_logs))
+        .route("/api/logs/{name}", get(download_log))
         .route("/api/dbc", get(get_dbc).post(upload_dbc).delete(delete_dbc))
         .route("/ws", get(websocket))
         .with_state(state)
@@ -437,6 +439,89 @@ async fn delete_recording(
     Ok(Json(json!({"ok": true})))
 }
 
+/// 运行日志条目 (当前文件与轮转文件)。
+#[derive(Debug, serde::Serialize)]
+struct LogEntry {
+    name: String,
+    size: u64,
+    modified_ms: u64,
+}
+
+/// `GET /api/logs`: 列出 `<data_dir>/logs` 下可下载的日志文件。
+async fn list_logs(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
+    let directory = crate::logging::log_dir(&state.data_dir);
+    let mut entries = Vec::new();
+    let mut reader = match tokio::fs::read_dir(&directory).await {
+        Ok(reader) => reader,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(Json(json!({
+                "dir": directory.display().to_string(),
+                "files": entries,
+            })));
+        }
+        Err(error) => return Err(ApiError::internal(format!("读取日志目录失败: {error}"))),
+    };
+    while let Some(entry) = reader
+        .next_entry()
+        .await
+        .map_err(|error| ApiError::internal(format!("读取日志目录失败: {error}")))?
+    {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !crate::logging::is_log_file_name(&name) {
+            continue;
+        }
+        let metadata = match entry.metadata().await {
+            Ok(metadata) => metadata,
+            Err(_) => continue,
+        };
+        if !metadata.is_file() {
+            continue;
+        }
+        let modified_ms = metadata
+            .modified()
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map_or(0, |duration| duration.as_millis() as u64);
+        entries.push(LogEntry {
+            name,
+            size: metadata.len(),
+            modified_ms,
+        });
+    }
+    entries.sort_by_key(|entry| std::cmp::Reverse(entry.modified_ms));
+    Ok(Json(json!({
+        "dir": directory.display().to_string(),
+        "files": entries,
+    })))
+}
+
+/// `GET /api/logs/{name}`: 下载当前或轮转日志文件。
+async fn download_log(
+    State(state): State<AppState>,
+    AxumPath(name): AxumPath<String>,
+) -> Result<Response, ApiError> {
+    if !crate::logging::is_log_file_name(&name) {
+        return Err(ApiError::bad("非法日志文件名"));
+    }
+    let path = crate::logging::log_dir(&state.data_dir).join(&name);
+    let bytes = tokio::fs::read(&path).await.map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            ApiError::not_found("日志文件不存在")
+        } else {
+            ApiError::internal(format!("读取日志文件失败: {error}"))
+        }
+    })?;
+    Response::builder()
+        .header(header::CONTENT_TYPE, "text/plain; charset=utf-8")
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{name}\""),
+        )
+        .header(header::CONTENT_LENGTH, bytes.len().to_string())
+        .body(Body::from(bytes))
+        .map_err(|error| ApiError::internal(format!("构造下载响应失败: {error}")))
+}
+
 async fn websocket(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
     ws.on_upgrade(move |socket| handle_socket(socket, state.shared))
 }
@@ -543,6 +628,11 @@ impl ApiError {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
+        if self.status.is_server_error() {
+            tracing::error!(status = self.status.as_u16(), "{}", self.message);
+        } else if self.status.is_client_error() {
+            tracing::warn!(status = self.status.as_u16(), "{}", self.message);
+        }
         (
             self.status,
             Json(json!({"ok": false, "error": self.message})),

@@ -7,9 +7,9 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use clap::Parser;
 use tokio::net::TcpListener;
-use tracing_subscriber::EnvFilter;
 
 use can_tools::can::dbc;
+use can_tools::logging;
 use can_tools::paths;
 use can_tools::server::{self, AppState};
 use can_tools::service::CanService;
@@ -35,18 +35,23 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let cli = Cli::parse();
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("can_tools=info")),
-        )
-        .init();
+    let result = run().await;
+    if let Err(error) = &result {
+        // 顶层错误同时写入运行日志; 返回值仍让 Rust 打印到 stderr。
+        tracing::error!("{error:#}");
+    }
+    result
+}
 
+async fn run() -> Result<()> {
+    let cli = Cli::parse();
     let data_dir = cli.data_dir.unwrap_or_else(paths::default_data_dir);
     std::fs::create_dir_all(&data_dir)
         .with_context(|| format!("无法创建数据目录 {}", data_dir.display()))?;
     // 状态与录制目录统一使用绝对路径。
     let data_dir = std::fs::canonicalize(&data_dir).unwrap_or(data_dir);
+    // 数据目录确定后再初始化日志: 文件日志位于 <data_dir>/logs。
+    let log_file = logging::init(&data_dir);
     let recordings_dir = paths::load_recordings_dir(&data_dir)
         .unwrap_or_else(|| paths::default_recordings_dir(&data_dir));
 
@@ -79,6 +84,18 @@ async fn main() -> Result<()> {
     println!("CAN Tools {} 已启动: {url}", env!("CARGO_PKG_VERSION"));
     println!("数据目录: {}", data_dir.display());
     println!("录制目录: {}", recordings_dir.display());
+    match &log_file {
+        Some(path) => println!("运行日志: {}", path.display()),
+        None => println!("运行日志: 仅控制台输出"),
+    }
+    tracing::info!(
+        version = env!("CARGO_PKG_VERSION"),
+        %url,
+        data_dir = %data_dir.display(),
+        recordings_dir = %recordings_dir.display(),
+        log = log_file.as_ref().map_or("-", |path| path.to_str().unwrap_or("-")),
+        "CAN Tools 启动"
+    );
     if !cli.no_browser {
         open_browser(&url);
     }

@@ -411,6 +411,31 @@ Selects the directory used for new recordings:
 - At startup the persisted file is loaded; if it is missing, blank, not absolute or points to a
   directory that no longer exists, the default directory is used.
 
+### `GET /api/logs`
+
+Lists the runtime log files under `<data_dir>/logs` (the current file plus up to three rotations),
+newest modification first, together with the directory for display:
+
+```json
+{"dir": "/home/user/.local/share/can-tools/logs",
+ "files": [{"name": "can-tools.log", "size": 252, "modified_ms": 1762681250000},
+           {"name": "can-tools.log.1", "size": 8388608, "modified_ms": 1762680000000}]}
+```
+
+- `files` is empty when the directory does not exist yet (the server creates it at startup).
+- Only `can-tools.log` and `can-tools.log.1`–`can-tools.log.3` are listed; other entries are
+  ignored.
+- The file is written by the server itself: startup parameters, channel/recording actions, driver
+  messages, API errors and panics (timestamp + thread name). It rotates at 8 MiB and keeps the
+  current file plus 3 rotations. `RUST_LOG` overrides the default
+  `can_tools=info,canalyst_ii=info` filter.
+
+### `GET /api/logs/{name}`
+
+Downloads one log file as `text/plain; charset=utf-8` with an attachment filename. `{name}` must be
+`can-tools.log` or `can-tools.log.1`–`.3`; other names fail with `非法日志文件名`, and a missing
+file fails with `日志文件不存在`.
+
 ### Recorded CSV format
 
 Recording files are UTF-8 CSV with this header:

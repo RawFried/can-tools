@@ -134,6 +134,20 @@ time,unix_ms,channel,link,id,id_hex,extended,remote,dlc,data
 SocketCAN 链路在运行则继续录制）；写入失败会停止录制并记录错误，不影响实时查看。
 只要还有运行中的 USB 通道或 SocketCAN 链路就能开始录制，不要求 USB 设备已打开。
 
+## 运行日志
+
+服务会同时把日志写到控制台和 `<数据目录>/logs/can-tools.log`（默认
+`~/.local/share/can-tools/logs/`；用 `--data-dir` 或 `CAN_TOOLS_DATA_DIR` 时跟随数据目录）。
+内容包括启动参数、通道与录制操作、驱动消息、API 错误以及 panic（带时间戳和线程名），
+适合出问题时回传分析。
+
+- 轮转：单文件 8 MiB，保留当前文件 + 3 个轮转文件（`can-tools.log.1`..`.3`，共约 32 MiB）。
+- 级别：默认 `can_tools=info,canalyst_ii=info`；用 `RUST_LOG` 覆盖，例如
+  `RUST_LOG=can_tools=debug,canalyst_ii=debug ./can-tools`。
+- 获取方式：页面「运行日志」卡片直接下载；或 `GET /api/logs` 列出文件、
+  `GET /api/logs/{name}` 下载；systemd 部署也可 `journalctl -u can-tools`。
+- 日志可能包含设备序列号、录制路径等本机信息，回传前请自行确认。
+
 ## 架构
 
 ```text

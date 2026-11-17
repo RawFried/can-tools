@@ -138,6 +138,19 @@ export interface RecordingFileDto {
   modified_ms: number;
 }
 
+/** GET /api/logs 中单个日志文件项。 */
+export interface LogFileDto {
+  name: string;
+  size: number;
+  modified_ms: number;
+}
+
+/** GET /api/logs 响应：日志目录与文件列表（后端按修改时间倒序，最新在前）。 */
+export interface LogsResponseDto {
+  dir: string;
+  files: LogFileDto[];
+}
+
 /** 单个 USB 通道的启动配置（v5：每通道独立波特率与滤波）。 */
 export interface UsbChannelConfigDto {
   index: number;
@@ -404,6 +417,23 @@ export function parseRecordingsDto(v: unknown): RecordingFileDto[] {
     });
   }
   return out;
+}
+
+/** 校验并收窄 GET /api/logs；缺失或非法字段按 dir=''/files=[] 兜底（目录不存在时后端也返回空列表）。 */
+export function parseLogsDto(v: unknown): LogsResponseDto {
+  if (!isObj(v)) return { dir: '', files: [] };
+  const files: LogFileDto[] = [];
+  if (Array.isArray(v['files'])) {
+    for (const f of v['files']) {
+      if (!isObj(f)) continue;
+      files.push({
+        name: strOr(f['name'], ''),
+        size: numOr(f['size'], 0),
+        modified_ms: numOr(f['modified_ms'], 0),
+      });
+    }
+  }
+  return { dir: strOr(v['dir'], ''), files };
 }
 
 /** 校验 WS 消息；无法识别（含未知 type）返回 null，由调用方忽略。 */
