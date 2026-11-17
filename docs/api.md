@@ -74,8 +74,10 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
   (0 = CAN1, 1 = CAN2); SocketCAN ids are assigned by the worker on first discovery/configuration,
   start at 2 and are never reused within one process lifetime (at most 64 links).
 - `name` is `CAN1`/`CAN2` for USB and the interface name (`can0`) for SocketCAN.
-- `bitrate` is the interface rate read from `/sys/class/net/<name>/can_bittiming/bitrate`; it is
-  `null` for USB and when the interface is not visible in sysfs.
+- `bitrate` is the interface rate read from `/sys/class/net/<name>/can_bittiming/bitrate`; when
+  sysfs reports none (a `vcan` interface, or one hidden in a new network namespace) it falls back
+  to the rate requested in the last `POST /api/config` for that running link. It is `null` for USB
+  and for stopped links without a visible sysfs rate.
 - `state` is `up`/`down` from the sysfs `flags` `IFF_UP` bit, or `unknown` when sysfs does not show
   the interface (for example a `vcan0` created inside a new network namespace). It is `null` for USB.
 - `baud` is one of `5k`, `10k`, `20k`, `50k`, `100k`, `125k`, `250k`, `500k`, `800k`, `1000k`.

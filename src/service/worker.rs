@@ -1197,8 +1197,8 @@ fn slot_status(slot: &Slot) -> ChannelStatus {
             baud: None,
             mode: None,
             filter: None,
-            /* 运行中接口的速率/状态优先取注册表(sysfs 刷新), 缺失时回退打开时快照。 */
-            bitrate: slot.bitrate.or(bitrate),
+            /* 运行中接口的速率/状态优先取注册表(sysfs 刷新), 缺失时回退打开时快照与配置请求速率。 */
+            bitrate: slot.bitrate.or(bitrate).or(slot.configured_bitrate),
             state: slot.state.clone().or(Some(state)),
             software_filters: slot.software_filters.clone(),
             metrics: slot.metrics_snapshot(),
@@ -1527,6 +1527,8 @@ mod tests {
             vec![],
         )));
         assert_eq!(hidden.bitrate_bps(), Some(1_000_000));
+        // 状态里的 bitrate 与负载估算使用同一回退链, 避免面板显示「速率未知」。
+        assert_eq!(slot_status(&hidden).bitrate, Some(1_000_000));
 
         // 未运行的通道没有位速率, 负载应显示为未知。
         assert_eq!(Slot::usb(1).bitrate_bps(), None);

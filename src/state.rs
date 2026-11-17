@@ -63,7 +63,7 @@ pub struct ChannelStatus {
     pub mode: Option<CanMode>,
     /// 当前硬件滤波 (仅 USB)。
     pub filter: Option<HardwareFilter>,
-    /// sysfs 中读到的接口速率 (仅 SocketCAN)。
+    /// sysfs 中读到的接口速率 (仅 SocketCAN); 缺失时回退最近一次配置请求的速率。
     pub bitrate: Option<u64>,
     /// 接口状态 `up`/`down`/`unknown` (仅 SocketCAN)。
     pub state: Option<String>,
