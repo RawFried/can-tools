@@ -149,7 +149,7 @@ CAN 工作线程 (独占 libusb 句柄)
 USBCAN/CANalyst-II (04d8:0053)
 ```
 
-- `src/can/`：协议编解码、设备生命周期、公共类型；
+- `src/can/`：USB/SocketCAN 通道适配（实现 `CanChannel`）、公共类型与校验；
 - `src/service/`：工作线程、配置/录制命令、CSV 记录器；
 - `src/state.rs`：状态快照、实时帧环形缓冲（5000 帧）、事件广播；
 - `src/server.rs`：REST、WebSocket、静态资源；

@@ -1,8 +1,11 @@
-//! USBCAN 总线封装: 把底层单线程句柄 [`UsbCan`] 包装为可共享的总线与通道。
+//! USBCAN 应用层适配: 把驱动 crate 的单设备句柄包装成总线与通道。
+//!
+//! `usbcan` crate 只负责协议编解码与设备 I/O, 不依赖通道抽象; [`CanChannel`]
+//! 的实现、通道命名与共享句柄策略属于应用层, 因此放在这里。
 //!
 //! 一个 [`UsbCanBus`] 对应一台设备, 内部用 `Arc<Mutex<UsbCan>>` 让两个
-//! [`UsbChannel`] 串行复用同一个 USB 句柄; 所有收发仍由工作线程串行触发。
-//! 通道通过 [`CanChannel`] 暴露, 上层不再直接调用底层驱动函数。
+//! [`UsbChannel`] 串行复用同一个 USB 句柄; 所有收发仍由工作线程串行触发,
+//! 上层只通过 [`CanChannel`] 操作通道。
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -10,9 +13,8 @@ use can_core::{
     BaudRate, CanChannel, CanFrame, CanMode, ChannelConfig, ChannelSource, DeviceInfo,
     HardwareFilter,
 };
-
-use crate::device::{self, UsbCan};
-use crate::error::Error;
+use usbcan::device::{self, UsbCan};
+use usbcan::Error;
 
 /// 已打开的 USBCAN 设备及其通道工厂。
 pub struct UsbCanBus {
