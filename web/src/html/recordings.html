@@ -1,0 +1,46 @@
+    <section class="card panel-recs" aria-labelledby="h-files">
+      <header class="card-head">
+        <span class="card-index">03</span><h2 id="h-files">录制（CSV）</h2>
+        <span class="count-badge" id="recordingsCount">0</span>
+        <span class="head-spacer"></span>
+        <button class="btn btn-sm" id="btnRefreshRecordings" type="button">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
+          <span>刷新</span>
+        </button>
+      </header>
+      <div class="rec-toolbar">
+        <div class="rec-actions">
+          <button class="btn btn-primary" id="btnRecStart" type="button" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/></svg>
+            <span>开始录制</span>
+          </button>
+          <button class="btn btn-danger" id="btnRecStop" type="button" disabled><span>停止并保存</span></button>
+        </div>
+        <div class="rec-active" id="recActive" hidden aria-live="polite">
+          <span class="rec-dot" aria-hidden="true"></span>
+          <span class="rec-file" id="recActiveFile">—</span>
+          <span class="rec-stat">已录 <span class="rec-num" id="recActiveFrames">0</span> 帧</span>
+          <span class="rec-stat">时长 <span class="rec-num" id="recActiveElapsed">00:00</span></span>
+        </div>
+        <div class="rec-dir">
+          <label class="field-label" for="dataDirInput">CSV 目录</label>
+          <div class="rec-dir-row">
+            <input class="input rec-path-input" id="dataDirInput" type="text" spellcheck="false" autocomplete="off" placeholder="留空使用默认目录" aria-label="CSV 保存目录（绝对路径，清空恢复默认）">
+            <button class="btn btn-sm" id="btnApplyDir" type="button">应用</button>
+          </div>
+        </div>
+      </div>
+      <div class="recs-wrap">
+        <table class="recs-table">
+          <caption class="sr-only">已保存的 CSV 录制文件</caption>
+          <colgroup>
+            <col style="width:100%"><col style="width:96px"><col style="width:176px"><col style="width:168px">
+          </colgroup>
+          <thead>
+            <tr><th scope="col">文件名</th><th class="num c-size" scope="col">大小</th><th class="c-time" scope="col">修改时间</th><th class="right" scope="col">操作</th></tr>
+          </thead>
+          <tbody id="recordingsList"></tbody>
+        </table>
+        <div class="empty-inline" id="recordingsEmpty" hidden>暂无录制文件。点击「开始录制」开始采集。</div>
+      </div>
+    </section>

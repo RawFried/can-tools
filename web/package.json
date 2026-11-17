@@ -2,9 +2,10 @@
   "name": "can-tools-web",
   "private": true,
   "version": "0.4.2",
-  "description": "CAN Tools 前端（TypeScript 与 CSS 源码；编译产物 app.js / app.css 由 Rust 后端嵌入并分发）",
+  "description": "CAN Tools 前端（TypeScript / CSS / HTML 片段源码；编译产物 index.html / app.js / app.css 由 Rust 后端嵌入并分发）",
   "scripts": {
-    "build": "npm run build:js && npm run build:css",
+    "build": "npm run build:html && npm run build:js && npm run build:css",
+    "build:html": "node scripts/build-html.mjs",
     "build:js": "esbuild src/main.ts --bundle --format=iife --target=es2021 --charset=utf8 --legal-comments=none --log-level=warning --outfile=app.js",
     "build:css": "esbuild src/styles/index.css --bundle --charset=utf8 --log-level=warning --outfile=app.css",
     "check": "tsc -p tsconfig.json --noEmit",

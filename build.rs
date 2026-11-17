@@ -1,13 +1,13 @@
 //! 构建前校验前端产物是否存在。
 //!
-//! `web/app.js` 与 `web/app.css` 由 `cd web && npm run build` 生成且不入库;
-//! 后端通过 `include_str!` 把它们嵌入二进制, 这里提前给出可操作的提示,
-//! 避免缺失时只看到晦涩的宏展开错误。
+//! `web/index.html`、`web/app.js` 与 `web/app.css` 由 `cd web && npm run build`
+//! 生成且不入库; 后端通过 `include_str!` 把它们嵌入二进制, 这里提前给出可操作的
+//! 提示, 避免缺失时只看到晦涩的宏展开错误。
 
 use std::path::Path;
 
 /// 必须存在的前端产物 (相对仓库根目录)。
-const ARTIFACTS: [&str; 2] = ["web/app.js", "web/app.css"];
+const ARTIFACTS: [&str; 3] = ["web/index.html", "web/app.js", "web/app.css"];
 
 fn main() {
     for artifact in ARTIFACTS {

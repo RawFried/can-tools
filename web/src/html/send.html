@@ -1,0 +1,44 @@
+    <section class="card panel-send" id="sendPanel" aria-labelledby="h-send">
+      <header class="card-head">
+        <span class="card-index tx-index">TX</span>
+        <h2 id="h-send">发送报文</h2>
+        <span class="head-spacer"></span>
+        <span class="send-count">已发送 <strong id="sendCount">0</strong> 帧</span>
+      </header>
+      <div class="card-body send-body">
+        <div class="send-row">
+          <div class="field send-ch">
+            <label class="field-label" for="sendChannel">通道</label>
+            <select class="input" id="sendChannel" aria-label="发送通道">
+              <option value="0">CAN1</option>
+              <option value="1">CAN2</option>
+            </select>
+          </div>
+          <div class="field send-id">
+            <label class="field-label" for="sendId">ID（十六进制）</label>
+            <span class="hex"><input class="input" id="sendId" type="text" value="123" autocomplete="off" spellcheck="false" aria-label="发送 ID（十六进制）"></span>
+          </div>
+          <div class="field send-type">
+            <span class="field-label" id="lb-send-type">帧类型</span>
+            <div class="seg seg-mini" role="radiogroup" aria-labelledby="lb-send-type">
+              <label><input type="radio" name="send-ext" value="std" checked><span>标准</span></label>
+              <label><input type="radio" name="send-ext" value="ext" id="sendExtended"><span>扩展</span></label>
+            </div>
+          </div>
+          <div class="field send-data">
+            <label class="field-label" for="sendData">数据（十六进制，≤ 8 字节）</label>
+            <input class="input" id="sendData" type="text" value="11 22 33 44 55 66 77 88" autocomplete="off" spellcheck="false" aria-label="发送数据（十六进制）">
+          </div>
+          <div class="field send-dlc">
+            <label class="field-label" for="sendDlc">DLC</label>
+            <input class="input" id="sendDlc" type="number" min="0" max="8" value="8" readonly aria-label="数据长度">
+          </div>
+          <label class="check-mini send-rtr"><input type="checkbox" id="sendRemote"><span>远程</span></label>
+          <button class="btn btn-primary send-btn" id="btnSend" type="button" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12 16-8-6 16-2.8-5.2L4 12Z"/><path d="M11.2 14.8 20 4"/></svg>
+            <span>发送</span>
+          </button>
+        </div>
+        <p class="hint send-hint" id="sendHint" aria-live="polite">设备打开并启动通道后可发送；数据支持 11 22 33 / 112233 / 0x11,0x22。</p>
+      </div>
+    </section>

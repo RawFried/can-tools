@@ -1,0 +1,34 @@
+    <section class="stats" aria-label="统计">
+      <div class="stat s-rx">
+        <div class="stat-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10m0 0-4-4m4 4 4-4"/><path d="M5 19h14"/></svg>
+          <span>接收报文</span>
+        </div>
+        <div class="stat-val"><span id="statRx">—</span><span class="unit">帧</span></div>
+        <div class="stat-sub">累计接收</div>
+      </div>
+      <div class="stat s-rate">
+        <div class="stat-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0"/><path d="m12 16 3.5-4.5"/></svg>
+          <span>接收速率</span>
+        </div>
+        <div class="stat-val"><span id="statRate">—</span><span class="unit">帧/秒</span></div>
+        <div class="stat-sub">最近 1 秒</div>
+      </div>
+      <div class="stat s-filtered">
+        <div class="stat-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16l-6.2 7.2V19l-3.6 2v-8.8L4 5z"/></svg>
+          <span>已过滤</span>
+        </div>
+        <div class="stat-val"><span id="statFiltered">—</span><span class="unit">帧</span></div>
+        <div class="stat-sub">被滤波丢弃</div>
+      </div>
+      <div class="stat s-recorded">
+        <div class="stat-head">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>
+          <span>已录制</span>
+        </div>
+        <div class="stat-val"><span id="statRecorded">—</span><span class="unit">帧</span></div>
+        <div class="stat-sub">写入 CSV</div>
+      </div>
+    </section>

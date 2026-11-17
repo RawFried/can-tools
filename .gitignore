@@ -14,5 +14,6 @@ node_modules/
 .DS_Store
 
 # ---- 前端构建产物（npm run build 生成，不入库）----
+/web/index.html
 /web/app.js
 /web/app.css

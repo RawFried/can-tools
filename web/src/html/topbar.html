@@ -1,0 +1,29 @@
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg class="brand-mark" width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M3 22.5h26" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".85"/>
+        <path d="M5 10.5h4v-6h6v6h4v-6h6v6h2" fill="none" stroke="var(--can1)" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="9" cy="22.5" r="3.6" fill="var(--surface)" stroke="var(--can1)" stroke-width="2"/>
+        <circle cx="16" cy="22.5" r="2.3" fill="currentColor"/>
+        <circle cx="23" cy="22.5" r="3.6" fill="var(--surface)" stroke="var(--can2)" stroke-width="2"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-name">CAN Tools</span>
+        <span class="brand-sub">USBCAN-II 上位机</span>
+      </div>
+    </div>
+    <div class="topbar-status">
+      <span class="pill" id="devicePill" title="设备连接状态">
+        <span class="pill-dot" id="devicePillDot"></span><span class="txt" id="devicePillText">未连接设备</span>
+      </span>
+      <span class="pill pill-rec" id="recPill" hidden title="正在录制 CSV">
+        <span class="pill-dot rec"></span><span class="txt">录制中</span>
+      </span>
+      <span class="pill" id="wsPill" title="与服务端的数据链路（WebSocket）状态">
+        <span class="pill-dot warn" id="wsDot"></span><span class="txt" id="wsText">连接中…</span>
+      </span>
+      <span class="version" id="versionLabel">v—</span>
+    </div>
+  </div>
+</header>

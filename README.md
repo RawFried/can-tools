@@ -153,7 +153,7 @@ USBCAN/CANalyst-II (04d8:0053)
 - `src/service/`：工作线程、配置/录制命令、CSV 记录器；
 - `src/state.rs`：状态快照、实时帧环形缓冲（5000 帧）、事件广播；
 - `src/server.rs`：REST、WebSocket、静态资源；
-- `web/src/`：前端模块化 TypeScript 源码（`main.ts` 入口，按职责拆分）；`web/src/styles/`：CSS 源码，经 `index.css` 按序 `@import` 后由 esbuild 打包为单个 `web/app.css`，与 `web/app.js` 一并嵌入二进制。
+- `web/src/`：前端模块化 TypeScript 源码（`main.ts` 入口，按职责拆分）；`web/src/styles/`：CSS 源码，经 `index.css` 按序 `@import` 后由 esbuild 打包为单个 `web/app.css`；`web/src/html/`：HTML 片段源码（骨架 + include 标记），由 `web/scripts/build-html.mjs` 拼装为单文件 `web/index.html`，与 `web/app.js`、`web/app.css` 一并嵌入二进制。
 
 协议字节布局见 [`docs/protocol.md`](docs/protocol.md)，HTTP API 见
 [`docs/api.md`](docs/api.md)。
@@ -167,15 +167,16 @@ USBCAN/CANalyst-II (04d8:0053)
 ```bash
 cd web
 npm ci
-npm run build     # esbuild -> web/app.js（src/main.ts）与 web/app.css（src/styles/index.css）
+npm run build     # 先拼装 web/index.html（src/html/），再 esbuild -> web/app.js（src/main.ts）与 web/app.css（src/styles/index.css）
 npm run check     # 只做类型检查
 cd ..
 cargo build --release
 cargo test --workspace --all-targets
 ```
 
-`web/app.js` 与 `web/app.css` 是构建产物、不入库；后端在编译时用 `include_str!` 嵌入它们，
+`web/index.html`、`web/app.js` 与 `web/app.css` 都是构建产物、不入库；后端在编译时用 `include_str!` 嵌入它们，
 产物缺失时 `build.rs` 会提示先执行 `npm run build`，因此 `cargo build` 前必须先生成前端产物。
+`web/index.html` 由 `web/src/html/**` 的片段拼装而成，改页面结构请改片段源码而不是生成物。
 
 ## Debian / Ubuntu 包（.deb）
 
