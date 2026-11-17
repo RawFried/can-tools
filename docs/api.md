@@ -105,9 +105,10 @@ Hex values in JSON are plain unsigned integers (not strings). The UI is responsi
     `(bits/s ÷ channel bit rate) × 100`. Bit counts use classic CAN frame lengths without bit
     stuffing — standard frames `47 + 8 × dlc`, extended frames `67 + 8 × dlc`, remote frames
     `47`/`67` (no data) — and **include frames dropped by software filters**, because they still
-    occupy the bus. USB uses the channel `baud` rate, SocketCAN uses its sysfs `bitrate`; the value
-    is `null` when the channel is stopped or its rate is unknown (for example a `vcan` interface
-    without bit timing), and stopped channels report
+    occupy the bus. USB uses the channel `baud` rate; SocketCAN uses its sysfs `bitrate`, falling
+    back to the rate requested in the last `POST /api/config` when sysfs reports none (for example
+    a `vcan` interface or an interface hidden in a new network namespace). The value is `null`
+    only when the channel is stopped or no rate is known at all, and stopped channels report
     `{"rx_frames": 0, "rx_rate": 0.0, "bus_load": null}`. A misconfigured rate can push the
     estimate above 100 (it is not clamped).
 - `stats.rx_frames`/`stats.rx_rate` cover frames accepted from all links; `stats.tx_frames` counts

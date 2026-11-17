@@ -39,7 +39,7 @@ pub struct ChannelMetrics {
     /// 最近一个统计窗口的总线负载百分比 (0–100 的估算值, 两位小数)。
     ///
     /// 按经典 CAN 帧位数估算 (标准帧 47 + 8×DLC, 扩展帧 67 + 8×DLC, 不含
-    /// 位填充); 通道未运行或速率未知 (如无 bit timing 的 vcan) 时为 `None`。
+    /// 位填充); 通道未运行或没有任何已知速率时为 `None`。
     pub bus_load: Option<f64>,
 }
 

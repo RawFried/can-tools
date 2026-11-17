@@ -41,6 +41,8 @@ struct Slot {
     name: String,
     channel: Option<Box<dyn CanChannel>>,
     bitrate: Option<u64>,
+    /// 配置时请求的速率 (bps); sysfs 不可见时用于总线负载估算。
+    configured_bitrate: Option<u64>,
     state: Option<String>,
     software_filters: Vec<SoftwareFilter>,
     metrics: ChannelMetricsState,
@@ -54,6 +56,7 @@ impl Slot {
             name: format!("CAN{}", index + 1),
             channel: None,
             bitrate: None,
+            configured_bitrate: None,
             state: None,
             software_filters: Vec::new(),
             metrics: ChannelMetricsState::default(),
@@ -67,6 +70,7 @@ impl Slot {
             name,
             channel: None,
             bitrate,
+            configured_bitrate: None,
             state: Some(state),
             software_filters: Vec::new(),
             metrics: ChannelMetricsState::default(),
@@ -79,21 +83,36 @@ impl Slot {
 
     /// 通道位速率 (bit/s); 未运行或速率未知时为 `None`。
     ///
-    /// USB 取当前波特率, SocketCAN 取 sysfs 可见速率 (缺失时回退打开时快照)。
+    /// USB 取当前波特率; SocketCAN 依次取 sysfs 速率、打开时快照、配置请求速率。
+    ///
+    /// 最后一层回退让 sysfs 不可见的链路 (新 netns、vcan 等) 也能按请求速率
+    /// 估算总线负载, 而不是永远显示未知。
     fn bitrate_bps(&self) -> Option<u64> {
         let config = self.channel.as_ref()?.config();
         match config {
             ChannelConfig::Usb { baud, .. } => Some(baud.bps()),
-            ChannelConfig::SocketCan { bitrate, .. } => self.bitrate.or(bitrate),
+            ChannelConfig::SocketCan { bitrate, .. } => {
+                self.bitrate.or(bitrate).or(self.configured_bitrate)
+            }
         }
     }
 
     /// 将累计计数转换为对外快照 (发布状态时调用)。
+    ///
+    /// 运行中且速率已知但还没跑满一个统计窗口时, 负载按 0% 展示, 避免刚
+    /// 启动/清空统计后显示「未知」。
     fn metrics_snapshot(&self) -> ChannelMetrics {
+        let bus_load = self.metrics.bus_load.or_else(|| {
+            if self.is_running() && self.bitrate_bps().is_some() {
+                Some(0.0)
+            } else {
+                None
+            }
+        });
         ChannelMetrics {
             rx_frames: self.metrics.rx_frames,
             rx_rate: self.metrics.rx_rate,
-            bus_load: self.metrics.bus_load,
+            bus_load,
         }
     }
 }
@@ -541,6 +560,7 @@ impl Worker {
                 }
             };
             // 已 UP 的接口不做任何特权操作; 未 UP 时按该条目自己的速率自动启用。
+            let requested_bps = u64::from(bitrate);
             if let Err(error) = socketcan::bring_up(name, bitrate) {
                 self.rollback_config(&started_usb, &started_links);
                 self.publish_status();
@@ -558,6 +578,7 @@ impl Worker {
                     let bitrate = link.bitrate();
                     let state = link.state().to_string();
                     slot.bitrate = bitrate;
+                    slot.configured_bitrate = Some(requested_bps);
                     slot.state = Some(state);
                     slot.software_filters = entry.software_filters.clone();
                     slot.channel = Some(Box::new(link));
@@ -1355,6 +1376,7 @@ mod tests {
             name: "can0".to_string(),
             channel: None,
             bitrate: None,
+            configured_bitrate: None,
             state: Some("up".to_string()),
             software_filters: vec![SoftwareFilter {
                 extended: false,
@@ -1430,6 +1452,7 @@ mod tests {
             name: "can0".to_string(),
             channel: None,
             bitrate: Some(500_000),
+            configured_bitrate: None,
             state: Some("down".to_string()),
             software_filters: vec![SoftwareFilter {
                 extended: false,
@@ -1459,6 +1482,55 @@ mod tests {
         assert!(link.metrics.bus_load.is_none());
         // 未运行的 USB 通道也带空区间字段 (形状统一)。
         assert!(status.channels[0].software_filters.is_empty());
+    }
+
+    #[test]
+    fn slot_bitrate_prefers_live_configuration() {
+        let mut usb = Slot::usb(0);
+        usb.channel = Some(Box::new(FakeChannel::new(
+            "CAN1",
+            ChannelSource::Usb,
+            ChannelConfig::Usb {
+                baud: BaudRate::Kbps500,
+                mode: CanMode::Normal,
+                filter: HardwareFilter::default(),
+            },
+            vec![],
+        )));
+        assert_eq!(usb.bitrate_bps(), Some(500_000));
+        // 运行中但尚未产生统计窗口时, 负载显示 0% 而不是未知。
+        assert_eq!(usb.metrics_snapshot().bus_load, Some(0.0));
+
+        // SocketCAN 运行中优先取 sysfs 刷新的速率, 缺失时回退打开时快照。
+        let mut link = Slot::socketcan(2, "can0".to_string(), Some(250_000), "up".to_string());
+        link.channel = Some(Box::new(FakeChannel::new(
+            "can0",
+            ChannelSource::SocketCan,
+            ChannelConfig::SocketCan {
+                bitrate: Some(500_000),
+                state: "up".to_string(),
+            },
+            vec![],
+        )));
+        assert_eq!(link.bitrate_bps(), Some(250_000));
+
+        // sysfs 与打开时快照都没有速率时, 回退到配置请求的速率 (vcan 等)。
+        let mut hidden = Slot::socketcan(3, "can1".to_string(), None, "unknown".to_string());
+        hidden.configured_bitrate = Some(1_000_000);
+        hidden.channel = Some(Box::new(FakeChannel::new(
+            "can1",
+            ChannelSource::SocketCan,
+            ChannelConfig::SocketCan {
+                bitrate: None,
+                state: "unknown".to_string(),
+            },
+            vec![],
+        )));
+        assert_eq!(hidden.bitrate_bps(), Some(1_000_000));
+
+        // 未运行的通道没有位速率, 负载应显示为未知。
+        assert_eq!(Slot::usb(1).bitrate_bps(), None);
+        assert_eq!(Slot::usb(1).metrics_snapshot().bus_load, None);
     }
 
     #[test]
@@ -1580,6 +1652,7 @@ mod tests {
             name: "can0".to_string(),
             channel: Some(Box::new(fake)),
             bitrate: None,
+            configured_bitrate: None,
             state: Some("up".to_string()),
             software_filters: Vec::new(),
             metrics: ChannelMetricsState::default(),
