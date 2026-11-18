@@ -457,38 +457,43 @@ time,unix_ms,channel,link,id,id_hex,extended,remote,dlc,data
 Clears the in-memory live frame buffer and counter display (recorded files are untouched).
 Response: `{"ok": true}`
 
-### `POST /api/dbc`
+### `POST /api/dbc/{channel}`
 
-Uploads and parses a DBC file. The body carries the raw text:
+Uploads and parses a DBC file for one channel. The body carries the raw text:
 
 ```json
 {"name": "demo.dbc", "content": "VERSION \"\"\n...\n"}
 ```
 
+- `{channel}` is `0`/`1` for USB or `2`–`65` for SocketCAN link ids.
 - `content` must not exceed 1 MiB.
-- On success the definition replaces the previous one, is persisted under
-  `<data_dir>/dbc/<safe-name>.dbc`, and a `dbc` WebSocket event is broadcast.
-- The safe name keeps only `[A-Za-z0-9._-]`, must end in `.dbc`, may not contain path
-  separators, and is at most 96 characters. Only one `.dbc` is kept in that directory.
-- Response: `{"ok": true, "dbc": { ... }}`
+- Each channel keeps **its own** definition; uploading replaces only that channel's definition and
+  does not affect other channels. The definition is persisted under
+  `<data_dir>/dbc/channel-<channel>-<safe-name>.dbc` and a `dbc` WebSocket event with `channel` is
+  broadcast.
+- The safe name keeps only `[A-Za-z0-9._-]`, must end in `.dbc`, may not contain path separators,
+  and is at most 96 characters.
+- Response: `{"ok": true, "channel": 0, "dbc": { ... }}`
 - Parse or validation failure: `400` with `{"ok": false, "error": "第 12 行: ..."}`.
 
-### `GET /api/dbc`
+### `GET /api/dbc/{channel}`
 
-Returns the currently loaded definition, or `null` when none is loaded:
+Returns that channel's loaded definition, or `null` when none is loaded:
 
 ```json
-{"dbc": { ... }}
+{"channel": 0, "dbc": { ... }}
 ```
 
 ```json
-{"dbc": null}
+{"channel": 0, "dbc": null}
 ```
 
-### `DELETE /api/dbc`
+`{channel}` outside `0`–`65` fails with `非法通道 ...`.
 
-Removes the loaded definition and deletes the persisted `.dbc` file. Succeeds even when nothing
-is loaded. Response: `{"ok": true}`
+### `DELETE /api/dbc/{channel}`
+
+Removes that channel's definition and deletes its persisted file(s). Succeeds even when nothing is
+loaded. Response: `{"ok": true, "channel": 0}`
 
 ### `GET /api/recordings`
 
@@ -512,23 +517,24 @@ Deletes a recording from the current `server.recordings_dir`. Response: `{"ok": 
 On connect the server sends one snapshot message, then streams events. The client may send
 `ping` text frames; they are ignored, and the connection is closed by the client or server.
 
-Snapshot:
+Snapshot (only channels with a loaded definition appear in `dbcs`):
 
 ```json
-{"type": "snapshot", "status": { ... }, "frames": [ ... ], "dbc": { ... }}
+{"type": "snapshot", "status": { ... }, "frames": [ ... ],
+ "dbcs": [{"channel": 0, "dbc": { ... }}, {"channel": 2, "dbc": { ... }}]}
 ```
 
-`dbc` is the full definition or `null`. Event variants:
+Event variants:
 
 ```json
 {"type": "frames", "frames": [ ... ]}
 {"type": "status", "status": { ... }}
 {"type": "log", "level": "info", "message": "已启动 CAN1 (500k)"}
 {"type": "cleared"}
-{"type": "dbc", "dbc": { ... }}
+{"type": "dbc", "channel": 0, "dbc": { ... }}
 ```
 
-A `dbc` event is broadcast after `POST /api/dbc` and `DELETE /api/dbc` (`dbc: null` for the
-latter). The `status` object is unchanged and does not contain DBC state. Status is also pushed
-at least once per second while frames flow. Clients should reconnect with backoff when the
-socket closes.
+A `dbc` event is broadcast after `POST /api/dbc/{channel}` and `DELETE /api/dbc/{channel}`
+(`dbc: null` for the latter). Each channel has an independent definition; the `status` object is
+unchanged and does not contain DBC state. Status is also pushed at least once per second while
+frames flow. Clients should reconnect with backoff when the socket closes.

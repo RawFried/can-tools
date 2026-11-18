@@ -9,6 +9,7 @@ use clap::Parser;
 use tokio::net::TcpListener;
 
 use can_tools::can::dbc;
+use can_tools::can::types::MAX_CHANNEL;
 use can_tools::logging;
 use can_tools::paths;
 use can_tools::server::{self, AppState};
@@ -110,9 +111,10 @@ async fn run() -> Result<()> {
     Ok(())
 }
 
-/// 启动时加载 `<data_dir>/dbc` 下持久化的 DBC 定义。
+/// 启动时加载 `<data_dir>/dbc` 下持久化的每通道 DBC 定义。
 ///
-/// 读取或解析失败只记录告警, 不阻止服务启动; 同一目录理论上只有一个 `.dbc`。
+/// 文件名形如 `channel-<id>-<原名>.dbc`; 旧版单个 `.dbc` 文件按通道 0 兼容加载。
+/// 读取或解析失败只记录告警, 不阻止服务启动。
 fn load_persisted_dbc(data_dir: &Path, shared: &SharedState) {
     let directory = data_dir.join("dbc");
     let entries = match std::fs::read_dir(&directory) {
@@ -135,11 +137,34 @@ fn load_persisted_dbc(data_dir: &Path, shared: &SharedState) {
         if path.extension().and_then(|ext| ext.to_str()) != Some("dbc") {
             continue;
         }
-        match dbc::load_file(&path) {
-            Ok(definition) => shared.set_dbc(Some(Arc::new(definition))),
+        let file_name = entry.file_name().to_string_lossy().into_owned();
+        let (channel, display_name) = channel_dbc_name(&file_name);
+        let content = match std::fs::read_to_string(&path) {
+            Ok(content) => content,
+            Err(error) => {
+                tracing::warn!("无法读取 DBC 文件 {}: {error}", path.display());
+                continue;
+            }
+        };
+        match dbc::parse(&display_name, &content) {
+            Ok(definition) => shared.set_dbc(channel, Some(Arc::new(definition))),
             Err(error) => tracing::warn!("加载 DBC 失败: {error}"),
         }
     }
+}
+
+/// 从 `channel-<id>-<原名>.dbc` 解析通道与展示名; 旧文件按通道 0 处理。
+fn channel_dbc_name(file_name: &str) -> (u8, String) {
+    if let Some(rest) = file_name.strip_prefix("channel-") {
+        if let Some((raw_channel, name)) = rest.split_once('-') {
+            if let Ok(channel) = raw_channel.parse::<u8>() {
+                if channel <= MAX_CHANNEL {
+                    return (channel, name.to_string());
+                }
+            }
+        }
+    }
+    (0, file_name.to_string())
 }
 
 /// 在图形会话中打开默认浏览器; 无桌面环境时静默跳过。
@@ -187,4 +212,37 @@ async fn shutdown_signal() {
       () = terminate => {}
     }
     tracing::info!("收到退出信号");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::channel_dbc_name;
+
+    #[test]
+    fn channel_dbc_name_parses_prefixed_files() {
+        assert_eq!(
+            channel_dbc_name("channel-0-demo.dbc"),
+            (0, "demo.dbc".to_string())
+        );
+        assert_eq!(
+            channel_dbc_name("channel-65-CAN-FD.dbc"),
+            (65, "CAN-FD.dbc".to_string())
+        );
+    }
+
+    #[test]
+    fn channel_dbc_name_falls_back_to_channel_zero() {
+        assert_eq!(
+            channel_dbc_name("legacy.dbc"),
+            (0, "legacy.dbc".to_string())
+        );
+        assert_eq!(
+            channel_dbc_name("channel-99-too-big.dbc"),
+            (0, "channel-99-too-big.dbc".to_string())
+        );
+        assert_eq!(
+            channel_dbc_name("channel-x-name.dbc"),
+            (0, "channel-x-name.dbc".to_string())
+        );
+    }
 }

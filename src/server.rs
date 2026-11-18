@@ -15,7 +15,9 @@ use serde_json::{json, Value};
 use tokio::sync::broadcast;
 
 use crate::can::dbc;
-use crate::can::types::{FilterUpdateRequest, LinkList, SendFrameRequest, StartConfig};
+use crate::can::types::{
+    FilterUpdateRequest, LinkList, SendFrameRequest, StartConfig, MAX_CHANNEL,
+};
 use crate::paths;
 use crate::service::CanService;
 use crate::state::SharedState;
@@ -59,7 +61,10 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/logs", get(list_logs))
         .route("/api/logs/{name}", get(download_log))
-        .route("/api/dbc", get(get_dbc).post(upload_dbc).delete(delete_dbc))
+        .route(
+            "/api/dbc/{channel}",
+            get(get_dbc).post(upload_dbc).delete(delete_dbc),
+        )
         .route("/ws", get(websocket))
         .with_state(state)
 }
@@ -258,10 +263,21 @@ struct DbcUploadRequest {
     content: String,
 }
 
+fn validate_dbc_channel(channel: u8) -> Result<(), ApiError> {
+    if channel > MAX_CHANNEL {
+        return Err(ApiError::bad(format!(
+            "非法通道 {channel}; 合法值为 0/1 (USB) 或 2-{MAX_CHANNEL} (SocketCAN 链路)"
+        )));
+    }
+    Ok(())
+}
+
 async fn upload_dbc(
     State(state): State<AppState>,
+    AxumPath(channel): AxumPath<u8>,
     Json(request): Json<DbcUploadRequest>,
 ) -> Result<Json<Value>, ApiError> {
+    validate_dbc_channel(channel)?;
     if request.content.len() > dbc::MAX_CONTENT_BYTES {
         return Err(ApiError::bad(format!(
             "DBC 内容超过 1 MiB 上限 (实际 {} 字节)",
@@ -271,24 +287,33 @@ async fn upload_dbc(
     let file_name = dbc_file_name(&request.name)?;
     // 定义名统一使用清洗后的文件名, 保证重启后从磁盘加载时的显示名一致。
     let definition = dbc::parse(&file_name, &request.content).map_err(ApiError::bad)?;
-    persist_dbc(&state.data_dir, &file_name, &request.content).await?;
+    persist_dbc(&state.data_dir, channel, &file_name, &request.content).await?;
     let definition = Arc::new(definition);
-    state.shared.set_dbc(Some(definition.clone()));
+    state.shared.set_dbc(channel, Some(definition.clone()));
     Ok(Json(json!({
         "ok": true,
+        "channel": channel,
         "dbc": definition.as_ref(),
     })))
 }
 
-async fn get_dbc(State(state): State<AppState>) -> Json<Value> {
-    let dbc = state.shared.dbc();
-    Json(json!({"dbc": dbc.as_deref()}))
+async fn get_dbc(
+    State(state): State<AppState>,
+    AxumPath(channel): AxumPath<u8>,
+) -> Result<Json<Value>, ApiError> {
+    validate_dbc_channel(channel)?;
+    let dbc = state.shared.dbc(channel);
+    Ok(Json(json!({"channel": channel, "dbc": dbc.as_deref()})))
 }
 
-async fn delete_dbc(State(state): State<AppState>) -> Result<Json<Value>, ApiError> {
-    clear_dbc_files(&state.data_dir).await?;
-    state.shared.set_dbc(None);
-    Ok(Json(json!({"ok": true})))
+async fn delete_dbc(
+    State(state): State<AppState>,
+    AxumPath(channel): AxumPath<u8>,
+) -> Result<Json<Value>, ApiError> {
+    validate_dbc_channel(channel)?;
+    clear_channel_dbc_files(&state.data_dir, channel).await?;
+    state.shared.set_dbc(channel, None);
+    Ok(Json(json!({"ok": true, "channel": channel})))
 }
 
 /// 清洗上传的 DBC 文件名。
@@ -324,43 +349,49 @@ fn dbc_file_name(name: &str) -> Result<String, ApiError> {
     Ok(cleaned)
 }
 
-async fn persist_dbc(data_dir: &Path, file_name: &str, content: &str) -> Result<(), ApiError> {
+async fn persist_dbc(
+    data_dir: &Path,
+    channel: u8,
+    file_name: &str,
+    content: &str,
+) -> Result<(), ApiError> {
     let directory = data_dir.join("dbc");
     tokio::fs::create_dir_all(&directory)
         .await
         .map_err(|error| ApiError::internal(format!("创建 DBC 目录失败: {error}")))?;
-    clear_dbc_files(data_dir).await?;
-    let path = directory.join(file_name);
+    clear_channel_dbc_files(data_dir, channel).await?;
+    // 固定通道前缀, 便于重启时只加载一次并建立归属; 原文件名保留在定义名中。
+    let path = directory.join(format!("channel-{channel}-{file_name}"));
     tokio::fs::write(&path, content)
         .await
         .map_err(|error| ApiError::internal(format!("保存 DBC 文件失败: {error}")))?;
     Ok(())
 }
 
-/// 删除 `<data_dir>/dbc` 下的全部 `.dbc` 文件; 目录不存在时视为成功。
-async fn clear_dbc_files(data_dir: &Path) -> Result<(), ApiError> {
+/// 删除某通道在 `<data_dir>/dbc` 下的旧 `.dbc` 文件; 目录不存在时视为成功。
+async fn clear_channel_dbc_files(data_dir: &Path, channel: u8) -> Result<(), ApiError> {
     let directory = data_dir.join("dbc");
     let mut reader = match tokio::fs::read_dir(&directory).await {
         Ok(reader) => reader,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
         Err(error) => return Err(ApiError::internal(format!("读取 DBC 目录失败: {error}"))),
     };
+    let prefix = format!("channel-{channel}-");
     while let Some(entry) = reader
         .next_entry()
         .await
         .map_err(|error| ApiError::internal(format!("读取 DBC 目录失败: {error}")))?
     {
-        let path = entry.path();
-        if path.extension().and_then(|ext| ext.to_str()) != Some("dbc") {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if !name.starts_with(&prefix) || !name.ends_with(".dbc") {
             continue;
         }
-        match tokio::fs::remove_file(&path).await {
+        match tokio::fs::remove_file(entry.path()).await {
             Ok(()) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => {
                 return Err(ApiError::internal(format!(
-                    "删除旧 DBC 文件 {} 失败: {error}",
-                    path.display()
+                    "删除旧 DBC 文件 {name} 失败: {error}"
                 )))
             }
         }
@@ -542,12 +573,16 @@ async fn websocket(ws: WebSocketUpgrade, State(state): State<AppState>) -> Respo
 }
 
 async fn handle_socket(mut socket: WebSocket, shared: Arc<SharedState>) {
-    let dbc = shared.dbc();
+    let dbcs: Vec<Value> = shared
+        .dbcs()
+        .into_iter()
+        .map(|(channel, definition)| json!({"channel": channel, "dbc": definition.as_ref()}))
+        .collect();
     let snapshot = json!({
       "type": "snapshot",
       "status": shared.status(),
       "frames": shared.frames(),
-      "dbc": dbc.as_deref(),
+      "dbcs": dbcs,
     });
     if !send_json(&mut socket, &snapshot).await {
         return;

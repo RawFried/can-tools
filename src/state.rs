@@ -1,6 +1,6 @@
 //! 进程内共享状态: 最新状态快照、实时帧环形缓冲与事件广播。
 
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -191,8 +191,10 @@ pub enum Event {
     },
     /// 实时缓冲已清空。
     Cleared,
-    /// DBC 定义已加载或移除。
+    /// 某个通道的 DBC 定义已加载或移除。
     Dbc {
+        /// 通道 id: 0/1 为 USB, 2..=65 为 SocketCAN 链路。
+        channel: u8,
         /// 新定义; 移除后为 `null`。
         dbc: Option<DbcDefinition>,
     },
@@ -206,7 +208,7 @@ pub struct SharedState {
     status: Mutex<Status>,
     server: Mutex<ServerInfo>,
     frames: Mutex<VecDeque<FrameDto>>,
-    dbc: Mutex<Option<Arc<DbcDefinition>>>,
+    dbc: Mutex<HashMap<u8, Arc<DbcDefinition>>>,
     events: broadcast::Sender<Event>,
     max_frames: usize,
 }
@@ -223,7 +225,7 @@ impl SharedState {
             status: Mutex::new(Status::closed(server.clone())),
             server: Mutex::new(server),
             frames: Mutex::new(VecDeque::with_capacity(max_frames)),
-            dbc: Mutex::new(None),
+            dbc: Mutex::new(HashMap::new()),
             events,
             max_frames,
         })
@@ -318,18 +320,42 @@ impl SharedState {
         self.broadcast(Event::Cleared);
     }
 
-    /// 读取当前 DBC 定义; 未加载时为 `None`。
-    pub fn dbc(&self) -> Option<Arc<DbcDefinition>> {
-        self.lock_dbc().clone()
+    /// 读取某通道的 DBC 定义; 未加载时为 `None`。
+    pub fn dbc(&self, channel: u8) -> Option<Arc<DbcDefinition>> {
+        self.lock_dbc().get(&channel).cloned()
     }
 
-    /// 替换 DBC 定义并广播 `dbc` 事件。
+    /// 读取全部已加载的通道 DBC 定义 (按通道号升序)。
+    pub fn dbcs(&self) -> Vec<(u8, Arc<DbcDefinition>)> {
+        let mut dbcs: Vec<_> = self
+            .lock_dbc()
+            .iter()
+            .map(|(channel, definition)| (*channel, Arc::clone(definition)))
+            .collect();
+        dbcs.sort_by_key(|(channel, _)| *channel);
+        dbcs
+    }
+
+    /// 替换某通道的 DBC 定义并广播 `dbc` 事件。
     ///
     /// 广播内容序列化为完整的定义 (而非 `Arc`), 因为 `serde` 未启用 `rc` feature。
-    pub fn set_dbc(&self, dbc: Option<Arc<DbcDefinition>>) {
+    pub fn set_dbc(&self, channel: u8, dbc: Option<Arc<DbcDefinition>>) {
         let event_dbc = dbc.as_deref().cloned();
-        *self.lock_dbc() = dbc;
-        self.broadcast(Event::Dbc { dbc: event_dbc });
+        {
+            let mut map = self.lock_dbc();
+            match dbc {
+                Some(definition) => {
+                    map.insert(channel, definition);
+                }
+                None => {
+                    map.remove(&channel);
+                }
+            }
+        }
+        self.broadcast(Event::Dbc {
+            channel,
+            dbc: event_dbc,
+        });
     }
 
     /// 广播一条日志。
@@ -369,7 +395,7 @@ impl SharedState {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
-    fn lock_dbc(&self) -> MutexGuard<'_, Option<Arc<DbcDefinition>>> {
+    fn lock_dbc(&self) -> MutexGuard<'_, HashMap<u8, Arc<DbcDefinition>>> {
         self.dbc
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -525,37 +551,54 @@ mod tests {
     fn dbc_event_uses_documented_tag_and_null() {
         let definition = dbc_definition();
         let with_value = serde_json::to_value(Event::Dbc {
+            channel: 2,
             dbc: Some(definition.clone()),
         })
         .unwrap();
         assert_eq!(with_value["type"], "dbc");
+        assert_eq!(with_value["channel"], 2);
         assert_eq!(with_value["dbc"]["name"], "demo.dbc");
         assert_eq!(with_value["dbc"]["messages"], serde_json::json!([]));
 
-        let cleared = serde_json::to_value(Event::Dbc { dbc: None }).unwrap();
-        assert_eq!(cleared, serde_json::json!({"type": "dbc", "dbc": null}));
+        let cleared = serde_json::to_value(Event::Dbc {
+            channel: 2,
+            dbc: None,
+        })
+        .unwrap();
+        assert_eq!(
+            cleared,
+            serde_json::json!({"type": "dbc", "channel": 2, "dbc": null})
+        );
     }
 
     #[test]
-    fn dbc_set_and_get_round_trip() {
+    fn dbc_set_and_get_round_trip_per_channel() {
         let shared = SharedState::new(server_info());
-        assert!(shared.dbc().is_none());
+        assert!(shared.dbc(0).is_none());
 
         let definition = dbc_definition();
-        shared.set_dbc(Some(Arc::new(definition.clone())));
-        assert_eq!(shared.dbc().as_deref(), Some(&definition));
+        shared.set_dbc(0, Some(Arc::new(definition.clone())));
+        shared.set_dbc(2, Some(Arc::new(dbc_definition())));
+        assert_eq!(shared.dbc(0).as_deref(), Some(&definition));
+        assert!(shared.dbc(1).is_none());
+        assert_eq!(
+            shared.dbcs().iter().map(|(ch, _)| *ch).collect::<Vec<_>>(),
+            vec![0, 2]
+        );
 
-        shared.set_dbc(None);
-        assert!(shared.dbc().is_none());
+        shared.set_dbc(0, None);
+        assert!(shared.dbc(0).is_none());
+        assert!(shared.dbc(2).is_some());
     }
 
     #[test]
     fn dbc_set_broadcasts_event() {
         let shared = SharedState::new(server_info());
         let mut receiver = shared.subscribe();
-        shared.set_dbc(Some(Arc::new(dbc_definition())));
+        shared.set_dbc(2, Some(Arc::new(dbc_definition())));
         match receiver.try_recv().unwrap() {
-            Event::Dbc { dbc } => {
+            Event::Dbc { channel, dbc } => {
+                assert_eq!(channel, 2);
                 assert_eq!(dbc.map(|dbc| dbc.name), Some("demo.dbc".to_string()));
             }
             other => panic!("unexpected event: {other:?}"),
