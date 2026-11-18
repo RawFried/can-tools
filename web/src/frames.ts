@@ -65,17 +65,31 @@ function buildRow(f: FrameDto): HTMLTableRowElement {
 
   const badge = document.createElement('span');
   const info = state.status?.channels.find((item) => item.index === f.channel) ?? null;
-  if (info !== null && info.source === 'socketcan') badge.className = 'ch-badge ch-scan';
+  const isSocket = info !== null && info.source === 'socketcan';
+  if (isSocket) badge.className = 'ch-badge ch-scan';
   else if (f.channel === 0 || f.channel === 1) badge.className = 'ch-badge ch' + f.channel;
   else badge.className = 'ch-badge chx';
-  badge.textContent =
+  /* 名称前带来源，避免 SocketCAN 的 can0 与 USB 的 CAN0/CAN1 混淆。 */
+  const text = document.createElement('span');
+  text.className = 'ch-name';
+  text.textContent =
     info !== null
-      ? displayChannelName(info.name)
+      ? (isSocket ? 'SOCKET · ' : 'USB · ') +
+        (isSocket ? info.name : displayChannelName(info.name))
       : f.channel === 0
         ? 'CAN1'
         : f.channel === 1
           ? 'CAN2'
           : 'CH' + (f.channel + 1);
+  badge.title =
+    info !== null
+      ? (isSocket ? 'SocketCAN 链路 ' : 'USB 通道 ') +
+        info.name +
+        '（路由 id ' +
+        f.channel +
+        '）'
+      : '路由 id ' + f.channel;
+  badge.appendChild(text);
   row.cells[2].appendChild(badge);
 
   row.cells[3].textContent = hexOf(f.id, f.extended ? 8 : 3);
@@ -101,6 +115,8 @@ function matchesFilter(f: FrameDto): boolean {
     String(f.channel + 1),
     'can' + f.channel,
     info ? displayChannelName(info.name) : '',
+    info ? info.name : '',
+    info ? (info.source === 'socketcan' ? 'socketcan' : 'usb') : '',
     f.data,
     baseType,
     f.remote ? '远程' : '',
