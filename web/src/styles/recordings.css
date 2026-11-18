@@ -15,7 +15,7 @@
   --rec-row-h: 52px;
   max-height: calc(var(--rec-row-h) * 5);
   overflow-y: auto;
-  overscroll-behavior: contain;
+  /* 不阻断滚动链: 列表到底后继续滚动左栏, 避免指针停在列表里“滚不动”。 */
   scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
 }
 /* 滚动条与 .rail 同款：8px 细条 + 表面色描边 */
@@ -25,6 +25,8 @@
   border: 2px solid var(--surface);
 }
 .recs-wrap::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+/* 键盘聚焦滚动区时的可见焦点（tabIndex 由 renderRecordings 动态开启） */
+.recs-wrap:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 .recs-list { margin: 0; padding: 0; list-style: none; }
 
@@ -54,8 +56,8 @@
 }
 
 /* 右侧图标按钮：固定 26px 方形（与 btn-sm 高度一致），无文字 */
-.r-act { display: flex; gap: 4px; flex: none; }
-.r-act .btn { width: 26px; padding: 0; }
+.r-act { display: flex; gap: 6px; flex: none; }
+.r-act .btn { width: 28px; padding: 0; }
 
 .empty-inline {
   padding: 16px 14px; text-align: center;

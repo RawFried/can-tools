@@ -84,6 +84,7 @@ export const els = {
   bufferUsage: byId<HTMLElement>('bufferUsage'),
 
   /* 录制文件 */
+  recordingsWrap: byId<HTMLElement>('recordingsWrap'),
   recordingsList: byId<HTMLUListElement>('recordingsList'),
   recordingsEmpty: byId<HTMLElement>('recordingsEmpty'),
   recordingsCount: byId<HTMLElement>('recordingsCount'),

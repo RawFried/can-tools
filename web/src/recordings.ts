@@ -41,6 +41,8 @@ export function renderRecordings(): void {
   els.recordingsList.replaceChildren(frag);
   els.recordingsEmpty.hidden = state.recordings.length > 0;
   els.recordingsCount.textContent = fmtInt(state.recordings.length);
+  /* 仅当内容超出 5 行时把滚动区纳入键盘 Tab 顺序, 避免空列表也能被 Tab 命中。 */
+  els.recordingsWrap.tabIndex = state.recordings.length > 5 ? 0 : -1;
 }
 
 export async function loadRecordings(): Promise<void> {
