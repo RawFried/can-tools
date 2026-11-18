@@ -6,6 +6,10 @@
 
       <div class="frames-tools">
         <div class="tools">
+          <div class="ef-seg frame-mode" role="radiogroup" aria-label="报文显示方式">
+            <label><input type="radio" name="frame-mode" id="frameModeStream" value="stream" checked><span>流水线</span></label>
+            <label><input type="radio" name="frame-mode" id="frameModeChanges" value="changes"><span>变化汇总</span></label>
+          </div>
           <label class="search">
             <input type="search" id="frameFilter" placeholder="过滤 ID / 数据 / 通道（按 / 聚焦）" aria-label="快速过滤报文">
           </label>

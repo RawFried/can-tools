@@ -42,11 +42,6 @@
   font-size: 0.72rem;
   color: var(--ef-ink-2);
 }
-.search::before {
-  content: '//';
-  font-weight: 700;
-  color: var(--ef-ink-2);
-}
 .search input {
   flex: 1;
   min-width: 0;
@@ -58,15 +53,53 @@
   font-size: 0.85rem;
   outline: none;
 }
+/* 与发送数据框一致：焦点落在整个外框上，不让 input 出现内嵌黑框 */
+.search input:focus-visible {
+  outline: none;
+}
 .search input::placeholder {
   color: var(--ef-ink-2);
 }
 .search:focus-within {
-  border-bottom-color: var(--ef-trace);
-  box-shadow: inset 0 -1px 0 var(--ef-trace);
+  border-color: var(--ef-ink);
+  box-shadow: inset 0 -2px 0 var(--ef-trace);
 }
 .search input::-webkit-search-cancel-button {
   cursor: pointer;
+}
+
+/* 显示方式：流水线逐行追加 / 按 ID 汇总最新值 */
+.frame-mode {
+  flex: none;
+}
+.frame-mode span {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.8rem;
+}
+
+/* 变化汇总：数据字节变化时黄色闪烁；减少动态效果时停为静态黄块 */
+.frame-byte {
+  display: inline-block;
+}
+.frame-byte.is-changed {
+  animation: frame-byte-flash 0.9s var(--ef-mech);
+}
+@keyframes frame-byte-flash {
+  0% {
+    background: var(--ef-signal);
+    color: var(--ef-on-signal);
+  }
+  100% {
+    background: transparent;
+    color: inherit;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .frame-byte.is-changed {
+    animation: none;
+    background: var(--ef-signal);
+    color: var(--ef-on-signal);
+  }
 }
 
 /* 自动滚动开关 + 暂停/清空按钮 */

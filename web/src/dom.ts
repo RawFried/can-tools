@@ -65,6 +65,8 @@ export const els = {
   sendHint: byId<HTMLElement>('sendHint'),
 
   /* 实时报文 */
+  frameModeStream: byId<HTMLInputElement>('frameModeStream'),
+  frameModeChanges: byId<HTMLInputElement>('frameModeChanges'),
   frameFilter: byId<HTMLInputElement>('frameFilter'),
   autoscrollCheck: byId<HTMLInputElement>('autoscrollCheck'),
   btnPauseView: byId<HTMLButtonElement>('btnPauseView'),

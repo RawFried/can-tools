@@ -13,7 +13,7 @@ import { fmtInt } from './format';
 import { loadDevices } from './devices';
 import { loadRecordings } from './recordings';
 import { acceptAllRanges, addRangeRow, applyFiltersLive } from './filters';
-import { clearLocalFrames, rebuildTable, setAutoscroll, setPaused } from './frames';
+import { clearLocalFrames, rebuildTable, setAutoscroll, setFrameMode, setPaused } from './frames';
 import { applyStatus, runBusy } from './status';
 import { applySendType, sendCurrentFrame, updateSendControls, updateSendDlc } from './send';
 import { state } from './state';
@@ -95,6 +95,13 @@ export function bindEvents(): void {
       clearLocalFrames();
       setLastLog('已清空实时缓冲');
     });
+  });
+
+  els.frameModeStream.addEventListener('change', () => {
+    if (els.frameModeStream.checked) setFrameMode('stream');
+  });
+  els.frameModeChanges.addEventListener('change', () => {
+    if (els.frameModeChanges.checked) setFrameMode('changes');
   });
 
   els.frameFilter.addEventListener('input', () => {

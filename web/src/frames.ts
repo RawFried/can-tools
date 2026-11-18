@@ -8,12 +8,40 @@ import { BUFFER_CAP, state } from './state';
 import { updateEmpty, updateStrip } from './status';
 import type { FrameDto } from './types';
 
+/** 实时报文显示方式：流水线逐行滚动，或按 ID 汇总最新值并高亮变化字节。 */
+export type FrameMode = 'stream' | 'changes';
+
+interface LatestEntry {
+  frame: FrameDto;
+  row: HTMLTableRowElement | null;
+  /** 上一次实际渲染到表格的字节；用于比较变化。 */
+  dataBytes: string[];
+}
+
+let frameMode: FrameMode = 'stream';
+const latest = new Map<string, LatestEntry>();
+
+function latestKey(f: FrameDto): string {
+  return f.channel + ':' + (f.extended ? 'x' : 's') + f.id;
+}
+
+/** 记录最新帧；无论当前模式都维护，切换模式时可立即显示已有 ID。 */
+function rememberLatest(f: FrameDto): void {
+  const key = latestKey(f);
+  const entry = latest.get(key);
+  if (entry !== undefined) entry.frame = f;
+  else latest.set(key, { frame: f, row: null, dataBytes: [] });
+}
+
 /** 收帧入缓冲（上限 BUFFER_CAP）；未暂停时并入待渲染队列，交由 rAF 批量上屏。 */
 export function acceptFrames(frames: FrameDto[]): void {
   if (frames.length === 0) return;
   /* 先喂信号曲线：暂停表格显示时曲线仍需继续更新 */
   feedSignalFrames(frames);
-  for (const f of frames) state.buffer.push(f);
+  for (const f of frames) {
+    state.buffer.push(f);
+    rememberLatest(f);
+  }
   if (state.buffer.length > BUFFER_CAP) {
     state.buffer.splice(0, state.buffer.length - BUFFER_CAP);
   }
@@ -46,12 +74,16 @@ function flushRows(): void {
     updateStrip();
     return;
   }
-  const frag = document.createDocumentFragment();
-  for (const f of batch) {
-    if (matchesFilter(f)) frag.appendChild(buildRow(f));
+  if (frameMode === 'changes') {
+    flushLatest(batch);
+  } else {
+    const frag = document.createDocumentFragment();
+    for (const f of batch) {
+      if (matchesFilter(f)) frag.appendChild(buildRow(f));
+    }
+    if (frag.childNodes.length > 0) els.framesBody.appendChild(frag);
+    trimRows();
   }
-  if (frag.childNodes.length > 0) els.framesBody.appendChild(frag);
-  trimRows();
   updateEmpty();
   updateStrip();
   maybeScroll();
@@ -97,6 +129,84 @@ function buildRow(f: FrameDto): HTMLTableRowElement {
   return row;
 }
 
+/** 渲染数据字节；与上一轮显示的字节比较，变化的字节加高亮。 */
+function renderData(cell: HTMLTableCellElement, data: string, previous: readonly string[]): string[] {
+  const bytes = data.length > 0 ? data.split(' ') : [];
+  if (bytes.length === 0) {
+    cell.textContent = '—';
+    return bytes;
+  }
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < bytes.length; i += 1) {
+    const span = document.createElement('span');
+    span.className = 'frame-byte';
+    if (previous.length > 0 && previous[i] !== bytes[i]) span.classList.add('is-changed');
+    span.textContent = bytes[i];
+    frag.appendChild(span);
+    if (i < bytes.length - 1) frag.appendChild(document.createTextNode(' '));
+  }
+  cell.replaceChildren(frag);
+  return bytes;
+}
+
+function buildLatestRow(entry: LatestEntry): HTMLTableRowElement {
+  const row = buildRow(entry.frame);
+  const cell = row.cells[6] as HTMLTableCellElement;
+  entry.dataBytes = renderData(cell, entry.frame.data, []);
+  return row;
+}
+
+function updateLatestRow(entry: LatestEntry): void {
+  const row = entry.row;
+  if (row === null) return;
+  const f = entry.frame;
+  row.cells[0].textContent = fmtInt(f.seq);
+  row.cells[1].textContent = fmtClock(f.time_ms);
+  row.cells[4].textContent = f.remote ? (f.extended ? '扩展 / 远程' : '标准 / 远程') : f.extended ? '扩展' : '标准';
+  row.cells[5].textContent = String(f.dlc);
+  row.classList.toggle('remote', f.remote);
+  entry.dataBytes = renderData(row.cells[6] as HTMLTableCellElement, f.data, entry.dataBytes);
+}
+
+/** 变化汇总：只处理本批触及的 ID；行顺序按 ID 首次出现顺序。 */
+function flushLatest(batch: readonly FrameDto[]): void {
+  const touched = new Set<string>();
+  for (const f of batch) touched.add(latestKey(f));
+  for (const key of touched) {
+    const entry = latest.get(key);
+    if (entry === undefined) continue;
+    const visible = matchesFilter(entry.frame);
+    if (!visible) {
+      entry.row?.remove();
+      entry.row = null;
+      continue;
+    }
+    if (entry.row === null) {
+      entry.row = buildLatestRow(entry);
+      els.framesBody.appendChild(entry.row);
+    } else {
+      updateLatestRow(entry);
+    }
+  }
+}
+
+function seedLatestFromBuffer(): void {
+  latest.clear();
+  for (const f of state.buffer) rememberLatest(f);
+}
+
+function rebuildLatest(): void {
+  const frag = document.createDocumentFragment();
+  for (const entry of latest.values()) {
+    entry.row = null;
+    if (matchesFilter(entry.frame)) {
+      entry.row = buildLatestRow(entry);
+      frag.appendChild(entry.row);
+    }
+  }
+  els.framesBody.replaceChildren(frag);
+}
+
 /** 快速过滤：对 ID 十六进制、序列、通道、数据与类型做子串匹配。 */
 function matchesFilter(f: FrameDto): boolean {
   const query = state.filter;
@@ -122,16 +232,28 @@ function matchesFilter(f: FrameDto): boolean {
 }
 
 /** 由本地缓冲整体重建表格（过滤条件变化、恢复显示、快照到达时调用）。 */
-export function rebuildTable(): void {
-  const frag = document.createDocumentFragment();
-  for (const f of state.buffer) {
-    if (matchesFilter(f)) frag.appendChild(buildRow(f));
+export function rebuildTable(resetLatest = false): void {
+  if (resetLatest) seedLatestFromBuffer();
+  if (frameMode === 'changes') {
+    rebuildLatest();
+  } else {
+    const frag = document.createDocumentFragment();
+    for (const f of state.buffer) {
+      if (matchesFilter(f)) frag.appendChild(buildRow(f));
+    }
+    els.framesBody.replaceChildren(frag);
+    trimRows();
   }
-  els.framesBody.replaceChildren(frag);
-  trimRows();
   updateEmpty();
   updateStrip();
   maybeScroll();
+}
+
+/** 切换实时报文显示方式并重建表格。 */
+export function setFrameMode(next: FrameMode): void {
+  if (frameMode === next) return;
+  frameMode = next;
+  rebuildTable();
 }
 
 function trimRows(): void {
@@ -157,6 +279,7 @@ export function clearLocalFrames(): void {
   state.buffer.length = 0;
   state.pending.length = 0;
   state.pausedHidden = 0;
+  latest.clear();
   els.pausedCount.textContent = '0';
   clearSignalSamples();
   rebuildTable();

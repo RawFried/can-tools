@@ -118,7 +118,7 @@ function handleWsText(text: string): void {
       state.pausedHidden = 0;
       els.pausedCount.textContent = '0';
       applySignalSnapshot(msg.dbcs, msg.frames);
-      rebuildTable();
+      rebuildTable(true);
       break;
     case 'frames':
       acceptFrames(msg.frames);
