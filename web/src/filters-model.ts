@@ -1,16 +1,13 @@
 /**
- * 滤波器推导（纯函数、零 DOM、零 state）：区间 → 最小对齐块 → SJA1000 验收滤波，
- * 以及把硬件滤波回报翻译为可读文案。只依赖 types / format，可独立测试。
+ * 滤波器推导（纯函数、零 DOM、零 state）：区间 → 最小对齐块 → SJA1000 验收滤波。
+ * 只依赖 types，可独立测试。
  */
-import { hexOf } from './format';
 import type { AcceptanceFilterDto, SoftwareFilterDto } from './types';
 
 /**
  * 区间列表可用单一前缀掩码表达时的公共信息。
  */
 export interface RangeBlock {
-  /** 帧类型文案。 */
-  kind: '标准' | '扩展';
   /** 是否扩展帧（决定位布局）。 */
   extended: boolean;
   /** 最小覆盖块下界（含）。 */
@@ -44,7 +41,6 @@ export function rangeBlock(ranges: SoftwareFilterDto[]): RangeBlock | null {
   const blockSize = span === 0 ? 1 : 2 ** (32 - Math.clz32(span));
   const blockStart = lo - (lo % blockSize);
   return {
-    kind: hasExt ? '扩展' : '标准',
     extended: hasExt,
     blockStart,
     blockEnd: blockStart + blockSize - 1,
@@ -82,38 +78,4 @@ export function deriveAcceptanceFilter(ranges: SoftwareFilterDto[]): AcceptanceF
     acc_mask: (((blockSize - 1) << shift) | baseMask) >>> 0,
     mode: 1,
   };
-}
-
-/**
- * 把后端回报的硬件滤波翻译成用户可读状态。
- *
- * 不能只凭 acc_mask 反推帧类型：扩展帧大块的掩码低 21 位可能全为 1，与标准帧
- * 布局无法区分。因此这里先看硬件滤波是否等于当前区间推导出的结果，相等就用
- * 区间自身的帧类型与覆盖块描述；不相等（例如被外部 API 改过）才显示「自定义」。
- */
-export function describeHardwareFilter(
-  filter: AcceptanceFilterDto | null,
-  ranges: SoftwareFilterDto[]
-): string {
-  if (filter === null) return '未设置';
-  const count = ranges.length;
-  if (filter.mode === 0 || filter.acc_mask === 0xffffffff) {
-    return count > 0 ? '接收全部（软件精筛 ' + count + ' 条）' : '接收全部';
-  }
-
-  const block = rangeBlock(ranges);
-  const derived = deriveAcceptanceFilter(ranges);
-  const matches =
-    block !== null &&
-    filter.mode === derived.mode &&
-    filter.acc_code === derived.acc_code &&
-    filter.acc_mask === derived.acc_mask;
-  if (!matches) return '自定义';
-
-  const width = block.extended ? 8 : 3;
-  const range =
-    block.blockStart === block.blockEnd
-      ? hexOf(block.blockStart, width)
-      : hexOf(block.blockStart, width) + '–' + hexOf(block.blockEnd, width);
-  return block.kind + ' ' + range + '（单滤波器）';
 }

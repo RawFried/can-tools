@@ -5,7 +5,7 @@
  */
 import { updateFilters } from './api';
 import { els, q, filterTplRow } from './dom';
-import { deriveAcceptanceFilter, describeHardwareFilter } from './filters-model';
+import { deriveAcceptanceFilter } from './filters-model';
 /* channels.ts 通过 filters 取用滤波推导，保持依赖方向简洁 */
 export { deriveAcceptanceFilter };
 import { displayChannelName, parseHex } from './format';
@@ -142,26 +142,6 @@ export function syncFilters(st: StatusDto): void {
   if (renderedKey !== state.channelKey) {
     renderRangesFor(state.channelKey);
   }
-}
-
-/** 当前通道的硬件预过滤徽标；SocketCAN 无硬件验收。 */
-export function renderHwPrefilter(st: StatusDto): void {
-  if (state.channelKey === null) {
-    els.hwFilterState.textContent = '—';
-    return;
-  }
-  const key = state.channelKey;
-  if (key.startsWith('scan:')) {
-    els.hwFilterState.textContent = '仅软件滤波（无硬件验收）';
-    return;
-  }
-  const ch = st.channels.find((item) => channelKey(item) === key) ?? null;
-  if (ch === null) {
-    els.hwFilterState.textContent = '—';
-    return;
-  }
-  const ranges = state.filters.get(key) ?? [];
-  els.hwFilterState.textContent = describeHardwareFilter(ch.filter, ranges);
 }
 
 export function acceptAllRanges(): void {

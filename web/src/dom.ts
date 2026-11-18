@@ -36,7 +36,6 @@ export const els = {
   /* 滤波器 */
   filterRangeList: byId<HTMLElement>('filterRangeList'),
   filterEmpty: byId<HTMLElement>('filterEmpty'),
-  hwFilterState: byId<HTMLElement>('hwFilterState'),
   btnAddFilter: byId<HTMLButtonElement>('btnAddFilter'),
   btnAcceptAll: byId<HTMLButtonElement>('btnAcceptAll'),
   btnApplyFilters: byId<HTMLButtonElement>('btnApplyFilters'),

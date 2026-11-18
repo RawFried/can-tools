@@ -4,7 +4,7 @@
  */
 import { applyConfig, fetchDevices, openDevice, stopChannels } from './api';
 import { els } from './dom';
-import { channelKey, deriveAcceptanceFilter, renderHwPrefilter, renderRangesFor, saveCurrentRanges, syncFilters } from './filters';
+import { channelKey, deriveAcceptanceFilter, renderRangesFor, saveCurrentRanges, syncFilters } from './filters';
 import { state } from './state';
 import { toast } from './toast';
 import { displayChannelName, fmtRate } from './format';
@@ -211,7 +211,6 @@ export function syncChannels(st: StatusDto): void {
   renderChannelRate(st);
   renderChannelState(st);
   renderModeField(st);
-  renderHwPrefilter(st);
 }
 
 /** 首个状态到达前初始化通道卡（占位/已发现链路可选）。 */
@@ -260,7 +259,6 @@ export function selectChannel(key: string): void {
   renderChannelState(st);
   renderModeField(st);
   renderRangesFor(key);
-  if (st !== null) renderHwPrefilter(st);
 }
 
 /** 速率下拉变化：写入 state.rates，下次启动/重启时生效。 */

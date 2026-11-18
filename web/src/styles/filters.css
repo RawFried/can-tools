@@ -31,21 +31,6 @@
 
 .filter-empty { padding: 10px 8px; font-size: 12px; }
 
-/* 硬件预过滤只读状态：虚线框表示「只读回显」，不接受编辑 */
-.hw-state {
-  display: flex; align-items: baseline; gap: 8px;
-  padding: 8px 10px;
-  border: 1px dashed var(--border-strong);
-  border-radius: 8px;
-  background: var(--input-bg);
-}
-.hw-state .hw-label { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; flex: none; }
-.hw-state .hw-val {
-  font: 500 11.5px/1.5 var(--font-mono);
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-
 .check-mini {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 11.5px; color: var(--text-mid);
