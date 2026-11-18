@@ -176,7 +176,8 @@ USBCAN/CANalyst-II (04d8:0053)
 前端按 `endfield-ui` skill 的**标准变体**与**控制台**页型实现：
 纸面/墨/单一信号黄、切角只给可点击元素、细线分区、宽体 Saira + 中文黑体。
 变体参数写在 `web/src/html/index.html` 的 `<html>` 上
-（`data-ef-density="compact"`、`data-ef-motion="calm"`）；颜色与部件来自
+（`data-ef-density="compact"`、`data-ef-motion="calm"`）；背景等高线与尘埃由
+`backdrop.ts` 的固定 canvas 动态渲染（减少动态效果时退化为静态一帧）；颜色与部件来自
 `web/src/styles/vendor/endfield.css`，应用侧只做布局与定制。界面不使用游戏素材；
 Saira 为 SIL OFL 1.1，许可证见 `web/fonts/Saira-OFL.txt`。
 

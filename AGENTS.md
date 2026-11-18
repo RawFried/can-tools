@@ -34,10 +34,11 @@ src/                  Rust 后端（bin + lib）
   paths.rs            数据目录解析（CAN_TOOLS_DATA_DIR → XDG）
 web/                  前端（无框架 TypeScript + CSS + HTML 片段，源码按职责拆模块于 src/）
   src/main.ts         启动入口；types/format/dom/state/api/toast/ws/frames/status/
-                      devices/recordings/channel-stats/filters(-model)/send/events 各司其职
-  src/styles/         CSS 源码：vendor/endfield（上游套件）/fonts/base/layout/
-                      controls/rail/stats/data/send/dbc/overlays/responsive
-                      各司其职，index.css 按序 @import
+                      devices/recordings/channel-stats/backdrop/filters(-model)/
+                      send/events 各司其职
+  src/styles/         CSS 源码：vendor/endfield（上游套件）/fonts/base/
+                      backdrop/layout/controls/rail/stats/data/send/dbc/
+                      overlays/responsive 各司其职，index.css 按序 @import
   src/html/           HTML 片段源码：index.html 为骨架，topbar/rail/main/stats/send/
                       data/recordings/overlays 按区块拆分，骨架用 include 标记引用
   scripts/build-html.mjs  递归展开 include 标记，拼装出单文件 web/index.html
@@ -83,8 +84,8 @@ packaging/            AppImage 打包
 - DOM 只通过 DOM API 与 `textContent` 构建；**禁止 `innerHTML` 拼接**。所有元素引用集中在 `dom.ts`，行模板放在对应 HTML 片段（`web/src/html/**`）的 `<template>` 中。
 - 风格：2 空格缩进、单引号、语句带分号、`camelCase` 变量/函数、`PascalCase` 类型。界面文案与注释用中文，标识符用英文。
 - `web/index.html`、`web/app.js` 与 `web/app.css` 都是构建产物且**不入库**：只改 `web/src/**`，然后在 `web/` 下 `npm run build`（先 `build:html` 拼装 HTML，再 `build:js` / `build:css`）生成；`build.rs` 会在产物缺失时提示。CI 在 cargo 之前构建前端。构建必须确定性（同源同工具两次构建 md5 相同）。`index.html` 中不得残留 `include:` 标记，`app.js` 中不得出现 `import`/`export`/`require`，`app.css` 中不得残留 `@import`（已内联）。
-- **视觉规范遵循 `endfield-ui` skill**：纸面/墨/单一信号色、切角只给可点击、圆角/柔和阴影/发光禁用、细线分区、宽体拉丁 + 中文黑体、红色只给删除。`web/src/styles/vendor/endfield.css` 是上游套件，除升级外不要改；应用侧只写布局与定制组件，并使用 `--ef-*` 令牌。
-- **CSS 同样按职责分文件**（`web/src/styles/**`，`index.css` 为入口）。依赖方向单向：`vendor/endfield → fonts → base → layout → controls → rail → stats → data → send → dbc → overlays → responsive`；`index.css` 的 `@import` 顺序即级联顺序，调整顺序前先确认选择器优先级与覆盖关系。禁止在 `index.css` 里写规则，也不要直接编辑 `web/app.css`。
+- **视觉规范遵循 `endfield-ui` skill**：纸面/墨/单一信号色、切角只给可点击、圆角/柔和阴影/发光禁用、细线分区、宽体拉丁 + 中文黑体、红色只给删除。背景等高线与尘埃由 `backdrop.ts` 的固定 canvas 动态渲染；`prefers-reduced-motion` 时只画静态一帧。`web/src/styles/vendor/endfield.css` 是上游套件，除升级外不要改；应用侧只写布局与定制组件，并使用 `--ef-*` 令牌。
+- **CSS 同样按职责分文件**（`web/src/styles/**`，`index.css` 为入口）。依赖方向单向：`vendor/endfield → fonts → base → backdrop → layout → controls → rail → stats → data → send → dbc → overlays → responsive`；`index.css` 的 `@import` 顺序即级联顺序，调整顺序前先确认选择器优先级与覆盖关系。禁止在 `index.css` 里写规则，也不要直接编辑 `web/app.css`。
 - 纯函数（如滤波推导、解析）放在可测试的位置并配注释说明边界条件；不要在没有依据的情况下改动已实测的位运算。
 
 ## 5. 提交与评审
