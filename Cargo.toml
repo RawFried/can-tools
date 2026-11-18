@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "can-tools"
-version = "0.4.3"
+version = "0.4.4"
 edition = "2021"
 rust-version = "1.82"
 description = "Web host for Chuangxin USBCAN/CANalyst-II (04d8:0053): baud rate, filters, frame recording"
