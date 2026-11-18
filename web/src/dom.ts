@@ -69,8 +69,6 @@ export const els = {
   autoscrollCheck: byId<HTMLInputElement>('autoscrollCheck'),
   btnPauseView: byId<HTMLButtonElement>('btnPauseView'),
   btnPauseLabel: byId<HTMLElement>('btnPauseLabel'),
-  icPause: byId<HTMLElement>('icPause'),
-  icPlay: byId<HTMLElement>('icPlay'),
   btnClearView: byId<HTMLButtonElement>('btnClearView'),
   tableWrap: byId<HTMLElement>('tableWrap'),
   framesBody: byId<HTMLTableSectionElement>('framesBody'),

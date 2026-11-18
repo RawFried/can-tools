@@ -3,7 +3,7 @@
  */
 import { sendFrame } from './api';
 import { els } from './dom';
-import { displayChannelName, parseHex } from './format';
+import { parseHex } from './format';
 import { state } from './state';
 import { setLastLog, toast } from './toast';
 import type { ChannelStatusDto, SendBody, StatusDto } from './types';
@@ -41,14 +41,14 @@ export function parseSendData(raw: string): number[] | null {
 
 /** 发送下拉的来源前缀（与通道卡一致）。 */
 function sourcePrefix(channel: ChannelStatusDto): string {
-  return channel.source === 'socketcan' ? 'SOCKET · ' : 'USB · ';
+  return channel.source === 'socketcan' ? 'SOCKET │ ' : 'USB │ ';
 }
 
 /** 下拉框显示名：来源前缀 + 通道名（USB 为 CAN1/CAN2，SocketCAN 为 CAN0），只听模式加后缀。 */
 function channelLabel(channel: ChannelStatusDto): string {
   return (
     sourcePrefix(channel) +
-    displayChannelName(channel.name) +
+    channel.name +
     (channel.mode === 'listen_only' ? '（只听）' : '')
   );
 }
@@ -202,7 +202,7 @@ export async function sendCurrentFrame(applyStatus: (st: StatusDto) => void): Pr
   if (status) applyStatus(status);
   const channelInfo = state.status?.channels.find((item) => item.index === channel) ?? null;
   const channelName = channelInfo
-    ? sourcePrefix(channelInfo) + displayChannelName(channelInfo.name)
+    ? sourcePrefix(channelInfo) + channelInfo.name
     : 'CH' + (channel + 1);
   const label = channelName + ' 0x' + id.toString(16).toUpperCase();
   const detail = remote ? '远程帧 DLC ' + dlc : bytes.length + ' 字节';

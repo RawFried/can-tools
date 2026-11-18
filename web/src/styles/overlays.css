@@ -1,62 +1,112 @@
-/* ---------- 提示气泡 ---------- */
+/* ---------- 提示条（toast）：深色条 + 左侧黄条；出错/注意加黄旗 ---------- */
 #toasts {
-  position: fixed; right: 16px; bottom: 16px; z-index: 100;
-  display: flex; flex-direction: column; gap: 8px;
-  width: min(380px, calc(100vw - 32px));
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(380px, calc(100vw - 2rem));
   pointer-events: none;
 }
 .toast {
   pointer-events: auto;
-  display: flex; align-items: flex-start; gap: 9px;
-  background: var(--surface-3);
-  border: 1px solid var(--border-strong);
-  border-left: 3px solid var(--info);
-  border-radius: var(--r-m);
-  padding: 10px 12px;
-  box-shadow: var(--shadow-pop);
-  font-size: 12.5px; line-height: 1.55;
-  animation: toast-in 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0.6rem 0.7rem 0.6rem calc(6px + 0.7rem);
+  background:
+    linear-gradient(var(--ef-signal), var(--ef-signal)) left / 6px 100% no-repeat,
+    #161616;
+  color: #ededed;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  animation: toast-in 0.28s var(--ef-mech) both;
 }
-.toast-ic { flex: none; margin-top: 1px; color: var(--info); }
-.toast-ic svg { display: block; }
-.toast.error { border-left-color: var(--err); }
-.toast.error .toast-ic { color: var(--err); }
-.toast.warn { border-left-color: var(--warn); }
-.toast.warn .toast-ic { color: var(--warn); }
-.toast.success { border-left-color: var(--ok); }
-.toast.success .toast-ic { color: var(--ok); }
-.toast-msg { min-width: 0; overflow-wrap: anywhere; }
+/* 需要注意的级别：前置黄旗文字（不用红） */
+.toast-flag {
+  flex: none;
+  padding: 0 0.4em;
+  background: var(--ef-signal);
+  color: var(--ef-on-signal);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.toast-msg {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .toast-x {
-  margin-left: auto; flex: none;
-  background: none; border: 0; cursor: pointer;
-  color: var(--text-faint); font-size: 15px; line-height: 1;
-  padding: 2px 4px; border-radius: 4px;
+  margin-left: auto;
+  flex: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: #b8b8b8;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.2rem;
 }
-.toast-x:hover { color: var(--text); }
-.toast.out { animation: toast-out 0.18s forwards; }
+.toast-x:hover {
+  color: #fff;
+}
+.toast.out {
+  animation: toast-out 0.2s var(--ef-mech) forwards;
+}
 
-/* ---------- 动画 ---------- */
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-@keyframes rise { from { opacity: 0; transform: translateY(7px); } }
-@keyframes toast-in { from { opacity: 0; transform: translateX(14px); } }
-@keyframes toast-out { to { opacity: 0; transform: translateY(8px); } }
+/* ---------- 滚动条：细而直角 ---------- */
+.table-wrap::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.table-wrap::-webkit-scrollbar-thumb {
+  background: var(--ef-rule);
+}
+.table-wrap::-webkit-scrollbar-thumb:hover {
+  background: var(--ef-ink-2);
+}
+.table-wrap::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.table-wrap {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ef-rule) transparent;
+}
+.rail::-webkit-scrollbar,
+.recs-wrap::-webkit-scrollbar,
+.dbc-msg-list::-webkit-scrollbar,
+.dbc-legend::-webkit-scrollbar,
+.dbc-signal-bar::-webkit-scrollbar {
+  width: 8px;
+}
+.rail::-webkit-scrollbar-thumb,
+.recs-wrap::-webkit-scrollbar-thumb,
+.dbc-msg-list::-webkit-scrollbar-thumb,
+.dbc-legend::-webkit-scrollbar-thumb,
+.dbc-signal-bar::-webkit-scrollbar-thumb {
+  background: var(--ef-rule);
+}
 
+/* ---------- 动效 ---------- */
+@keyframes toast-in {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+@keyframes toast-out {
+  to {
+    clip-path: inset(0 0 0 100%);
+  }
+}
+
+/* 系统“减少动态效果”时全部静止（vendor 套件已关过渡，此处兜底） */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation: none !important;
     transition: none !important;
   }
 }
-
-/* ---------- 滚动条 ---------- */
-.table-wrap::-webkit-scrollbar { width: 10px; height: 10px; }
-.table-wrap::-webkit-scrollbar-thumb {
-  background: var(--border-strong); border-radius: 6px;
-  border: 2px solid var(--surface);
-}
-.table-wrap::-webkit-scrollbar-thumb:hover {
-  background: var(--text-faint);
-}
-.table-wrap::-webkit-scrollbar-corner { background: transparent; }
-.table-wrap { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }

@@ -1,11 +1,10 @@
-    <section class="card panel-send" id="sendPanel" aria-labelledby="h-send">
-      <header class="card-head">
-        <span class="card-index tx-index">TX</span>
-        <h2 id="h-send">发送报文</h2>
+    <section class="ef-panel" id="sendPanel" aria-labelledby="h-send">
+      <header class="panel-head">
+        <h2 class="ef-pair" id="h-send"><span class="ef-eyebrow slash">04 / Transmit</span><span>发送报文</span></h2>
         <span class="head-spacer"></span>
-        <span class="send-count">已发送 <strong id="sendCount">0</strong> 帧</span>
+        <span class="ef-field head-field send-count">已发送 <strong id="sendCount">0</strong> 帧</span>
       </header>
-      <div class="card-body send-body">
+      <div class="ef-form send-body">
         <div class="send-row">
           <div class="field send-ch">
             <label class="field-label" for="sendChannel">通道</label>
@@ -20,7 +19,7 @@
           </div>
           <div class="field send-type">
             <span class="field-label" id="lb-send-type">帧类型</span>
-            <div class="seg seg-mini" role="radiogroup" aria-labelledby="lb-send-type">
+            <div class="ef-seg" role="radiogroup" aria-labelledby="lb-send-type">
               <label><input type="radio" name="send-ext" value="std" checked><span>标准</span></label>
               <label><input type="radio" name="send-ext" value="ext" id="sendExtended"><span>扩展</span></label>
             </div>
@@ -34,8 +33,7 @@
             <input class="input" id="sendDlc" type="number" min="0" max="8" value="8" readonly aria-label="数据长度">
           </div>
           <label class="check-mini send-rtr"><input type="checkbox" id="sendRemote"><span>远程</span></label>
-          <button class="btn btn-primary send-btn" id="btnSend" type="button" disabled>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12 16-8-6 16-2.8-5.2L4 12Z"/><path d="M11.2 14.8 20 4"/></svg>
+          <button class="ef-btn go send-btn" id="btnSend" type="button" disabled>
             <span>发送</span>
           </button>
         </div>

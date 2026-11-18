@@ -1,18 +1,32 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-ef-density="compact" data-ef-motion="calm">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark light">
 <meta name="description" content="CAN Tools — USBCAN-II CAN 总线上位机：多链路（USB 通道 + Linux SocketCAN）配置、实时报文捕获、信号曲线与 CSV 录制。">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#05090e">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#eef4fa">
-<title>CAN Tools · USBCAN-II 上位机</title>
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#191919">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f4f2">
+<title>CAN Tools / USBCAN-II 上位机</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<!-- Saira 可变字体由后端路由 /fonts/Saira.ttf 提供（SIL OFL 1.1，许可证在 web/fonts/）；
+     @font-face 写在此处而非 app.css：打包器会把 CSS 里的 url() 当作待解析资源，
+     绝对路径无法保持原样输出。 -->
+<style>
+@font-face {
+  font-family: 'Saira';
+  src: url('/fonts/Saira.ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-stretch: 50% 125%;
+  font-style: normal;
+  font-display: swap;
+}
+</style>
 <link rel="stylesheet" href="/app.css">
 <script defer src="/app.js"></script>
 </head>
-<body>
+<body class="ef ef-contours">
+<div class="ef-tri" aria-hidden="true"><i></i><i></i><i></i></div>
 <a class="skip-link" href="#framesPanel">跳到实时报文</a>
 
 <!-- include: topbar.html -->

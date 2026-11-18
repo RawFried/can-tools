@@ -7,7 +7,7 @@ import { els } from './dom';
 import { channelKey, deriveAcceptanceFilter, renderRangesFor, saveCurrentRanges, syncFilters } from './filters';
 import { state } from './state';
 import { toast } from './toast';
-import { displayChannelName, fmtRate } from './format';
+import { fmtRate } from './format';
 import { asBaud, asMode, BAUDS } from './types';
 import type { CanMode, ChannelStatusDto, SocketCanLinkDto, StatusDto } from './types';
 
@@ -31,7 +31,7 @@ function channelOptions(st: StatusDto | null): ChannelOption[] {
     seen.add(key);
     options.push({
       key,
-      label: (ch.source === 'usb' ? 'USB · ' : 'SOCKET · ') + displayChannelName(ch.name),
+      label: (ch.source === 'usb' ? 'USB │ ' : 'SOCKET │ ') + ch.name,
       channel: ch,
       link: null,
     });
@@ -40,7 +40,7 @@ function channelOptions(st: StatusDto | null): ChannelOption[] {
     const key = 'scan:' + link.name;
     if (seen.has(key)) continue;
     seen.add(key);
-    options.push({ key, label: 'SOCKET · ' + displayChannelName(link.name), channel: null, link });
+    options.push({ key, label: 'SOCKET │ ' + link.name, channel: null, link });
   }
   return options;
 }
@@ -111,6 +111,13 @@ function renderChannelOptions(st: StatusDto | null): void {
   if (signature !== optionsSignature) {
     optionsSignature = signature;
     const frag = document.createDocumentFragment();
+    if (options.length === 0) {
+      /* 空列表占位：下拉框不留白，提示走「刷新设备与链路」 */
+      const el = document.createElement('option');
+      el.value = '';
+      el.textContent = '未发现通道';
+      frag.appendChild(el);
+    }
     for (const option of options) {
       const el = document.createElement('option');
       el.value = option.key;
@@ -169,13 +176,13 @@ function renderChannelState(st: StatusDto | null): void {
   els.channelState.classList.toggle('running', running);
 
   if (running) {
-    const parts = ['运行中 · ' + statusRate(st, key, option)];
+    const parts = ['运行中 │ ' + statusRate(st, key, option)];
     /* 统计由后端每秒推送；只有已注册到 status 的通道才有 metrics。 */
     if (ch !== null) {
       parts.push(fmtRate(ch.metrics.rx_rate) + ' 帧/秒');
       if (ch.metrics.bus_load !== null) parts.push('负载 ' + fmtRate(ch.metrics.bus_load) + '%');
     }
-    els.channelState.textContent = parts.join(' · ');
+    els.channelState.textContent = parts.join(' │ ');
     return;
   }
   const ifaceState = ch !== null && ch.source === 'socketcan' ? ch.state : link?.state ?? null;
@@ -353,5 +360,5 @@ export async function stopChannel(applyStatus: (st: StatusDto) => void): Promise
   }
   const status = await stopChannels([ch.index]);
   if (status) applyStatus(status);
-  toast('已停止 ' + displayChannelName(ch.name), 'success');
+  toast('已停止 ' + ch.name, 'success');
 }

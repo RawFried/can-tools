@@ -48,6 +48,21 @@ export function fmtDateTime(ms: number): string {
   return Number.isFinite(ms) ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '—';
 }
 
+/**
+ * 列表行时间戳：`11.18 14:30`；跨年文件补全年份 `2025.12.30 08:10`。
+ * 左栏列表行宽有限，秒与当年年份省略（完整文件名在 title 中）。
+ */
+export function fmtDateShort(ms: number): string {
+  if (!Number.isFinite(ms)) return '—';
+  const d = new Date(ms);
+  const md =
+    p2(d.getMonth() + 1) +
+    '.' + p2(d.getDate()) +
+    ' ' + p2(d.getHours()) +
+    ':' + p2(d.getMinutes());
+  return d.getFullYear() === new Date().getFullYear() ? md : d.getFullYear() + '.' + md;
+}
+
 export function fmtDur(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(s / 3600);
@@ -68,11 +83,6 @@ export function hexOf(v: number, width: number): string {
   return '0x' + v.toString(16).toUpperCase().padStart(width, '0');
 }
 
-/** 通道展示名：统一大写（SocketCAN 的 can0 → CAN0；USB 名称本身已大写）。 */
-export function displayChannelName(name: string): string {
-  return name.toUpperCase();
-}
-
 /** SocketCAN 速率完整文案：500000 → "500 kbps"；未知 → "速率未知"。 */
 export function fmtBitrateLong(bitrate: number | null): string {
   if (bitrate === null || !Number.isFinite(bitrate) || bitrate <= 0) return '速率未知';
@@ -89,7 +99,7 @@ export function linkStateLabel(state: string | null): string {
 
 /**
  * SocketCAN 链路行状态文案，状态优先：
- * 运行中 → `运行中 · 500 kbps`（速率未知则仅「运行中」）；未运行 → 接口启用/未启用/未知。
+ * 运行中 → `运行中 │ 500 kbps`（速率未知则仅「运行中」）；未运行 → 接口启用/未启用/未知。
  */
 export function fmtScanMeta(
   bitrate: number | null,
@@ -98,10 +108,10 @@ export function fmtScanMeta(
 ): string {
   if (running) {
     return bitrate !== null && Number.isFinite(bitrate) && bitrate > 0
-      ? '运行中 · ' + fmtBitrateLong(bitrate)
+      ? '运行中 │ ' + fmtBitrateLong(bitrate)
       : '运行中';
   }
-  if (state === 'up') return '已启用 · 未启动';
+  if (state === 'up') return '已启用 │ 未启动';
   if (state === 'down') return '未启用';
   return '状态未知';
 }

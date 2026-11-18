@@ -1,0 +1,381 @@
+/* ---------- 数据区：实时报文 / 信号曲线（零 JS 选项卡） ---------- */
+.panel-data {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 选项卡：radio 视觉隐藏（保留键盘可达），label 组成分段组；
+   当前段墨底反白（分段选择的“当前”不用黄，黄留给导航与主操作） */
+.view-radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.view-tabs {
+  display: inline-flex;
+  border: 1px solid var(--ef-ink);
+}
+.view-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.1rem;
+  padding: 0 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ef-ink-2);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: background-color 0.22s var(--ef-mech), color 0.22s var(--ef-mech);
+}
+.view-tab:hover {
+  color: var(--ef-ink);
+}
+.view-radio:checked + .view-tab {
+  background: var(--ef-ink);
+  color: var(--ef-paper);
+}
+.view-radio:focus-visible + .view-tab {
+  outline: 2px solid var(--ef-trace);
+  outline-offset: -4px;
+}
+
+/* 视图显隐：默认全部隐藏，由选中项决定 */
+.view {
+  display: none;
+}
+.panel-data:has(#dataViewFrames:checked) .view-frames {
+  display: flex;
+  flex-direction: column;
+}
+.panel-data:has(#dataViewSignals:checked) .view-signals {
+  display: flex;
+  flex-direction: column;
+}
+
+.data-head {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+  align-items: center;
+}
+
+/* DBC 文件名/摘要与动作（位于共享卡片头部） */
+.dbc-meta {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+.dbc-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dbc-summary {
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.72rem;
+  color: var(--ef-ink-2);
+  white-space: nowrap;
+}
+.dbc-actions {
+  display: flex;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+/* ---------- 实时报文工具条 ---------- */
+.frames-tools {
+  padding: 0.5rem 1.15rem;
+  border-bottom: 1px solid var(--ef-rule);
+}
+.frames-tools .tools {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+/* 过滤输入：// 前缀，聚焦下边 2px trace 线 */
+.search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 220px;
+  max-width: 320px;
+  padding: 0 0.7rem;
+  border: 1px solid var(--ef-rule);
+  background: var(--ef-panel);
+}
+/* 搜索框前缀与 skill 的表单语言一致 */
+.search::before {
+  content: '//';
+  flex: none;
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wider);
+  font-size: 0.72rem;
+  color: var(--ef-ink-2);
+}
+.search::before {
+  content: '//';
+  font-weight: 700;
+  color: var(--ef-ink-2);
+}
+.search input {
+  flex: 1;
+  min-width: 0;
+  height: 2.1rem;
+  border: 0;
+  background: none;
+  color: var(--ef-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  outline: none;
+}
+.search input::placeholder {
+  color: var(--ef-ink-2);
+}
+.search:focus-within {
+  border-bottom-color: var(--ef-trace);
+  box-shadow: inset 0 -1px 0 var(--ef-trace);
+}
+.search input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+/* 自动滚动开关 + 暂停/清空按钮 */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--ef-ink-2);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.switch:has(input:checked) {
+  color: var(--ef-ink);
+}
+.switch:has(input:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 暂停按钮按下后为“继续显示”：墨底反白标记当前态 */
+.btn-press[aria-pressed='true'] {
+  --fill: var(--ef-ink);
+  color: var(--ef-paper);
+}
+.btn-press[aria-pressed='true']:is(:hover, :focus-visible):not(:disabled) {
+  color: var(--ef-on-signal);
+}
+
+/* ---------- 报文表（ef-table 语言：眉标表头 + 细线 + 等宽数字） ---------- */
+.table-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: clamp(320px, 50vh, 640px);
+  min-height: 220px;
+}
+.table-wrap {
+  flex: 1;
+  min-height: 180px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+table.frames {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+table.frames th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ef-panel);
+  color: var(--ef-ink-2);
+  font-family: var(--ef-font-ui);
+  font-size: 0.68rem;
+  font-stretch: var(--ef-wider);
+  font-weight: 600;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--ef-ink);
+  white-space: nowrap;
+}
+table.frames th.num {
+  text-align: right;
+}
+table.frames td {
+  padding: 0.22rem 0.7rem;
+  border-bottom: 1px solid var(--ef-rule);
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+/* 首末列与面板内边距对齐（工具条与读数行都以 1.15rem 起排） */
+table.frames th:first-child,
+table.frames td:first-child {
+  padding-left: 1.15rem;
+}
+table.frames th:last-child,
+table.frames td:last-child {
+  padding-right: 1.15rem;
+}
+table.frames tbody tr:hover td {
+  background: var(--ef-paper);
+}
+
+td.c-seq,
+td.c-dlc {
+  text-align: right;
+  color: var(--ef-ink-2);
+  font-stretch: var(--ef-wide);
+}
+td.c-time {
+  color: var(--ef-ink-2);
+  font-stretch: var(--ef-wide);
+}
+td.c-id {
+  font-weight: 600;
+  font-stretch: var(--ef-wide);
+}
+td.c-type {
+  font-size: 0.78rem;
+  color: var(--ef-ink-2);
+}
+td.c-data {
+  letter-spacing: 0.03em;
+  white-space: pre;
+  font-stretch: var(--ef-wide);
+}
+
+/* 远程帧：类型格用虚线框，数据弱化（不能把 td 改成 inline-block，会破坏表格行） */
+tr.remote td.c-type {
+  padding: 0 0.4em;
+  border: 1px dashed var(--ef-ink-2);
+  color: var(--ef-ink-2);
+}
+tr.remote td.c-data {
+  color: var(--ef-ink-2);
+}
+
+/* 通道来源标识：墨底编号标签（不靠多色相区分通道） */
+.ch-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  /* 不可点击的通道标识：直角实心标签，不用切角（切角只给可点元素） */
+  padding: 0.08rem 0.4rem;
+  font-family: var(--ef-font-ui);
+  font-size: 0.68rem;
+  font-stretch: var(--ef-wide);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ef-tag-fg);
+  background: var(--ef-tag-bg);
+}
+.ch-badge .ch-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 未知来源（状态里尚无该通道）：虚线框占位 */
+.ch-badge.ch-x {
+  color: var(--ef-ink-2);
+  background: none;
+  border: 1px dashed var(--ef-ink-2);
+}
+
+/* 空状态：一句完整的话 */
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.45rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+/* 斜线纹短带：空状态的质感（kit 允许的硬边纹理） */
+.empty::before {
+  content: '';
+  width: 64px;
+  height: 0.7rem;
+  background: var(--ef-hatch);
+  border-left: 0.7rem solid var(--ef-ink);
+  margin-bottom: 0.4rem;
+}
+.empty .t {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.empty .h {
+  font-size: 0.82rem;
+  color: var(--ef-ink-2);
+  max-width: 380px;
+  line-height: 1.75;
+}
+
+/* 暂停徽标：黄块 + 真实计数 */
+.paused-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 1rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.1rem 0.5em;
+  background: var(--ef-signal);
+  color: var(--ef-on-signal);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 底部读数条 */
+.strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 1.15rem;
+  border-top: 1px solid var(--ef-rule);
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.72rem;
+  color: var(--ef-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.strip .log {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.strip-right {
+  display: flex;
+  gap: 1.1rem;
+  flex: none;
+}

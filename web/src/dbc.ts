@@ -3,22 +3,26 @@
  * 不拥有 DOM 结构，只操作契约中的容器与 id。
  */
 import { api } from './api';
-import { SERIES_COLORS, SignalChart } from './chart';
+import { seriesPalette, MAX_SERIES, SignalChart } from './chart';
 import { decodeMessage, parseFrameData, signalKey } from './dbc-model';
 import { els } from './dom';
 import { errText, fmtSignal, hexOf } from './format';
 import { state } from './state';
 import { toast } from './toast';
 import { isObj, parseDbcDto } from './types';
-import type { ChartSample, ChartSeries } from './chart';
+import type { ChartSample, ChartSeries, SeriesLook } from './chart';
 import type { DbcDefinitionDto, DbcMessageDto, DbcSignalDto, FrameDto } from './types';
 
 const SAMPLE_CAP = 20000;
-const MAX_SERIES = 8;
 const DEFAULT_WINDOW_MS = 30000;
 const MAX_DBC_BYTES = 1024 * 1024;
 
-interface SeriesState { message: DbcMessageDto; signal: DbcSignalDto; color: string; samples: ChartSample[] }
+interface SeriesState {
+  message: DbcMessageDto;
+  signal: DbcSignalDto;
+  look: SeriesLook;
+  samples: ChartSample[];
+}
 interface MsgSeries { message: DbcMessageDto; byKey: Map<string, SeriesState> }
 
 let def: DbcDefinitionDto | null = null;
@@ -77,10 +81,28 @@ function scheduleRender(): void {
 function renderChart(): void {
   const out: ChartSeries[] = [];
   for (const [key, s] of series) {
-    out.push({ key, label: s.signal.name, unit: s.signal.unit, color: s.color, samples: s.samples });
+    out.push({
+      key,
+      label: s.signal.name,
+      unit: s.signal.unit,
+      color: s.look.color,
+      dash: s.look.dash,
+      samples: s.samples,
+    });
   }
   if (chart) chart.update(out, currentWindowMs());
   renderLegend();
+}
+
+/** 图例/开关里的线形标记：实线色块或同色虚线（与曲线的 dash 一致）。 */
+function lineMarkerCss(look: SeriesLook): string {
+  if (look.dash.length === 0) return 'background:' + look.color;
+  const on = look.dash[0];
+  const off = Math.max(1, look.dash[1] ?? 4);
+  return (
+    'background:repeating-linear-gradient(90deg,' +
+    look.color + ' 0 ' + on + 'px,transparent ' + on + 'px ' + (on + off) + 'px)'
+  );
 }
 
 function renderLegend(): void {
@@ -91,11 +113,11 @@ function renderLegend(): void {
   const frag = document.createDocumentFragment();
   for (const s of series.values()) {
     const row = mk('div', 'sig-legend');
-    const dot = mk('span', 'sig-dot');
-    dot.style.background = s.color;
+    const line = mk('span', 'sig-line');
+    line.setAttribute('style', lineMarkerCss(s.look));
     const last = s.samples[s.samples.length - 1];
     const shown = last ? fmtSignal(last.v) + (s.signal.unit ? ' ' + s.signal.unit : '') : '—';
-    row.append(dot, text('span', 'sig-legend-name', s.signal.name), text('span', 'sig-legend-value', shown));
+    row.append(line, text('span', 'sig-legend-name', s.signal.name), text('span', 'sig-legend-value', shown));
     frag.appendChild(row);
   }
   els.signalLegend.replaceChildren(frag);
@@ -104,7 +126,7 @@ function renderLegend(): void {
 function renderHeader(): void {
   const count = def ? def.messages.reduce((n, m) => n + m.signals.length, 0) : 0;
   els.dbcName.textContent = def ? def.name : '未加载 DBC';
-  els.dbcSummary.textContent = def ? def.messages.length + ' 条报文 · ' + count + ' 个信号' : '';
+  els.dbcSummary.textContent = def ? def.messages.length + ' 条报文 │ ' + count + ' 个信号' : '';
   els.btnDbcRemove.disabled = def === null;
   els.dbcEmpty.hidden = def !== null;
   els.dbcBody.hidden = def === null;
@@ -144,7 +166,7 @@ function renderSignalBar(): void {
     btn.setAttribute('aria-pressed', String(s !== undefined));
     if (s) btn.classList.add('is-on');
     const dot = mk('span', 'sig-dot');
-    if (s) dot.style.background = s.color;
+    if (s) dot.setAttribute('style', 'background:' + s.look.color);
     btn.append(dot, text('span', 'sig-chip-name', sig.name));
     frag.appendChild(btn);
   }
@@ -224,11 +246,13 @@ function toggleSignal(sig: DbcSignalDto): void {
     toast('最多同时显示 ' + MAX_SERIES + ' 个信号曲线', 'warn');
     return;
   } else {
+    /* 外观按“色级 × 线型”取第一个尚未占用的组合（灰阶 + 虚线区分） */
+    const palette = seriesPalette();
     const used = new Set<string>();
-    for (const s of series.values()) used.add(s.color);
-    const color =
-      SERIES_COLORS.find((c: string) => !used.has(c)) ?? SERIES_COLORS[series.size % SERIES_COLORS.length];
-    const item: SeriesState = { message: msg, signal: sig, color, samples: [] };
+    for (const s of series.values()) used.add(s.look.color + '|' + s.look.dash.join(','));
+    const look =
+      palette.find((c) => !used.has(c.color + '|' + c.dash.join(','))) ?? palette[series.size % palette.length];
+    const item: SeriesState = { message: msg, signal: sig, look, samples: [] };
     series.set(key, item);
     rebuildSeriesIndex();
     backfill(item);

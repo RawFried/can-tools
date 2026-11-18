@@ -3,7 +3,7 @@
  */
 import { feedDbcFrames, clearDbcSamples } from './dbc';
 import { els, rowTplRow } from './dom';
-import { displayChannelName, fmtClock, fmtInt, hexOf } from './format';
+import { fmtClock, fmtInt, hexOf } from './format';
 import { BUFFER_CAP, state } from './state';
 import { updateEmpty, updateStrip } from './status';
 import type { FrameDto } from './types';
@@ -66,21 +66,16 @@ function buildRow(f: FrameDto): HTMLTableRowElement {
   const badge = document.createElement('span');
   const info = state.status?.channels.find((item) => item.index === f.channel) ?? null;
   const isSocket = info !== null && info.source === 'socketcan';
-  if (isSocket) badge.className = 'ch-badge ch-scan';
-  else if (f.channel === 0 || f.channel === 1) badge.className = 'ch-badge ch' + f.channel;
-  else badge.className = 'ch-badge chx';
+  /* 通道来源统一为墨底编号标签（不靠多种色相区分），来源未知时退化为虚线框 */
+  badge.className = info !== null ? 'ch-badge' : 'ch-badge ch-x';
   /* 名称前带来源，避免 SocketCAN 的 can0 与 USB 的 CAN0/CAN1 混淆。 */
   const text = document.createElement('span');
   text.className = 'ch-name';
   text.textContent =
     info !== null
-      ? (isSocket ? 'SOCKET · ' : 'USB · ') +
-        (isSocket ? info.name : displayChannelName(info.name))
-      : f.channel === 0
-        ? 'CAN1'
-        : f.channel === 1
-          ? 'CAN2'
-          : 'CH' + (f.channel + 1);
+      ? (isSocket ? 'SOCKET │ ' : 'USB │ ') +
+        info.name
+      : 'CH' + (f.channel + 1);
   badge.title =
     info !== null
       ? (isSocket ? 'SocketCAN 链路 ' : 'USB 通道 ') +
@@ -94,7 +89,7 @@ function buildRow(f: FrameDto): HTMLTableRowElement {
 
   row.cells[3].textContent = hexOf(f.id, f.extended ? 8 : 3);
   const baseType = f.extended ? '扩展' : '标准';
-  row.cells[4].textContent = f.remote ? baseType + '·远程' : baseType;
+  row.cells[4].textContent = f.remote ? baseType + ' / 远程' : baseType;
   row.cells[5].textContent = String(f.dlc);
   row.cells[6].textContent = f.data.length > 0 ? f.data : '—';
 
@@ -114,7 +109,7 @@ function matchesFilter(f: FrameDto): boolean {
     String(f.channel),
     String(f.channel + 1),
     'can' + f.channel,
-    info ? displayChannelName(info.name) : '',
+    info ? info.name : '',
     info ? info.name : '',
     info ? (info.source === 'socketcan' ? 'socketcan' : 'usb') : '',
     f.data,
@@ -178,8 +173,6 @@ export function setPaused(p: boolean): void {
   state.paused = p;
   els.btnPauseView.setAttribute('aria-pressed', String(p));
   els.btnPauseLabel.textContent = p ? '继续显示' : '暂停显示';
-  els.icPause.hidden = p;
-  els.icPlay.hidden = !p;
   /* 暂停时自动滚动无意义，禁用开关以免状态矛盾 */
   els.autoscrollCheck.disabled = p;
   if (p) {

@@ -1,0 +1,269 @@
+/* ---------- 左栏：通道与滤波 / 录制（细线分区的表单区） ---------- */
+
+/* 通道状态行：方块灯 + 宽体读数；运行中黄块=正在收帧 */
+.channel-state {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.1rem 0;
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: var(--ef-t-field);
+  font-variant-numeric: tabular-nums;
+  color: var(--ef-ink-2);
+  line-height: 1.5;
+}
+.channel-state::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--ef-chip);
+  box-shadow: inset 0 0 0 1px var(--ef-ink-2);
+}
+.channel-state.running {
+  color: var(--ef-ink);
+}
+.channel-state.running::before {
+  background: var(--ef-signal);
+  box-shadow: none;
+}
+
+#channelRate,
+#channelSelect {
+  width: 100%;
+}
+
+/* ---------- 滤波器区间行 ---------- */
+/* 两行式：第一行「帧类型分段 + 删除」，第二行「起始 – 结束」。
+   窄栏（约 270px 内容宽）单行放不下扩展帧的 8 位 ID，拆行保证可读。 */
+#filterRangeList {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+.filter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.45rem;
+  padding: 0.5rem 0.55rem 0.55rem;
+  border: 1px solid var(--ef-rule);
+  background: var(--ef-paper);
+}
+.f-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+/* 分段占满整行，删除按钮锚定右缘；间距加大避免误触分段 */
+.f-kind {
+  gap: 0.55rem;
+}
+.f-kind .ef-seg {
+  flex: 1;
+  min-width: 0;
+}
+.f-kind .ef-seg label {
+  padding: 0 0.4rem;
+}
+.f-range .hex {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.f-range .hex input {
+  width: 100%;
+  min-width: 0;
+}
+.f-sep {
+  color: var(--ef-ink-2);
+  flex: none;
+}
+.filter-empty {
+  padding: 0.6rem 0.5rem;
+  font-size: 0.82rem;
+}
+
+/* ---------- 录制工具区 ---------- */
+.rec-toolbar {
+  display: grid;
+  gap: 0.7rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--ef-rule);
+  min-width: 0;
+}
+.rec-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.rec-actions .ef-btn {
+  justify-content: center;
+}
+
+/* 录制中：细线框 + 黄色小方块 + 真实读数（帧数/时长） */
+.rec-active {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--ef-ink);
+  background: var(--ef-panel);
+  min-width: 0;
+}
+.rec-live {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.rec-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--ef-signal);
+}
+.rec-file {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.8rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-stats {
+  display: flex;
+  gap: 1rem;
+  min-width: 0;
+}
+.rec-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  flex: none;
+  font-size: 0.78rem;
+  color: var(--ef-ink-2);
+  white-space: nowrap;
+}
+.rec-num {
+  display: inline-block;
+  min-width: 4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--ef-ink);
+}
+
+/* CSV 目录 */
+.rec-dir {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.rec-dir .field-label {
+  color: var(--ef-ink-2);
+  white-space: nowrap;
+}
+.rec-dir-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.rec-path-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  font-size: 0.78rem;
+}
+.rec-dir-row .ef-btn {
+  flex: none;
+}
+
+/* ---------- 录制文件列表（最多 5 行滚动） ---------- */
+/* 行高定值：8px 上/下内边距 + 18px 文件名行 + 1px 行距 + 16px 次行 + 1px 分隔线
+   = 52px（border-box，行内文字均为 nowrap 省略，不随内容变化）。 */
+.recs-wrap {
+  --rec-row-h: 52px;
+  max-height: calc(var(--rec-row-h) * 5);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ef-rule) transparent;
+}
+.recs-wrap:focus-visible {
+  outline: 2px solid var(--ef-ink);
+  outline-offset: -2px;
+}
+.recs-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rec-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: var(--rec-row-h);
+  padding: 0.5rem 0.1rem 0.5rem 0.2rem;
+  border-bottom: 1px solid var(--ef-rule);
+  position: relative;
+}
+.rec-item::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--ef-trace);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.2s var(--ef-snap);
+}
+.rec-item:hover {
+  background: var(--ef-paper);
+}
+.rec-item:hover::before {
+  transform: none;
+}
+.rec-item:last-child {
+  border-bottom: 0;
+}
+.rec-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.r-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-item-sub {
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.72rem;
+  line-height: 16px;
+  color: var(--ef-ink-2);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rec-item-sub .r-size::after {
+  content: '│';
+  margin: 0 0.45rem;
+  color: var(--ef-rule);
+}
+.r-act {
+  display: flex;
+  gap: 0.35rem;
+  flex: none;
+}

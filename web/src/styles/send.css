@@ -1,65 +1,88 @@
 /* ---------- 发送报文 ---------- */
-.tx-index { color: var(--tx); }
-.tx-index::before, .tx-index::after { color: var(--tx); }
-.panel-send { box-shadow: inset 0 0 0 1px var(--tx-dim), var(--shadow-card); }
-.panel-send::before,
-.panel-send::after { border-color: var(--tx-line); }
-.panel-send:hover::before,
-.panel-send:hover::after { border-color: var(--tx); }
-.panel-send .card-head { border-bottom: 1px solid transparent; }
-.send-body { padding: 12px 14px 14px; gap: 8px; }
-/* 首列 196px：容纳「SOCKET · CAN-DEBUG9」（15 字符接口名，实测文本 149px）
-   与「USB · CAN2（只听）」（129px），含 20px 内边距与下拉箭头；
-   定宽而非 auto，避免切换通道时列宽跳动 */
+
+.send-body {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.2rem;
+}
+
+/* 首列 196px：容纳「SOCKET · CAN-DEBUG9」（15 字符接口名）与
+   「USB · CAN2（只听）」；定宽避免切换通道时列宽跳动 */
 .send-row {
   display: grid;
   grid-template-columns: 196px 132px 150px minmax(160px, 1fr) 64px auto auto;
-  gap: 10px;
+  gap: 0.7rem;
   align-items: end;
 }
-.send-row .field { gap: 5px; }
-.send-row .field-label { font-size: 11px; }
-.send-row .input { height: 32px; }
-.send-data .input {
-  font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.02em;
+.send-row .field {
+  gap: 0.3rem;
 }
-.send-dlc .input { text-align: center; font-family: var(--font-mono); }
-.send-rtr { align-self: center; margin-top: 16px; height: 32px; }
+.send-row .field-label {
+  color: var(--ef-ink-2);
+}
+.send-data input {
+  letter-spacing: 0.03em;
+}
+.send-dlc input {
+  text-align: center;
+}
+.send-rtr {
+  align-self: center;
+  margin-top: 1.1rem;
+  min-height: 2.1rem;
+}
 .send-btn {
-  align-self: end; min-width: 88px; height: 32px;
-  background: var(--tx); color: var(--tx-fg);
-  border-color: transparent; font-weight: 600;
+  align-self: end;
+  min-width: 88px;
+  justify-content: center;
 }
-.send-btn:hover {
-  background: var(--tx); filter: brightness(1.08); border-color: transparent;
+.send-count {
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.78rem;
+  color: var(--ef-ink-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-.send-btn:disabled {
-  background: var(--surface-2); color: var(--text-mid);
-  filter: none; border-color: var(--border-strong);
+.send-count strong {
+  color: var(--ef-ink);
+  font-weight: 700;
 }
-.send-count { font-size: 11.5px; color: var(--text-mid); white-space: nowrap; }
-.send-count strong { color: var(--tx); font-family: var(--font-mono); font-weight: 600; }
-.send-hint { font-size: 11px; line-height: 1.5; color: var(--text-mid); }
-.send-hint.error { color: var(--err); }
-/* 面板内的选中态与复选框统一使用 TX 紫，选中项用淡紫底 + 描边而非实心块 */
-.panel-send .seg input:checked + span {
-  background: var(--tx-dim); color: var(--tx);
-  box-shadow: inset 0 0 0 1px var(--tx-line);
+.send-hint {
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--ef-ink-2);
 }
-.panel-send input[type='checkbox'] { accent-color: var(--tx); }
 
-/* 单行放不下时（7 列最少需要约 916px 内容宽 ≈ 1330px 视口）改为两段式：
+/* 单行放不下时（约 1330px 视口以下）改为两段式：
    第一行「通道 · ID · 帧类型 · DLC」，第二行数据占满，第三行远程 + 发送 */
 @media (max-width: 1330px) {
-  .send-row { grid-template-columns: 196px minmax(140px, 1fr) 160px 90px; }
-  .send-data { grid-column: 1 / -1; }
-  .send-rtr { margin-top: 0; }
-  .send-btn { grid-column: 4; }
+  .send-row {
+    grid-template-columns: 196px minmax(140px, 1fr) 160px 90px;
+  }
+  .send-data {
+    grid-column: 1 / -1;
+  }
+  .send-rtr {
+    margin-top: 0;
+  }
+  .send-btn {
+    grid-column: 4;
+  }
 }
 
 @media (max-width: 760px) {
-  .send-row { grid-template-columns: 1fr 1fr; }
-  .send-data { grid-column: 1 / -1; }
-  .send-btn { grid-column: 1 / -1; width: 100%; }
-  .send-rtr { margin-top: 0; }
+  .send-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .send-data {
+    grid-column: 1 / -1;
+  }
+  .send-btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .send-rtr {
+    margin-top: 0;
+  }
 }

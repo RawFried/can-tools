@@ -1,5 +1,7 @@
 /**
- * 提示气泡与底栏日志：toast() 去重/自动关闭/setLastLog()。
+ * 提示条与底栏日志：toast() 去重/自动关闭/setLastLog()。
+ * 提示条为深色条 + 左侧黄色竖条；「出错 / 注意」级别在文字前再加一面黄色小旗，
+ * 错误不用红色（红色只保留给删除文件）。
  */
 import { els } from './dom';
 import { fmtClockShort } from './format';
@@ -8,39 +10,11 @@ export type ToastLevel = 'info' | 'success' | 'warn' | 'error';
 
 let lastToast: { msg: string; at: number } | null = null;
 
-/** 每种提示级别的前置图标（静态 SVG 路径，经 DOM API 构建） */
-const TOAST_ICONS: Readonly<Record<ToastLevel, string>> = {
-  info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5"/><path d="M12 7.6v.2"/>',
-  success: '<circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.3 2.4 2.4 4.6-5.2"/>',
-  warn: '<path d="M12 4.5 21 19.5H3z"/><path d="M12 10v4"/><path d="M12 16.8v.2"/>',
-  error: '<circle cx="12" cy="12" r="8.5"/><path d="m9.2 9.2 5.6 5.6M14.8 9.2l-5.6 5.6"/>',
+/** 需要加旗的级别 → 旗面文字；info/success 只是一条消息。 */
+const TOAST_FLAGS: Partial<Readonly<Record<ToastLevel, string>>> = {
+  warn: '注意',
+  error: '出错',
 };
-
-function buildToastIcon(level: ToastLevel): SVGSVGElement {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('width', '15');
-  svg.setAttribute('height', '15');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', '1.7');
-  svg.setAttribute('stroke-linecap', 'round');
-  svg.setAttribute('stroke-linejoin', 'round');
-  svg.setAttribute('aria-hidden', 'true');
-  const parts = TOAST_ICONS[level].match(/<[a-z]+[^>]*>/g) ?? [];
-  for (const part of parts) {
-    const tag = part.match(/^<([a-z]+)/);
-    if (!tag) continue;
-    const el = document.createElementNS('http://www.w3.org/2000/svg', tag[1]);
-    const attrs = part.match(/[a-z-]+="[^"]*"/g) ?? [];
-    for (const attr of attrs) {
-      const m = attr.match(/^([a-z-]+)="([^"]*)"$/);
-      if (m) el.setAttribute(m[1], m[2]);
-    }
-    svg.appendChild(el);
-  }
-  return svg;
-}
 
 export function toast(message: string, level: ToastLevel = 'info'): void {
   const now = Date.now();
@@ -50,9 +24,13 @@ export function toast(message: string, level: ToastLevel = 'info'): void {
   const box = document.createElement('div');
   box.className = 'toast ' + level;
 
-  const ic = document.createElement('span');
-  ic.className = 'toast-ic';
-  ic.appendChild(buildToastIcon(level));
+  const flagText = TOAST_FLAGS[level];
+  if (flagText !== undefined) {
+    const flag = document.createElement('span');
+    flag.className = 'toast-flag';
+    flag.textContent = flagText;
+    box.appendChild(flag);
+  }
 
   const msg = document.createElement('span');
   msg.className = 'toast-msg';
@@ -64,7 +42,7 @@ export function toast(message: string, level: ToastLevel = 'info'): void {
   x.setAttribute('aria-label', '关闭提示');
   x.textContent = '×';
 
-  box.append(ic, msg, x);
+  box.append(msg, x);
   els.toasts.appendChild(box);
 
   let closed = false;
@@ -86,5 +64,5 @@ export function toast(message: string, level: ToastLevel = 'info'): void {
 }
 
 export function setLastLog(message: string): void {
-  els.lastLogMsg.textContent = fmtClockShort(Date.now()) + ' · ' + message;
+  els.lastLogMsg.textContent = fmtClockShort(Date.now()) + ' │ ' + message;
 }

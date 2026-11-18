@@ -1,0 +1,13 @@
+/* ---------- 字体接入 ----------
+   Saira 可变字体（宽 50–125 / 字重 100–900，SIL OFL 1.1）的 @font-face
+   声明在页面骨架 web/src/html/index.html 中（指向后端路由 /fonts/Saira.ttf，
+   打包器无法在 CSS 内保持该绝对 URL 原样输出）。
+   本文件把套件的界面/正文字体栈覆盖为 Saira + 中文黑体（Noto Sans SC /
+   思源黑体 / 苹方 / 雅黑）：拉丁与数字统一走 Saira，正文中文保持黑体常规字重。 */
+
+:root {
+  --ef-font-ui: 'Saira', 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+  --ef-font-text: 'Saira', 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+}

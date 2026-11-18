@@ -1,9 +1,8 @@
-    <section class="card panel-channel-stats" aria-labelledby="h-channel-stats">
-      <header class="card-head">
-        <span class="card-index">HUD</span>
-        <h2 id="h-channel-stats">通道统计</h2>
+    <section class="ef-panel" aria-labelledby="h-channel-stats">
+      <header class="panel-head">
+        <h2 class="ef-pair" id="h-channel-stats"><span class="ef-eyebrow slash">03 / Channel Stats</span><span>通道统计</span></h2>
         <span class="head-spacer"></span>
-        <span class="stats-note">每秒刷新</span>
+        <span class="ef-field head-field stats-note">每秒刷新</span>
       </header>
       <div class="channel-stats-wrap">
         <table class="channel-stats-table">
@@ -18,5 +17,5 @@
         </table>
         <div class="empty-inline" id="channelStatsEmpty">暂无运行中的通道；启动后显示帧率与总线负载。</div>
       </div>
-      <p class="hint channel-stats-hint">负载按经典 CAN 帧位数估算（不含位填充），包含被软件滤波丢弃的帧。</p>
+      <p class="panel-foot">负载按经典 CAN 帧位数估算（不含位填充），包含被软件滤波丢弃的帧。</p>
     </section>

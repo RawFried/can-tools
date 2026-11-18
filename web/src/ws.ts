@@ -13,7 +13,7 @@ import { parseWsMessage } from './types';
 type WsUiState = 'online' | 'connecting' | 'offline';
 
 function setWsUi(s: WsUiState): void {
-  els.wsDot.className = 'pill-dot';
+  els.wsDot.className = 'cm-dot';
   if (s === 'online') {
     els.wsDot.classList.add('ok');
     els.wsText.textContent = '服务在线';

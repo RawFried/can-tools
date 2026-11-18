@@ -5,8 +5,9 @@
  *   曲线居中、上下刻度可区分；正常序列给 12% 余量防波峰压到标注条；
  * - 共享底部相对时间轴（如 -30s … 0s），窗口右端对齐最新样本；
  * - 每像素列做 min/max 抽稀，超长样本数组不拖慢绘制；
- * - 网格/文字颜色经 getComputedStyle 读取 app.css 自定义属性，
- *   深色/浅色主题自动跟随；序列颜色由调用方从 SERIES_COLORS 分配。
+ * - 网格/文字颜色经 getComputedStyle 读取 app.css 的 --ef-* 变量，
+ *   深色/浅色主题自动跟随；序列外观（灰阶级别 × 实线/虚线）由 seriesPalette()
+ *   从 --chart-1..3 解析后交给调用方分配，不用红绿与渐变填充。
  */
 
 /** 单个采样点：t 为毫秒时间戳（升序），v 为物理值。 */
@@ -21,22 +22,35 @@ export interface ChartSeries {
   label: string;
   unit: string;
   color: string;
+  /** 虚线节拍（空数组=实线）；同色级的序列靠它区分。 */
+  dash?: readonly number[];
   samples: readonly ChartSample[];
 }
 
-/** 固定 8 色调色板（深空底与冷白底均 ≥3:1，线形可辨），按序分配给开启的信号。 */
-export const SERIES_COLORS: readonly string[] = [
-  '#12849b', // 青
-  '#a8650e', // 橙
-  '#0f7d55', // 绿
-  '#6c52cc', // 紫
-  '#b23c78', // 粉
-  '#8f7410', // 黄
-  '#2f66bb', // 蓝
-  '#bd3a35', // 红
-];
+/** 曲线外观：色级 + 线型。色级来自 CSS 变量 --chart-1..3（墨/灰，随主题），
+ *  线型在实线 / 长虚 / 点虚之间轮换 —— 不用红绿，也不用渐变填充。 */
+export interface SeriesLook {
+  color: string;
+  dash: readonly number[];
+}
 
-/** 主题相关的颜色与字体（来自 app.css 自定义属性；缺省值用于无样式环境）。 */
+const DASH_PATTERNS: ReadonlyArray<readonly number[]> = [[], [7, 4], [2, 4]];
+export const MAX_SERIES = DASH_PATTERNS.length * 3;
+
+/** 从当前主题解析 8 组可用外观（chart.ts 与 dbc.ts 共用）。 */
+export function seriesPalette(): SeriesLook[] {
+  const cs = getComputedStyle(document.documentElement);
+  const tones = [1, 2, 3].map(
+    (i) => cs.getPropertyValue('--chart-' + i).trim() || '#161616'
+  );
+  const looks: SeriesLook[] = [];
+  for (const dash of DASH_PATTERNS) {
+    for (const color of tones) looks.push({ color, dash });
+  }
+  return looks;
+}
+
+/** 主题相关的颜色与字体（来自 app.css 的 --ef-* 变量；缺省值用于无样式环境）。 */
 interface Theme {
   faint: string;
   mid: string;
@@ -85,14 +99,6 @@ function fmtRel(ms: number): string {
   const sec = Math.round(Math.abs(ms) / 1000);
   const txt = sec >= 60 && sec % 60 === 0 ? sec / 60 + 'm' : sec + 's';
   return '-' + txt;
-}
-
-/** #rrggbb → rgba(...)；非 6 位十六进制返回 null（调用方跳过面积填充）。 */
-function hexToRgba(hex: string, alpha: number): string | null {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (m === null) return null;
-  const n = parseInt(m[1], 16);
-  return 'rgba(' + ((n >> 16) & 255) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255) + ', ' + alpha + ')';
 }
 
 export class SignalChart {
@@ -161,12 +167,12 @@ export class SignalChart {
       return raw !== '' ? raw : fb;
     };
     return {
-      faint: pick('--text-faint', '#7e8fa4'),
-      mid: pick('--text-mid', '#9db0c5'),
-      grid: pick('--border-soft', 'rgba(96, 122, 152, 0.16)'),
-      border: pick('--border', '#25303f'),
-      mono: pick('--font-mono', 'Menlo, Consolas, monospace'),
-      ui: pick('--font-ui', 'system-ui, sans-serif'),
+      faint: pick('--ef-ink-2', '#5c5c5c'),
+      mid: pick('--ef-ink-2', '#5c5c5c'),
+      grid: pick('--ef-rule', '#d9d9d6'),
+      border: pick('--ef-ink', '#161616'),
+      mono: pick('--ef-font-mono', 'Menlo, Consolas, monospace'),
+      ui: pick('--ef-font-ui', 'system-ui, sans-serif'),
     };
   }
 
@@ -321,7 +327,7 @@ export class SignalChart {
       const nameW = ctx.measureText(s.label).width;
       ctx.font = '400 10px ' + th.ui;
       ctx.fillStyle = th.faint;
-      ctx.fillText('· ' + s.unit, plotL + 6 + nameW + 4, labelY);
+      ctx.fillText('/ ' + s.unit, plotL + 6 + nameW + 4, labelY);
     }
 
     /* 窗口内样本区间（samples 升序） */
@@ -412,29 +418,18 @@ export class SignalChart {
     }
     if (cols.length === 0) return;
 
-    /* 面积填充：曲线下方按序列色渐隐 */
-    const fillTop = hexToRgba(s.color, 0.22);
-    if (fillTop !== null && cols.length > 1) {
-      const grad = ctx.createLinearGradient(0, innerTop, 0, innerBottom);
-      grad.addColorStop(0, fillTop);
-      grad.addColorStop(1, hexToRgba(s.color, 0) ?? fillTop);
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      this.pathColumns(cols, xOf, yOf);
-      ctx.lineTo(xOf(cols[cols.length - 1].tL), innerBottom);
-      ctx.lineTo(xOf(cols[0].tF), innerBottom);
-      ctx.closePath();
-      ctx.fill();
-    }
+    /* 面积渐变填充已按视觉规范移除：只保留灰阶线 + 虚线区分 */
 
-    /* 曲线本体 */
+    /* 曲线本体：线型（实线/长虚/点虚）由序列携带 */
     ctx.strokeStyle = s.color;
     ctx.lineWidth = 1.5;
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
+    ctx.setLineDash(s.dash ?? []);
     ctx.beginPath();
     this.pathColumns(cols, xOf, yOf);
     ctx.stroke();
+    ctx.setLineDash([]);
     if (cols.length === 1) {
       /* 单点：零长线段不可见，画实心圆点 */
       ctx.fillStyle = s.color;

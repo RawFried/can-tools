@@ -11,12 +11,8 @@
       <div class="rec-item-sub"><span class="r-size"></span><span class="r-time"></span></div>
     </div>
     <div class="r-act">
-      <a class="btn btn-sm" href="#" download aria-label="下载此文件">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10m0 0-4-4m4 4 4-4M5 19h14"/></svg>
-      </a>
-      <button class="btn btn-sm btn-danger" type="button" aria-label="删除此文件">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M8 7l.9 12h6.2L16 7"/></svg>
-      </button>
+      <a class="ef-btn small" href="#" download><span>下载</span></a>
+      <button class="ef-btn small danger" type="button"><span>删除</span></button>
     </div>
   </li>
 </template>
@@ -24,18 +20,16 @@
 <template id="filterRowTpl">
   <div class="filter-row">
     <div class="f-line f-kind">
-      <div class="seg seg-mini" role="radiogroup" aria-label="帧类型">
+      <div class="ef-seg" role="radiogroup" aria-label="帧类型">
         <label><input type="radio" value="std" checked><span>标准</span></label>
         <label><input type="radio" value="ext"><span>扩展</span></label>
       </div>
-      <button class="btn icon-only f-del" type="button" aria-label="删除此 ID 区间">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>
-      </button>
     </div>
     <div class="f-line f-range">
       <span class="hex"><input class="input f-start" type="text" autocomplete="off" spellcheck="false" value="100" aria-label="起始 ID（十六进制）"></span>
       <span class="f-sep">–</span>
       <span class="hex"><input class="input f-end" type="text" autocomplete="off" spellcheck="false" value="7FF" aria-label="结束 ID（十六进制）"></span>
+      <button class="ef-btn small icon-only f-del" type="button" aria-label="删除此 ID 区间"><span>×</span></button>
     </div>
   </div>
 </template>

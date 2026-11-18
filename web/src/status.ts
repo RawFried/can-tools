@@ -17,19 +17,19 @@ import type { StatusDto } from './types';
 export function applyStatus(st: StatusDto): void {
   state.status = st;
 
-  /* 顶栏设备胶囊：序列号为空（或仅填充字符）时不显示 S/N 段 */
+  /* 顶栏设备读数：序列号为空（或仅填充字符）时不显示 S/N 段 */
   const info = st.device.info;
   if (st.device.open && info) {
-    els.devicePillDot.className = 'pill-dot ok';
+    els.devicePillDot.className = 'cm-dot ok';
     let pillText: string;
     if (info.serial) {
-      pillText = [info.hw_type, 'S/N ' + info.serial].filter((s) => s.length > 0).join(' · ');
+      pillText = [info.hw_type, 'S/N ' + info.serial].filter((s) => s.length > 0).join(' │ ');
     } else {
-      pillText = ['已连接', info.hw_type].filter((s) => s.length > 0).join(' · ');
+      pillText = ['已连接', info.hw_type].filter((s) => s.length > 0).join(' │ ');
     }
     els.devicePillText.textContent = pillText || '设备已连接';
   } else {
-    els.devicePillDot.className = 'pill-dot';
+    els.devicePillDot.className = 'cm-dot';
     els.devicePillText.textContent = '未连接设备';
   }
 
@@ -80,6 +80,11 @@ export function updateControls(): void {
   els.btnRecStart.disabled = !anyRunning || recActive;
   els.btnRecStop.disabled = !recActive;
   els.btnPauseView.disabled = !anyRunning;
+  /* 主操作跟随当前状态：运行中用「停止」，未运行用「启动」；录制同理 */
+  els.btnChannelStart.classList.toggle('go', !targetRunning);
+  els.btnChannelStop.classList.toggle('go', targetRunning);
+  els.btnRecStart.classList.toggle('go', !recActive);
+  els.btnRecStop.classList.toggle('go', recActive);
 
   /* 区间行数达到上限时禁用「添加」，并维护空列表占位提示 */
   const rangeCount = rangeRowCount();

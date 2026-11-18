@@ -3,7 +3,7 @@
  * 只读 DTO，每秒随 applyStatus 重绘；DOM 全部用 createElement/textContent 构建。
  */
 import { els } from './dom';
-import { displayChannelName, fmtBitrateLong, fmtInt, fmtRate } from './format';
+import { fmtBitrateLong, fmtInt, fmtRate } from './format';
 import type { ChannelStatusDto } from './types';
 
 /** USB 波特率文案：`500k` → `500 kbps`；空值退化为破折号。 */
@@ -45,7 +45,7 @@ function channelCell(c: ChannelStatusDto): HTMLTableCellElement {
   td.className = 'cs-ch';
   const name = document.createElement('span');
   name.className = 'cs-name';
-  name.textContent = displayChannelName(c.name);
+  name.textContent = c.name;
   const tag = document.createElement('span');
   tag.className = 'src-tag';
   tag.textContent = c.source === 'usb' ? 'USB' : 'SOCKET';

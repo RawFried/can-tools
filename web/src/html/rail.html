@@ -1,17 +1,16 @@
   <aside class="rail" aria-label="配置面板">
 
-    <section class="card" aria-labelledby="h-chan">
-      <header class="card-head">
-        <span class="card-index">01</span><h2 id="h-chan">通道与滤波</h2>
+    <section class="ef-panel" aria-labelledby="h-chan">
+      <header class="panel-head">
+        <h2 class="ef-pair" id="h-chan"><span class="ef-eyebrow slash">01 / Channel</span><span>通道</span></h2>
         <span class="head-spacer"></span>
-        <button class="btn btn-sm" id="btnRefreshDevices" type="button" title="同时扫描 USBCAN 设备与 SocketCAN 接口">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
+        <button class="ef-btn small" id="btnRefreshDevices" type="button" title="同时扫描 USBCAN 设备与 SocketCAN 接口">
           <span>刷新设备与链路</span>
         </button>
       </header>
-      <div class="card-body">
+      <div class="ef-form">
         <div class="field">
-          <label class="field-label" id="lb-ch" for="channelSelect">通道</label>
+          <label class="field-label" id="lb-ch" for="channelSelect">选择通道</label>
           <select class="input" id="channelSelect" aria-label="选择要配置的通道"></select>
         </div>
         <div class="channel-state" id="channelState">已停止</div>
@@ -31,31 +30,30 @@
           </select>
         </div>
         <div class="btn-row">
-          <button class="btn btn-primary" id="btnChannelStart" type="button" disabled><span>启动通道</span></button>
-          <button class="btn" id="btnChannelStop" type="button" disabled><span>停止通道</span></button>
+          <button class="ef-btn go" id="btnChannelStart" type="button" disabled><span>启动通道</span></button>
+          <button class="ef-btn" id="btnChannelStop" type="button" disabled><span>停止通道</span></button>
         </div>
         <div class="field" id="modeField">
           <span class="field-label" id="lb-mode">工作模式（USB）</span>
-          <div class="seg" role="radiogroup" aria-labelledby="lb-mode">
+          <div class="ef-seg" role="radiogroup" aria-labelledby="lb-mode">
             <label><input type="radio" name="mode" value="normal" checked><span>正常</span></label>
             <label><input type="radio" name="mode" value="listen_only"><span>只听</span></label>
             <label><input type="radio" name="mode" value="self_test"><span>自测</span></label>
           </div>
         </div>
 
-        <div class="card-section" role="group" aria-labelledby="h-filter">
-          <h3 class="section-head" id="h-filter">滤波器</h3>
+        <div class="panel-section" role="group" aria-labelledby="h-filter">
+          <h3 class="ef-pair" id="h-filter"><span class="ef-eyebrow slash">Filter</span><span>滤波器</span></h3>
           <div class="field">
             <div id="filterRangeList" role="group" aria-label="ID 区间"></div>
             <div class="empty-inline filter-empty" id="filterEmpty">未添加 ID 区间 —— 该通道将接收全部帧。</div>
           </div>
           <div class="btn-row">
-            <button class="btn" id="btnAddFilter" type="button">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <button class="ef-btn small" id="btnAddFilter" type="button">
               <span>添加 ID 区间</span>
             </button>
-            <button class="btn" id="btnAcceptAll" type="button" title="清空当前通道的 ID 区间（应用后该通道接收所有帧）"><span>接收全部</span></button>
-            <button class="btn" id="btnApplyFilters" type="button" disabled><span>实时应用滤波</span></button>
+            <button class="ef-btn small" id="btnAcceptAll" type="button" title="清空当前通道的 ID 区间（应用后该通道接收所有帧）"><span>接收全部</span></button>
+            <button class="ef-btn small" id="btnApplyFilters" type="button" disabled><span>实时应用滤波</span></button>
           </div>
         </div>
       </div>

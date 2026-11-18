@@ -1,113 +1,159 @@
-/* ---------- 表单 ---------- */
-.field { display: grid; gap: 6px; min-width: 0; }
-.field-label { font-size: 12px; color: var(--text-mid); }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* ---------- 应用控件（在 ef-form / ef-btn / ef-seg 之上的定制） ---------- */
 
-.input {
-  width: 100%; height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--border-strong); border-radius: var(--r-s);
-  background: var(--input-bg); color: var(--text);
-  font-size: 13px; font-family: inherit;
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+/* 输入行：标签 + 控件 + 说明，细线分隔 */
+.field {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
 }
-.input:hover { border-color: var(--can1-line); }
-.input:focus {
-  outline: none; border-color: var(--can1);
-  background: var(--input-bg);
-  box-shadow: var(--focus-ring);
-}
-.input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
-.input:disabled {
-  cursor: not-allowed;
-  color: var(--text-mid);
-  background: var(--surface-3);
-  border-color: var(--border-strong);
-  opacity: 0.65;
+.field-label {
+  font-size: var(--ef-t-field);
+  font-weight: 600;
+  color: var(--ef-ink);
 }
 
-select.input { cursor: pointer; }
-
-.hex { position: relative; display: block; min-width: 0; }
+/* 十六进制输入：0x 前缀 + 大写 */
+.hex {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
 .hex::before {
-  content: "0x";
-  position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
-  font: 600 12px/1 var(--font-mono);
-  color: var(--text-faint); pointer-events: none;
+  content: '0x';
+  position: absolute;
+  left: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.78rem;
+  color: var(--ef-ink-2);
+  pointer-events: none;
 }
-.hex .input {
-  padding-left: 27px;
-  font-family: var(--font-mono); font-size: 12.5px;
-  text-transform: uppercase; letter-spacing: 0.02em;
-}
-
-/* 允许换行：三按钮的滤波操作在 306px/266px 卡宽下放不下一行；
-   换行后每行按钮仍按 flex 等分拉满，放得下时行为与不换行一致 */
-.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.btn-row .btn { flex: 1; }
-
-/* ---------- 按钮 ---------- */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  height: 30px; padding: 0 12px;
-  border: 1px solid var(--border-strong); border-radius: var(--r-s);
-  background: var(--btn-bg); color: var(--text);
-  font-size: 12.5px; font-weight: 500;
-  cursor: pointer; user-select: none;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.06s;
-  text-decoration: none; white-space: nowrap;
-}
-.btn:hover { border-color: var(--can1-line); background: var(--surface-3); }
-.btn:active { transform: translateY(1px); }
-
-/* 统一的禁用态：中性底 + 中等强度文字（两主题下均保持可辨识），主按钮也不例外 */
-.btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-  transform: none;
-  color: var(--text-mid);
-  border-color: var(--border-strong);
-  background: var(--surface-2);
-}
-.btn:disabled:hover { border-color: var(--border-strong); background: var(--surface-2); }
-
-.btn-primary {
-  background: var(--btn-primary-grad);
-  color: var(--btn-primary-fg);
-  border-color: transparent; font-weight: 600;
-}
-.btn-primary:hover {
-  background: var(--btn-primary-grad);
-  filter: brightness(1.06);
-  border-color: transparent;
-}
-/* 禁用的主按钮退化为中性样式，保证文字可读 */
-.btn-primary:disabled {
-  background: var(--surface-2); color: var(--text-mid);
-  filter: none; border-color: var(--border-strong);
+.hex input {
+  padding-left: 1.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
-.btn-danger {
-  color: var(--err); border-color: var(--err-line);
-  background: var(--err-dim);
+/* 输入框统一紧凑高度（套件的默认内边距偏阅读向）；
+   边框比 hairline 深一档，控件轮廓在深浅两主题下都可辨（≈2:1，悬停再加深） */
+.ef-form :is(input:not([type='checkbox'], [type='radio']), select) {
+  min-height: 2.1rem;
+  padding: 0.25rem 0.55rem;
+  border-color: color-mix(in srgb, var(--ef-ink) 30%, var(--ef-panel));
+  font-variant-numeric: tabular-nums;
 }
-.btn-danger:hover { border-color: var(--err); background: var(--err-dim); }
-
-/* 弱化的次要操作（如“清空”），视觉上低于主操作与暂停/继续 */
-.btn-ghost { color: var(--text-mid); border-color: var(--border); background: transparent; }
-.btn-ghost:hover { color: var(--text); border-color: var(--border-strong); background: var(--surface-3); }
-
-.btn-sm { height: 26px; padding: 0 9px; font-size: 11.5px; gap: 5px; }
-
-.btn.icon-only { width: 28px; padding: 0; color: var(--text-faint); flex: none; }
-.btn.icon-only:hover { color: var(--err); border-color: var(--err); background: var(--err-dim); }
-
-.btn.busy { pointer-events: none; color: var(--text-faint); }
-.btn.busy::after {
-  content: "";
-  width: 11px; height: 11px; flex: none;
-  border: 2px solid currentColor; border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+.ef-form :is(input, select)::placeholder {
+  color: var(--ef-ink-2);
 }
-.btn-primary.busy { background: var(--can1); opacity: 0.6; }
+select.input {
+  cursor: pointer;
+}
+
+/* 禁用按钮：不用半透明（浅色下会像洗掉的主操作），改安静底色 + 次要墨字 */
+.ef-btn:disabled {
+  --fill: color-mix(in srgb, var(--ef-ink) 5%, var(--ef-panel));
+  color: var(--ef-ink-2);
+  opacity: 1;
+}
+.ef-btn.go:disabled {
+  color: var(--ef-ink-2);
+}
+.ef-btn.danger:disabled {
+  color: color-mix(in srgb, var(--ef-danger) 55%, var(--ef-ink-2));
+}
+
+/* 按钮行：等分拉满（滤波/通道操作的窄栏布局） */
+.btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.btn-row .ef-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* 本工具为桌面指针设备优化；触屏恢复 ≥44px 的命中区 */
+.ef-seg label {
+  min-height: 2.1rem;
+}
+@media (hover: none) {
+  .ef-seg label {
+    min-height: 44px;
+  }
+  .ef-btn.small {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+  }
+}
+
+/* 小方块图标按钮（删除区间行）：切角 + × */
+.icon-only {
+  width: 2.1rem;
+  padding: 0;
+  justify-content: center;
+}
+
+/* 按钮内的小图标对齐（保留少量真实图标的按钮） */
+.ef-btn svg {
+  flex: none;
+}
+
+/* 复选行（远程帧） */
+.check-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--ef-ink);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.check-mini input {
+  accent-color: var(--ef-ink);
+  margin: 0;
+}
+
+/* 提示文字（说明/校验） */
+.hint {
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: var(--ef-ink-2);
+}
+.hint code {
+  font-family: var(--ef-font-mono);
+  font-size: 0.75rem;
+  padding: 0.05em 0.3em;
+  border: 1px solid var(--ef-rule);
+  background: var(--ef-paper);
+  overflow-wrap: anywhere;
+}
+.hint code.nobreak {
+  white-space: nowrap;
+  overflow-x: auto;
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: normal;
+}
+
+/* 「需要注意」的行内提示：垫黄块，不用红 */
+.hint.error,
+.dbc-hint.is-error {
+  display: inline-block;
+  padding: 0 0.4em;
+  background: var(--ef-signal);
+  color: var(--ef-on-signal);
+  font-weight: 700;
+}
+
+/* 空状态一句话 */
+.empty-inline {
+  padding: 0.9rem 0.8rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--ef-ink-2);
+  line-height: 1.8;
+}

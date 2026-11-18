@@ -171,6 +171,15 @@ USBCAN/CANalyst-II (04d8:0053)
 协议字节布局见 [`docs/protocol.md`](docs/protocol.md)，HTTP API 见
 [`docs/api.md`](docs/api.md)。
 
+## 界面风格
+
+前端按 `endfield-ui` skill 的**标准变体**与**控制台**页型实现：
+纸面/墨/单一信号黄、切角只给可点击元素、细线分区、宽体 Saira + 中文黑体。
+变体参数写在 `web/src/html/index.html` 的 `<html>` 上
+（`data-ef-density="compact"`、`data-ef-motion="calm"`）；颜色与部件来自
+`web/src/styles/vendor/endfield.css`，应用侧只做布局与定制。界面不使用游戏素材；
+Saira 为 SIL OFL 1.1，许可证见 `web/fonts/Saira-OFL.txt`。
+
 ## 构建
 
 前置：Rust 1.82+、Linux；完整构建还需要 Node.js（用于生成前端产物）。`rusb` 启用 `vendored`，构建 libusb 不需要系统开发头文件。

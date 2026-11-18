@@ -1,83 +1,119 @@
-/* ---------- 通道统计（HUD 面板） ---------- */
-/* 主区顶部读数带：每个运行中通道一行，展示速率、帧率、总线负载与累计接收。
-   数据每秒随状态推送重绘，因此表格只保留紧凑的静态排版（入场节奏见 layout.css）。 */
+/* ---------- 通道统计：每秒刷新的真实读数（ef-table） ---------- */
 
 .stats-note {
-  font: 400 10.5px/1 var(--font-mono);
-  color: var(--text-faint);
-  letter-spacing: 0.06em;
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.72rem;
+  color: var(--ef-ink-2);
+  white-space: nowrap;
 }
 
-.channel-stats-wrap { overflow-x: auto; }
+.channel-stats-wrap {
+  overflow-x: auto;
+}
 
 table.channel-stats-table {
   width: 100%;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 }
-
 table.channel-stats-table th {
+  padding: 0.4rem 0.9rem;
+  border-bottom: 1px solid var(--ef-ink);
+  color: var(--ef-ink-2);
+  font-family: var(--ef-font-ui);
+  font-size: 0.7rem;
+  font-stretch: var(--ef-wider);
+  font-weight: 600;
+  text-transform: uppercase;
   text-align: left;
-  font: 600 10.5px/1.2 var(--font-mono);
-  color: var(--text-faint); letter-spacing: 0.07em;
-  padding: 7px 14px;
-  border-bottom: 1px solid var(--border-strong);
   white-space: nowrap;
 }
-
 table.channel-stats-table td {
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--border-soft);
-  font: 400 12px/1.35 var(--font-mono);
-  color: var(--text-mid);
+  padding: 0.5rem 0.9rem;
+  border-bottom: 1px solid var(--ef-rule);
+  font-size: 0.82rem;
+  color: var(--ef-ink);
   white-space: nowrap;
 }
-table.channel-stats-table tbody tr:last-child td { border-bottom: 0; }
-table.channel-stats-table tbody tr:hover td { background: var(--row-hover); }
-table.channel-stats-table th.num, table.channel-stats-table td.num { text-align: right; }
+/* 首末列与面板内边距对齐 */
+table.channel-stats-table th:first-child,
+table.channel-stats-table td:first-child {
+  padding-left: 1.15rem;
+}
+table.channel-stats-table th:last-child,
+table.channel-stats-table td:last-child {
+  padding-right: 1.15rem;
+}
+table.channel-stats-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+table.channel-stats-table tbody tr:hover {
+  background: var(--ef-paper);
+  box-shadow: inset 4px 0 0 var(--ef-trace);
+}
+table.channel-stats-table th.num,
+table.channel-stats-table td.num {
+  text-align: right;
+  font-stretch: var(--ef-wide);
+}
 
-/* 通道列允许换行，窄屏下不挤出横向滚动 */
-table.channel-stats-table td.cs-ch { white-space: normal; color: var(--text); font-weight: 600; }
-.cs-name { margin-right: 6px; overflow-wrap: anywhere; }
-
+/* 通道列允许换行；来源徽标（USB / SOCKET） */
+table.channel-stats-table td.cs-ch {
+  white-space: normal;
+  font-weight: 600;
+}
+.cs-name {
+  margin-right: 0.4rem;
+  overflow-wrap: anywhere;
+}
 .src-tag {
   display: inline-block;
-  font: 600 9.5px/1 var(--font-mono);
-  letter-spacing: 0.08em;
-  color: var(--text-faint);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 2px 5px;
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wider);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--ef-ink-2);
+  border: 1px solid var(--ef-rule);
+  padding: 0.1rem 0.3rem;
   vertical-align: 1px;
 }
 
 .unit-sm {
-  font: 400 10px/1 var(--font-ui);
-  color: var(--text-faint);
-  margin-left: 3px; letter-spacing: 0.02em;
+  font-size: 0.68rem;
+  color: var(--ef-ink-2);
+  margin-left: 0.2rem;
 }
 
-/* 负载：数值 + 4px 细进度条；未知速率只显示占位破折号 */
-td.cs-load { min-width: 108px; }
-.load-cell { display: flex; align-items: center; gap: 8px; }
-.load-val { min-width: 40px; }
+/* 总线负载：数值 + 细分段条；灰阶填充，超载（>100%）才垫黄 */
+td.cs-load {
+  min-width: 108px;
+}
+.load-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.load-val {
+  min-width: 44px;
+  font-stretch: var(--ef-wide);
+}
 .load-track {
-  flex: 1 1 auto; min-width: 36px;
-  height: 4px; border-radius: 999px;
-  background: var(--input-bg);
+  flex: 1 1 auto;
+  min-width: 36px;
+  height: 6px;
+  background: var(--ef-chip);
   overflow: hidden;
+  /* 分段条：与进度条同语言的 24 格 */
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(100% / 24 - 2px), transparent 0 calc(100% / 24));
+  mask: repeating-linear-gradient(90deg, #000 0 calc(100% / 24 - 2px), transparent 0 calc(100% / 24));
 }
 .load-fill {
-  height: 100%; border-radius: 999px;
-  background: var(--ok);
-  transition: width 0.3s ease;
+  height: 100%;
+  background: color-mix(in srgb, var(--ef-ink-2) 70%, transparent);
+  transition: width 0.28s var(--ef-mech);
 }
-.load-fill.over { background: var(--err); }
-
-/* 底部提示行：与其它卡片 hint 一致（顶部细分隔线 + 小号弱化文本） */
-.channel-stats-hint {
-  padding: 7px 14px;
-  border-top: 1px solid var(--border);
-  font-size: 11px; line-height: 1.6;
-  color: var(--text-faint);
+.load-fill.over {
+  background: var(--ef-signal);
 }

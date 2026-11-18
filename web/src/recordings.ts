@@ -3,13 +3,13 @@
  */
 import { deleteRecordingFile, fetchRecordings } from './api';
 import { els, q, recTplRow } from './dom';
-import { errText, fmtBytes, fmtDateTime, fmtInt } from './format';
+import { errText, fmtBytes, fmtDateShort, fmtInt } from './format';
 import { state } from './state';
 import { runBusy } from './status';
 import { toast } from './toast';
 import type { RecordingFileDto } from './types';
 
-/** 侧栏窄列表行：第一行文件名（省略 + title 全名），第二行「大小 · 修改时间」，右侧图标按钮。 */
+/** 侧栏窄列表行：第一行文件名（省略 + title 全名），第二行「大小 │ 修改时间」，右侧下载/删除。 */
 function buildRecRow(rec: RecordingFileDto): HTMLLIElement {
   const src = recTplRow;
   const row = (src ? src.cloneNode(true) : document.createElement('li')) as HTMLLIElement;
@@ -18,14 +18,14 @@ function buildRecRow(rec: RecordingFileDto): HTMLLIElement {
   name.textContent = rec.name;
   name.title = rec.name;
   q<HTMLElement>(row, '.r-size').textContent = fmtBytes(rec.size);
-  q<HTMLElement>(row, '.r-time').textContent = fmtDateTime(rec.modified_ms);
+  q<HTMLElement>(row, '.r-time').textContent = fmtDateShort(rec.modified_ms);
 
-  const link = q<HTMLAnchorElement>(row, 'a.btn');
+  const link = q<HTMLAnchorElement>(row, 'a.ef-btn');
   link.href = '/api/recordings/' + encodeURIComponent(rec.name);
   link.setAttribute('download', rec.name);
   link.setAttribute('aria-label', '下载 ' + rec.name);
 
-  const del = q<HTMLButtonElement>(row, 'button.btn-danger');
+  const del = q<HTMLButtonElement>(row, 'button.danger');
   del.setAttribute('aria-label', '删除 ' + rec.name);
   del.addEventListener('click', () => {
     void deleteRecording(rec.name, del);
@@ -40,7 +40,7 @@ export function renderRecordings(): void {
   }
   els.recordingsList.replaceChildren(frag);
   els.recordingsEmpty.hidden = state.recordings.length > 0;
-  els.recordingsCount.textContent = fmtInt(state.recordings.length);
+  els.recordingsCount.textContent = '共 ' + fmtInt(state.recordings.length) + ' 个';
   /* 仅当内容超出 5 行时把滚动区纳入键盘 Tab 顺序, 避免空列表也能被 Tab 命中。 */
   els.recordingsWrap.tabIndex = state.recordings.length > 5 ? 0 : -1;
 }

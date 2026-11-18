@@ -1,18 +1,28 @@
 /* CSS 入口，esbuild 打包为 web/app.css（后端 include_str! 嵌入）。
-   导入顺序即级联顺序，必须与原 app.css 的分区顺序一致；
+   级联顺序：
+   1. vendor/   endfield-ui 套件（ef-* 部件，含等高线数据 URI）；
+   2. fonts     覆盖套件的界面/正文字体栈（Saira + 中文黑体；
+                @font-face 写在页面骨架里，见 fonts.css 注释）；
+   3. base      应用级基础（.ef 微调、命令栏状态字段、skip-link）；
+   4. layout    骨架网格与面板头部；
+   5. controls  表单控件与通用小件（在 ef-form/ef-btn 之上）；
+   6. rail      左栏：通道/滤波/录制；
+   7. stats     通道统计读数表；
+   8. data      实时报文与选项卡外壳；
+   9. send      发送报文；
+   10. dbc      信号曲线（视图二）；
+   11. overlays 提示条与滚动条；
+   12. responsive 断点覆盖。
    新增样式请放入对应职责文件，不要在本文件写规则。 */
-@import './tokens.css';
+@import './vendor/endfield.css';
+@import './fonts.css';
 @import './base.css';
 @import './layout.css';
 @import './controls.css';
-@import './channels.css';
-@import './filters.css';
-@import './recording.css';
-@import './hints.css';
+@import './rail.css';
 @import './stats.css';
-@import './data-view.css';
+@import './data.css';
+@import './send.css';
 @import './dbc.css';
-@import './recordings.css';
 @import './overlays.css';
 @import './responsive.css';
-@import './send.css';

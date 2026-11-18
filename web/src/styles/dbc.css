@@ -1,194 +1,345 @@
 /* ---------- DBC 信号曲线（数据区卡片的视图二） ---------- */
-/* 视图根 .view-signals 的显隐由 .panel-data:has(...) 控制，此处只管内部布局 */
+/* 视图根 .view-signals 的显隐由 .panel-data:has(...) 控制（见 data.css）。
+   曲线配色：墨/灰三级 + 虚线区分（不用红绿与渐变），变量供 chart.ts 读取。 */
 
-/* 文件名/摘要 + 加载/移除（位于共享卡片头部） */
-.dbc-meta {
-  flex: 1 1 200px; min-width: 0;
-  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+:root {
+  --chart-1: #161616;
+  --chart-2: #6b6b67;
+  --chart-3: #8f8f89;
 }
-.dbc-name {
-  font: 600 12px/1.3 var(--font-mono);
-  max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+:root[data-theme='dark'] {
+  --chart-1: #ededed;
+  --chart-2: #a3a3a3;
+  --chart-3: #747474;
 }
-.dbc-summary { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
-.dbc-actions { display: flex; gap: 6px; margin-left: auto; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --chart-1: #ededed;
+    --chart-2: #a3a3a3;
+    --chart-3: #747474;
+  }
+}
 
-/* 未加载时的空状态（> svg 只命中插图，不影响按钮内的小图标） */
+/* 未加载时的空状态 */
 .dbc-empty {
-  display: grid; justify-items: center; align-content: center; gap: 8px;
-  padding: 28px 24px; text-align: center;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.5rem;
+  padding: 2rem 1.5rem;
+  text-align: center;
   min-height: 280px;
 }
-.dbc-empty > svg { width: 190px; height: auto; margin-bottom: 4px; color: var(--text-faint); }
-.dbc-empty .t { font-size: 13.5px; font-weight: 600; }
-.dbc-empty .h { font-size: 12.5px; color: var(--text-mid); max-width: 460px; line-height: 1.75; }
-.dbc-empty .btn-primary { margin-top: 8px; height: 32px; padding: 0 16px; }
+.dbc-empty .t {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.dbc-empty .h {
+  font-size: 0.82rem;
+  color: var(--ef-ink-2);
+  max-width: 460px;
+  line-height: 1.8;
+}
+.dbc-empty .ef-btn {
+  margin-top: 0.5rem;
+}
 
 /* 已加载：左侧报文列表 + 右侧曲线区 */
-.dbc-body { display: grid; grid-template-columns: 264px minmax(0, 1fr); align-items: stretch; }
+.dbc-body {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  align-items: stretch;
+}
 
 .dbc-msg-pane {
-  display: flex; flex-direction: column; min-width: 0; min-height: 0;
-  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--ef-rule);
 }
 .dbc-pane-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border-soft);
-  font: 500 10.5px/1.3 var(--font-mono);
-  letter-spacing: 0.08em; color: var(--text-faint);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 1.15rem 0.4rem 0.9rem;
+  border-bottom: 1px solid var(--ef-rule);
+  font-size: 0.8rem;
+  font-weight: 700;
 }
-.dbc-pane-tip { font-size: 10.5px; letter-spacing: 0.02em; }
+.dbc-pane-tip {
+  font-family: var(--ef-font-ui);
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--ef-ink-2);
+}
 .dbc-msg-list {
-  flex: 1; min-height: 120px; max-height: 340px;
-  overflow-y: auto; overscroll-behavior: contain;
-  display: flex; flex-direction: column; gap: 6px;
-  padding: 8px;
-  scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
-}
-.dbc-msg-list::-webkit-scrollbar { width: 10px; }
-.dbc-msg-list::-webkit-scrollbar-thumb {
-  background: var(--border-strong); border-radius: 6px; border: 2px solid var(--surface);
+  flex: 1;
+  min-height: 120px;
+  max-height: 340px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0.4rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ef-rule) transparent;
 }
 
-/* 报文按钮：ID 徽标 + 名称 + 计数 */
+/* 报文行：ID 编号标签 + 名称 + 信号计数；当前报文整行黄块（“当前位置”） */
 .dbc-msg {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center; gap: 8px;
-  padding: 6px 8px;
-  border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface-2);
-  cursor: pointer; text-align: left;
-  transition: border-color 0.15s, background 0.15s;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.4rem;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.15s;
 }
-.dbc-msg:hover { border-color: var(--border-strong); }
-.dbc-msg.is-active {
-  border-color: var(--can1-line); background: var(--can1-dim);
+.dbc-msg:hover {
+  background: var(--ef-paper);
 }
 .dbc-msg-id {
-  font: 600 10.5px/1 var(--font-mono); letter-spacing: 0.03em;
-  color: var(--text-mid); background: var(--surface-3);
-  border: 1px solid var(--border-strong);
-  padding: 3px 5px; border-radius: 5px; white-space: nowrap;
-}
-.dbc-msg.is-active .dbc-msg-id {
-  color: var(--can1); background: var(--surface); border-color: var(--can1-line);
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--ef-ink-2);
+  border: 1px solid var(--ef-rule);
+  padding: 0.1rem calc(0.25rem + var(--ef-cut)) 0.1rem 0.25rem;
+  background: linear-gradient(-45deg, transparent calc(var(--ef-cut) - 0.5px), var(--ef-chip) var(--ef-cut));
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .dbc-msg-name {
-  font-size: 12px; font-weight: 600;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dbc-msg-count {
-  font: 500 10.5px/1 var(--font-mono);
-  color: var(--text-faint); background: var(--surface-3);
-  padding: 3px 6px; border-radius: 999px; white-space: nowrap;
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.7rem;
+  color: var(--ef-ink-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-.dbc-msg.is-active .dbc-msg-count { color: var(--text-mid); }
+.dbc-msg.is-active {
+  background: var(--ef-signal);
+  color: var(--ef-on-signal);
+}
+.dbc-msg.is-active .dbc-msg-id {
+  color: var(--ef-on-signal);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ef-on-signal) 14%, transparent);
+}
+.dbc-msg.is-active .dbc-msg-count {
+  color: var(--ef-on-signal);
+}
 
-/* 曲线区：工具条 + 信号开关条 + 画布 + 图例（整体紧凑，避免页面被撑高） */
+/* 曲线区：工具条 + 信号开关条 + 画布 + 图例 */
 .dbc-chart-pane {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 10px 12px; min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.7rem 1.15rem 0.9rem;
+  min-width: 0;
 }
-.dbc-chart-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.dbc-win { font-size: 11.5px; color: var(--text-mid); white-space: nowrap; }
-.dbc-chart-tools .input { width: auto; height: 26px; padding: 0 26px 0 8px; font-size: 12px; }
+.dbc-chart-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.dbc-win {
+  font-size: 0.78rem;
+  color: var(--ef-ink-2);
+  white-space: nowrap;
+}
+.dbc-chart-tools select {
+  width: auto;
+  min-height: 1.9rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.78rem;
+}
 
-/* 信号多时纵向滚动，不撑高面板 */
+/* 信号开关：浅灰切角小块，开启 = 黄（kit 的筛选块语言） */
 .dbc-signal-bar {
-  display: flex; flex-wrap: wrap; gap: 6px;
-  max-height: 92px; overflow-y: auto; overscroll-behavior: contain;
-  scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  max-height: 92px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ef-rule) transparent;
 }
-.dbc-signal-bar:empty, .dbc-legend:empty { display: none; }
+.dbc-signal-bar:empty,
+.dbc-legend:empty {
+  display: none;
+}
 
 .sig-chip {
-  display: inline-flex; align-items: center; gap: 7px;
-  height: 26px; padding: 0 10px;
-  border: 1px solid var(--border-strong); border-radius: 999px;
-  background: var(--surface-2); color: var(--text-mid);
-  font-size: 11.5px;
-  cursor: pointer; user-select: none; white-space: nowrap;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.1rem calc(0.55rem + var(--ef-cut)) 0.1rem 0.5rem;
+  border: 0;
+  background: linear-gradient(-45deg, transparent calc(var(--ef-cut) - 0.5px), var(--ef-chip) var(--ef-cut));
+  color: var(--ef-ink);
+  font-size: 0.78rem;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: background-color 0.15s;
 }
-.sig-chip:hover { border-color: var(--border-strong); background: var(--surface-3); color: var(--text); }
-.sig-chip .sig-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--text-faint); flex: none;
-  transition: transform 0.15s, opacity 0.15s;
+.sig-chip:hover {
+  background: linear-gradient(-45deg, transparent calc(var(--ef-cut) - 0.5px), color-mix(in srgb, var(--ef-ink) 14%, var(--ef-chip)) var(--ef-cut));
 }
-/* 关闭态：圆点淡化缩小；文字仍保持中性可读，不整体降透明度 */
-.sig-chip:not(.is-on) { color: var(--text-mid); }
-.sig-chip:not(.is-on) .sig-dot { opacity: 0.45; transform: scale(0.85); }
-.sig-chip.is-on {
-  background: var(--surface-3); color: var(--text);
-  border-color: var(--can1-line); font-weight: 600;
-}
-.sig-chip.is-on .sig-dot { transform: scale(1.25); }
 .sig-chip-name {
-  font: 500 11px/1.2 var(--font-mono); letter-spacing: 0.01em;
-  max-width: 180px; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.72rem;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sig-chip .sig-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--ef-ink-2);
+}
+.sig-chip.is-on {
+  background: linear-gradient(-45deg, transparent calc(var(--ef-cut) - 0.5px), var(--ef-signal) var(--ef-cut));
+  color: var(--ef-on-signal);
+  font-weight: 700;
+}
+.sig-chip.is-on .sig-dot {
+  box-shadow: none;
 }
 
 .dbc-signal-empty {
-  padding: 6px 10px;
-  border: 1px dashed var(--border-strong); border-radius: 8px;
-  font-size: 12px; color: var(--text-faint);
+  padding: 0.4rem 0.6rem;
+  border: 1px dashed var(--ef-rule);
+  font-size: 0.78rem;
+  color: var(--ef-ink-2);
 }
 
 .dbc-chart-box {
-  position: relative; height: 264px;
-  border: 1px solid var(--border); border-radius: 8px;
-  background: var(--surface-2);
+  position: relative;
+  height: 264px;
+  border: 1px solid var(--ef-rule);
+  background: var(--ef-paper);
   overflow: hidden;
-  box-shadow: inset 0 1px 0 var(--border-soft);
 }
-#signalChart { display: block; width: 100%; height: 100%; }
+#signalChart {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 
-/* 图例行多时同样纵向滚动 */
+/* 图例：名称 + 末值（真实读数）；线形标记与曲线的虚实一致 */
 .dbc-legend {
-  display: flex; flex-wrap: wrap; gap: 5px 16px; padding: 0 2px;
-  max-height: 60px; overflow-y: auto; overscroll-behavior: contain;
-  scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.1rem;
+  padding: 0 0.1rem;
+  max-height: 60px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ef-rule) transparent;
 }
-.sig-legend { display: inline-flex; align-items: baseline; gap: 7px; min-width: 0; }
-.sig-legend .sig-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  flex: none; align-self: center;
+.sig-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.sig-legend .sig-line {
+  width: 16px;
+  height: 2px;
+  flex: none;
 }
 .sig-legend-name {
-  font: 500 11px/1.4 var(--font-mono); color: var(--text-mid);
-  max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.72rem;
+  color: var(--ef-ink-2);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sig-legend-value {
-  font: 600 11.5px/1.4 var(--font-mono);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-stretch: var(--ef-wide);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* 面板底部状态行（加载结果 / 错误提示） */
 .dbc-hint {
-  padding: 7px 14px; border-top: 1px solid var(--border);
-  font-size: 11px; line-height: 1.6;
+  margin: 0.7rem -1.15rem -1.15rem;
+  padding: 0.45rem 1.15rem;
+  border-top: 1px solid var(--ef-rule);
+  font-size: 0.75rem;
+  line-height: 1.7;
+  color: var(--ef-ink-2);
 }
-.dbc-hint.error { color: var(--err); }
 
 /* 中等宽度：收窄报文列表，给曲线让位 */
 @media (max-width: 1180px) {
-  .dbc-body { grid-template-columns: 220px minmax(0, 1fr); }
+  .dbc-body {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
 }
 
-/* 窄屏：报文列表与曲线上下堆叠，画布进一步降低 */
+/* 窄屏：报文列表与曲线上下堆叠 */
 @media (max-width: 900px) {
-  .dbc-body { grid-template-columns: 1fr; }
-  .dbc-msg-pane { border-right: 0; border-bottom: 1px solid var(--border); }
-  .dbc-msg-list { flex: none; min-height: 0; max-height: 168px; }
-  .dbc-chart-box { height: 208px; }
-  .dbc-signal-bar { max-height: 120px; }
+  .dbc-body {
+    grid-template-columns: 1fr;
+  }
+  .dbc-msg-pane {
+    border-right: 0;
+    border-bottom: 1px solid var(--ef-rule);
+  }
+  .dbc-msg-list {
+    flex: none;
+    min-height: 0;
+    max-height: 168px;
+  }
+  .dbc-chart-box {
+    height: 208px;
+  }
+  .dbc-signal-bar {
+    max-height: 120px;
+  }
 }
 
 @media (max-width: 520px) {
-  .dbc-chart-pane { padding: 10px; }
-  .dbc-chart-box { height: 200px; }
-  .dbc-name { max-width: 170px; }
-  .dbc-empty { padding: 24px 16px; min-height: 240px; }
+  .dbc-chart-pane {
+    padding: 0.6rem 0.8rem;
+  }
+  .dbc-chart-box {
+    height: 200px;
+  }
+  .dbc-name {
+    max-width: 170px;
+  }
+  .dbc-empty {
+    padding: 1.5rem 1rem;
+    min-height: 240px;
+  }
 }
