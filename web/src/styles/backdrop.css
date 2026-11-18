@@ -1,6 +1,6 @@
 /* ---------- 动态背景 ---------- */
 /* 固定 canvas 位于纸面背景之上、所有内容之后；不拦截指针。
-   JS 成功接管后 body 加 .ef-fx，隐藏 vendor 的静态等高线 mask。 */
+   等高线保留 vendor 的静态 mask，canvas 只画动态尘埃。 */
 .fx-backdrop {
   position: fixed;
   inset: 0;
@@ -9,10 +9,6 @@
   z-index: -1;
   pointer-events: none;
   display: block;
-}
-/* body 同时带 ef-fx 与 ef-contours；不能写成后代选择器 */
-body.ef-fx.ef-contours::before {
-  display: none;
 }
 @media print {
   .fx-backdrop { display: none; }

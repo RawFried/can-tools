@@ -1,5 +1,5 @@
 /**
- * 背景动态渲染：缓慢漂移的等高线 + 低密度工业尘埃。
+ * 背景动态渲染：低密度工业尘埃（等高线保留 vendor 的静态 mask）。
  *
  * 单独的固定 canvas，位于页面内容之后（z-index:-1），不拦截指针。
  * 只有一帧绘制循环；窗口隐藏、系统减少动态效果时暂停/退化为静态一帧。
@@ -28,53 +28,6 @@ const MAX_DPR = 1.5;
 function cssColor(name: string, fallback: string): string {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return value.length > 0 ? value : fallback;
-}
-
-/** 画一组缓慢呼吸的等高线（只出现在画面两角，避免干扰读数）。 */
-function drawContours(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  time: number,
-  parallaxX: number,
-  parallaxY: number,
-  ink: string,
-  isDark: boolean
-): void {
-  const scale = Math.min(width, height);
-  const clusters = [
-    { cx: width * 0.93, cy: height * 0.10, base: scale * 0.105 },
-    { cx: width * 0.05, cy: height * 0.90, base: scale * 0.085 },
-  ];
-  ctx.save();
-  ctx.strokeStyle = ink;
-  ctx.globalAlpha = isDark ? 0.1 : 0.075;
-  ctx.lineWidth = 1;
-  for (let c = 0; c < clusters.length; c += 1) {
-    const cluster = clusters[c];
-    const phase = c === 0 ? 0.6 : 2.4;
-    for (let ring = 0; ring < 5; ring += 1) {
-      /* 环间距大于相邻环的最大摆动差，保证轮廓永不粘连、始终留出细小间隙 */
-      const base = cluster.base + ring * cluster.base * 0.26;
-      ctx.beginPath();
-      for (let step = 0; step <= 96; step += 1) {
-        const angle = (step / 96) * Math.PI * 2;
-        /* 多正弦叠加：振幅按簇基数固定（最大 0.08×基数），
-           环间距 0.26×基数，理论最小间隙仍有 0.10×基数，不会粘连 */
-        const wobble =
-          Math.sin(angle * 3 + time * 0.13 + phase + ring * 0.7) * cluster.base * 0.05 +
-          Math.cos(angle * 5 - time * 0.09 + phase * 0.7 + ring) * cluster.base * 0.03;
-        const radius = base + wobble;
-        const x = cluster.cx + Math.cos(angle) * radius + parallaxX;
-        const y = cluster.cy + Math.sin(angle) * radius * 0.78 + parallaxY;
-        if (step === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.closePath();
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
 }
 
 /** 画低密度尘埃；偶尔出现短划痕，增加工业感。 */
@@ -113,7 +66,6 @@ class Backdrop {
   private width = 0;
   private height = 0;
   private dpr = 1;
-  private ink = '#161616';
   private ink2 = '#5c5c5c';
   private isDark = false;
   private reduced = false;
@@ -139,8 +91,7 @@ class Backdrop {
   }
 
   start(): void {
-    /* 没有 canvas 上下文时保留 CSS 静态等高线作为降级 */
-    document.body.classList.add('ef-fx');
+    /* 保留 skill 的静态等高线；canvas 只负责动态尘埃 */
     this.reducedQuery.addEventListener('change', this.onMotionChange);
     this.darkQuery.addEventListener('change', this.onThemeChange);
     window.addEventListener('resize', this.onResize);
@@ -185,7 +136,6 @@ class Backdrop {
   };
 
   private refreshPalette(): void {
-    this.ink = cssColor('--ef-ink', this.isDark ? '#ededed' : '#161616');
     this.ink2 = cssColor('--ef-ink-2', this.isDark ? '#a3a3a3' : '#5c5c5c');
   }
 
@@ -253,16 +203,6 @@ class Backdrop {
 
   private draw(time: number): void {
     this.ctx.clearRect(0, 0, this.width, this.height);
-    drawContours(
-      this.ctx,
-      this.width,
-      this.height,
-      time,
-      this.pointerX * 5,
-      this.pointerY * 4,
-      this.ink,
-      this.isDark
-    );
     drawDust(
       this.ctx,
       this.particles,
