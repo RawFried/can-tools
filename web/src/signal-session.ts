@@ -27,8 +27,9 @@ export interface SignalChoice {
   color: string | null;
 }
 
-/** 图例行：末值可能为 null（尚未收到帧）。 */
+/** 图例行：末值可能为 null（尚未收到帧）；key 用于把行点击映射回曲线选中。 */
 export interface SignalLegendItem {
+  key: string;
   name: string;
   unit: string;
   color: string;
@@ -187,7 +188,7 @@ export class SignalSession {
     return had;
   }
 
-  /** 传给 SignalChart 的序列（每个信号一条横带）。 */
+  /** 传给 SignalChart 的序列（统一坐标系；选中序列决定纵轴刻度）。 */
   chartSeries(): ChartSeries[] {
     const out: ChartSeries[] = [];
     for (const [key, s] of this.series) {
@@ -206,9 +207,10 @@ export class SignalSession {
   /** 图例数据：名称、末值（真实读数）与曲线外观。 */
   legendItems(): SignalLegendItem[] {
     const out: SignalLegendItem[] = [];
-    for (const s of this.series.values()) {
+    for (const [key, s] of this.series) {
       const last = s.samples[s.samples.length - 1];
       out.push({
+        key,
         name: s.signal.name,
         unit: s.signal.unit,
         color: s.look.color,

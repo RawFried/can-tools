@@ -62,11 +62,14 @@ export class SignalWindow {
   private readonly signalEmpty: HTMLElement;
   private readonly legend: HTMLElement;
   private readonly hint: HTMLElement;
+  private readonly chartCanvas: HTMLCanvasElement;
   private readonly chart: SignalChart;
   private readonly session: SignalSession;
 
   private loading = false;
   private rafId: number | null = null;
+  /** 当前图例按钮对应的 key 序列；用于判断能否原位更新而不是重建按钮。 */
+  private legendKeys: string[] = [];
 
   constructor(channel: number, host: HTMLElement, hooks: SignalWindowHooks) {
     this.channel = channel;
@@ -155,8 +158,12 @@ export class SignalWindow {
     const canvas = document.createElement('canvas');
     canvas.className = 'sw-canvas';
     canvas.setAttribute('role', 'img');
-    canvas.setAttribute('aria-label', '所选信号的实时曲线图：横轴为相对时间，每个信号独立缩放');
+    canvas.setAttribute(
+      'aria-label',
+      '信号曲线图：所有曲线共用同一时间轴，纵轴刻度随选中曲线切换，移动光标可吸附采样点查看数值'
+    );
     chartBox.appendChild(canvas);
+    this.chartCanvas = canvas;
     this.legend = mk('div', 'dbc-legend sw-legend');
     const chartPane = mk('div', 'sw-chart-pane');
     chartPane.append(this.signalBar, this.signalEmpty, chartBox, this.legend);
@@ -179,6 +186,7 @@ export class SignalWindow {
 
     this.chart = new SignalChart(canvas);
     this.chart.setWindowMs(this.windowMs());
+    this.chart.setOnSelectChange(() => this.onChartSelect());
     this.bindEvents(emptyLoad);
     this.renderHeader();
     this.setDefinition(null);
@@ -278,6 +286,7 @@ export class SignalWindow {
     this.removeBtn.addEventListener('click', () => this.hooks.removeDbc());
     this.msgList.addEventListener('click', (e) => this.onMessageClick(e));
     this.signalBar.addEventListener('click', (e) => this.onSignalClick(e));
+    this.legend.addEventListener('click', (e) => this.onLegendClick(e));
     this.windowSelect.addEventListener('change', () => this.onWindowChange());
     makeSignalWindowDraggable(this.root, this.head);
   }
@@ -370,6 +379,25 @@ export class SignalWindow {
 
   /* ---------- 内部：采样/绘图 ---------- */
 
+  /** 曲线选中变化：图例按钮态与画布可读描述同步（样本与选择逻辑不在此处改动）。 */
+  private onChartSelect(): void {
+    this.renderLegend();
+    this.updateChartAria();
+  }
+
+  /** 画布的可读描述跟随选中曲线（读屏用户可知当前纵轴归属）。 */
+  private updateChartAria(): void {
+    const key = this.chart.activeKey();
+    const name =
+      key === null ? null : this.session.legendItems().find((i) => i.key === key)?.name ?? null;
+    this.chartCanvas.setAttribute(
+      'aria-label',
+      name === null
+        ? '信号曲线图：所有曲线共用同一时间轴，纵轴刻度随选中曲线切换，移动光标可吸附采样点查看数值'
+        : '信号曲线图：当前选中 ' + name + '，纵轴显示其刻度；所有曲线共用时间轴，光标可吸附采样点查看数值'
+    );
+  }
+
   private scheduleRender(): void {
     if (this.rafId !== null) return;
     this.rafId = window.requestAnimationFrame(() => {
@@ -394,29 +422,65 @@ export class SignalWindow {
     );
   }
 
+  /** 图例按钮是可点控件：点击选中曲线，纵轴切换为其刻度（aria-pressed + 视觉态）。
+   *  原位更新：只要 key 序列不变就复用已有按钮（只改态与文本），
+   *  避免每帧 replaceChildren 打断键盘焦点/悬停；集合或顺序变化才整体重建。 */
   private renderLegend(): void {
     const items = this.session.legendItems();
     if (items.length === 0) {
-      this.legend.replaceChildren();
+      if (this.legendKeys.length !== 0) {
+        this.legendKeys = [];
+        this.legend.replaceChildren();
+      }
       return;
     }
-    const frag = document.createDocumentFragment();
-    for (const item of items) {
-      const row = mk('div', 'sig-legend');
-      const line = mk('span', 'sig-line');
+    const keys = items.map((i) => i.key);
+    const sameOrder =
+      keys.length === this.legendKeys.length &&
+      keys.every((k, i) => k === this.legendKeys[i]);
+    if (!sameOrder) {
+      const frag = document.createDocumentFragment();
+      for (const item of items) {
+        const row = mk('button', 'sig-legend');
+        row.type = 'button';
+        row.dataset['key'] = item.key;
+        row.title = '选中此曲线，纵轴切换为其刻度';
+        row.append(
+          mk('span', 'sig-line'),
+          text('span', 'sig-legend-name', item.name),
+          text('span', 'sig-legend-value', '')
+        );
+        frag.appendChild(row);
+      }
+      this.legend.replaceChildren(frag);
+      this.legendKeys = keys;
+    }
+    const activeKey = this.chart.activeKey();
+    const rows = this.legend.children;
+    for (let i = 0; i < items.length; i++) {
+      const row = rows[i];
+      if (!(row instanceof HTMLButtonElement)) continue;
+      const item = items[i];
+      const active = item.key === activeKey;
+      row.classList.toggle('is-active', active);
+      row.setAttribute('aria-pressed', String(active));
+      /* 行内子元素固定为 [线形标记, 名称, 数值]；名称随 key 不变，只更新标记与数值 */
+      const line = row.children[0];
       line.setAttribute('style', this.lineMarkerCss(item));
-      const shown =
+      const value = row.children[2];
+      value.textContent =
         item.value !== null
           ? fmtSignal(item.value) + (item.unit ? ' ' + item.unit : '')
           : '—';
-      row.append(
-        line,
-        text('span', 'sig-legend-name', item.name),
-        text('span', 'sig-legend-value', shown)
-      );
-      frag.appendChild(row);
     }
-    this.legend.replaceChildren(frag);
+  }
+
+  private onLegendClick(e: MouseEvent): void {
+    const target = e.target;
+    const btn = target instanceof Element ? target.closest('button.sig-legend') : null;
+    if (!(btn instanceof HTMLButtonElement)) return;
+    const key = btn.dataset['key'];
+    if (key !== undefined) this.chart.select(key);
   }
 
   private toggleSignal(sig: DbcSignalDto): void {

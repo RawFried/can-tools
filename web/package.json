@@ -9,7 +9,9 @@
     "build:js": "esbuild src/main.ts --bundle --format=iife --target=es2021 --charset=utf8 --legal-comments=none --log-level=warning --outfile=app.js",
     "build:css": "esbuild src/styles/index.css --bundle --charset=utf8 --log-level=warning --outfile=app.css",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "esbuild test/dbc-model.test.ts --bundle --format=iife --platform=node --log-level=warning --outfile=../target/web-tests/dbc-model.test.js && node ../target/web-tests/dbc-model.test.js"
+    "test": "npm run test:dbc-model && npm run test:chart-math",
+    "test:dbc-model": "esbuild test/dbc-model.test.ts --bundle --format=iife --platform=node --log-level=warning --outfile=../target/web-tests/dbc-model.test.js && node ../target/web-tests/dbc-model.test.js",
+    "test:chart-math": "esbuild test/chart-math.test.ts --bundle --format=iife --platform=node --log-level=warning --outfile=../target/web-tests/chart-math.test.js && node ../target/web-tests/chart-math.test.js"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
