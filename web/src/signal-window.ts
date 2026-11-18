@@ -160,7 +160,7 @@ export class SignalWindow {
     canvas.setAttribute('role', 'img');
     canvas.setAttribute(
       'aria-label',
-      '信号曲线图：所有曲线共用同一时间轴，纵轴刻度随选中曲线切换，移动光标可吸附采样点查看数值'
+      '信号曲线图：各曲线按自身量程归一化后共用同一时间轴，光标吸附到曲线时显示该曲线的纵轴刻度与数值'
     );
     chartBox.appendChild(canvas);
     this.chartCanvas = canvas;
@@ -385,7 +385,7 @@ export class SignalWindow {
     this.updateChartAria();
   }
 
-  /** 画布的可读描述跟随选中曲线（读屏用户可知当前纵轴归属）。 */
+  /** 画布的可读描述跟随选中曲线（读屏用户可知当前突出显示的是哪条）。 */
   private updateChartAria(): void {
     const key = this.chart.activeKey();
     const name =
@@ -393,8 +393,8 @@ export class SignalWindow {
     this.chartCanvas.setAttribute(
       'aria-label',
       name === null
-        ? '信号曲线图：所有曲线共用同一时间轴，纵轴刻度随选中曲线切换，移动光标可吸附采样点查看数值'
-        : '信号曲线图：当前选中 ' + name + '，纵轴显示其刻度；所有曲线共用时间轴，光标可吸附采样点查看数值'
+        ? '信号曲线图：各曲线按自身量程归一化后共用同一时间轴，光标吸附到曲线时显示该曲线的纵轴刻度与数值'
+        : '信号曲线图：当前突出显示 ' + name + '；各曲线归一化共用时间轴，光标吸附到曲线时显示该曲线的纵轴刻度与数值'
     );
   }
 
@@ -444,7 +444,7 @@ export class SignalWindow {
         const row = mk('button', 'sig-legend');
         row.type = 'button';
         row.dataset['key'] = item.key;
-        row.title = '选中此曲线，纵轴切换为其刻度';
+        row.title = '选中此曲线以加粗突出显示';
         row.append(
           mk('span', 'sig-line'),
           text('span', 'sig-legend-name', item.name),

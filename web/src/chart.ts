@@ -1,15 +1,17 @@
 /**
- * DBC 信号曲线渲染器（统一坐标系）：
+ * DBC 信号曲线渲染器（统一坐标系 + 归一化叠加）：
  * - 所有序列共用同一绘图区与共享底部相对时间轴（如 -30s … 0s），窗口右端对齐最新样本；
- * - 纵轴刻度跟随“选中序列”：点击绘图区内的曲线（吸附阈值内最近者）或图例行切换，
- *   其余序列仍画在同一坐标系里，超出值域的部分被裁剪在绘图区内，
- *   不会压到左侧刻度与底部时间标注；选中曲线最后绘制且略粗；
- * - 光标在绘图区内移动/按下时吸附到最近的真实采样点：画竖向参考线与点标记，
- *   并在光标旁给出“名称 / 相对时间 / 数值”提示框（贴边自动翻转，始终留在画布内）；
- *   光标远离所有曲线时不画任何光标元素；
- * - 纵轴刻度用 1/2/2.5/5 × 10^k 的好读步长取约 4 档；值域只按当前窗口内样本计算：
- *   恒定/近恒定序列给对称余量、正常序列给 12% 余量；选中序列在窗口内无样本时
- *   纵轴与曲线整体给占位说明，不做无意义的映射；
+ * - 每条曲线按自身窗口内值域归一化后铺满绘图高度（正常 12% 余量 / 恒定对称余量），
+ *   单位与量程不同的信号也能同图对比；越界部分被裁剪在绘图区内，
+ *   不压左侧刻度槽与底部时间标注（裁剪仅作保险，正常不会触发）；
+ * - 纵轴刻度只在“光标吸附到某条曲线”时出现：按被吸附曲线的值域画好读刻度、
+ *   数值标注与单位，与光标提示框中的真实读数一致；未吸附时刻度区整体留空，
+ *   曲线不动（刻度槽宽度固定）；
+ * - 选中（点击曲线/图例行）只影响强调：选中曲线最后绘制且略粗，图例行保持按下态；
+ * - 光标吸附：每条曲线按时间二分找最近采样（含 ±1 邻域），在屏幕距离 SNAP_PX 内
+ *   取全局最近的真实采样点，画竖向参考线、点标记与“名称/相对时间/数值”提示框
+ *   （贴边自动翻转，始终留在画布内）；未命中时不画任何光标元素；
+ * - 纵轴好读刻度用 1/2/2.5/5 × 10^k 步长取约 4 档；值域只按当前窗口内样本计算；
  * - 每像素列做 min/max 抽稀，超长样本数组不拖慢绘制；
  * - 网格/文字颜色经 getComputedStyle 读取 app.css 的 --ef-* 变量，深/浅主题自动跟随；
  *   序列外观（灰阶级别 × 实线/虚线）由 seriesPalette() 从 --chart-1..3 解析后交给
@@ -91,7 +93,14 @@ interface Column {
   vHi: number;
 }
 
-/** 一次绘制的几何与映射：共享 X 轴 + 选中序列的纵轴。 */
+/** 单条曲线的归一化映射：窗口内样本值域（含余量）→ 绘图区全高。 */
+interface SeriesScale {
+  series: ChartSeries;
+  domain: ValueDomain;
+  yOf: (v: number) => number;
+}
+
+/** 一次绘制的几何与映射：共享 X 轴 + 各曲线自己的归一化 Y 映射。 */
 interface Layout {
   plotL: number;
   plotR: number;
@@ -99,15 +108,14 @@ interface Layout {
   axisY: number;
   tLeft: number;
   tRight: number;
-  active: ChartSeries;
-  domain: ValueDomain;
+  /** 有窗口内样本的序列 → 归一化映射；无样本的序列不在其中（不绘制、不吸附）。 */
+  scales: Map<string, SeriesScale>;
   xOf: (t: number) => number;
-  yOf: (v: number) => number;
 }
 
-/** 光标吸附命中：series 为命中序列，x/y 为采样点的屏幕坐标。 */
+/** 光标吸附命中：scale 携带命中曲线与其值域，x/y 为采样点的屏幕坐标。 */
 interface SnapHit {
-  series: ChartSeries;
+  scale: SeriesScale;
   t: number;
   v: number;
   x: number;
@@ -118,7 +126,7 @@ const TICK_STEPS_MS: readonly number[] = [
   1000, 2000, 5000, 10000, 15000, 30000, 60000, 120000, 300000, 600000, 1800000,
 ];
 const AXIS_H = 22; // 底部时间轴高度（CSS 像素）
-const GUTTER = 58; // 左侧数值刻度留白
+const GUTTER = 58; // 左侧数值刻度留白（固定：刻度隐现时曲线不横移）
 const PAD_R = 10; // 右侧留白
 const PAD_T = 4; // 顶部留白（曲线不贴画布上缘）
 const SNAP_PX = 24; // 光标吸附与点选半径（CSS 像素）：命中即吸附/选中
@@ -181,7 +189,7 @@ export class SignalChart {
     return this.selectedKey;
   }
 
-  /** 选中指定序列（图例行与曲线点击共用）；key 不存在时忽略。 */
+  /** 选中指定序列（图例行与曲线点击共用，仅作强调）；key 不存在时忽略。 */
   select(key: string): void {
     if (key === this.selectedKey) return;
     if (!this.series.some((s) => s.key === key)) return;
@@ -205,10 +213,10 @@ export class SignalChart {
     this.canvas.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
       this.cursor = this.localPoint(e);
-      /* 先按当前位置重绘（画上参考线），再决定是否切换选中序列 */
+      /* 先按当前位置重绘（画上参考线与该曲线的刻度），再决定是否切换选中序列 */
       this.render();
       const hit = this.computeSnap();
-      if (hit !== null) this.select(hit.series.key);
+      if (hit !== null) this.select(hit.scale.series.key);
     });
     const clear = (): void => {
       this.cursor = null;
@@ -309,9 +317,9 @@ export class SignalChart {
   }
 
   /**
-   * 推导本次绘制的几何与映射：纵轴值域来自选中序列的窗口内样本
-   * （12% 余量 / 恒定对称余量）。选中序列无窗口内样本时返回 null，
-   * 调用方据此展示占位说明而不是做无意义的映射。
+   * 推导本次绘制的几何与各曲线的归一化映射：每条曲线用自己的窗口内值域
+   * （12% 余量 / 恒定对称余量）铺满绘图高度；窗口内无样本的序列没有映射。
+   * 全部序列都无窗口内样本时返回 null，调用方给占位说明。
    */
   private layout(): Layout | null {
     const plotL = GUTTER;
@@ -319,12 +327,20 @@ export class SignalChart {
     const plotTop = PAD_T;
     const axisY = this.cssH - AXIS_H;
     const edges = this.windowEdges();
-    const active = this.series.find((s) => s.key === this.selectedKey) ?? null;
-    if (active === null) return null;
-    const range = timeWindowRange(active.samples, edges.tLeft, edges.tRight);
-    const raw = range === null ? null : scanDomain(active.samples, range.first, range.last);
-    if (raw === null) return null;
-    const domain = padDomain(raw);
+    const scales = new Map<string, SeriesScale>();
+    for (const s of this.series) {
+      const range = timeWindowRange(s.samples, edges.tLeft, edges.tRight);
+      const raw = range === null ? null : scanDomain(s.samples, range.first, range.last);
+      if (raw === null) continue;
+      const domain = padDomain(raw);
+      scales.set(s.key, {
+        series: s,
+        domain,
+        yOf: (v: number): number =>
+          plotTop + (1 - (v - domain.lo) / (domain.hi - domain.lo)) * (axisY - plotTop),
+      });
+    }
+    if (scales.size === 0) return null;
     const span = plotR - plotL;
     return {
       plotL,
@@ -333,11 +349,8 @@ export class SignalChart {
       axisY,
       tLeft: edges.tLeft,
       tRight: edges.tRight,
-      active,
-      domain,
+      scales,
       xOf: (t: number): number => plotL + ((t - edges.tLeft) / this.windowMs) * span,
-      yOf: (v: number): number =>
-        plotTop + (1 - (v - domain.lo) / (domain.hi - domain.lo)) * (axisY - plotTop),
     };
   }
 
@@ -358,30 +371,22 @@ export class SignalChart {
 
     this.drawTimeAxis(plotL, plotR, PAD_T, axisY, th);
 
-    if (list.length === 0) {
-      this.drawEmptyGrid(plotL, plotR, PAD_T, axisY, th);
-      this.drawMessage(w / 2, axisY / 2, '暂无曲线数据', '开启信号开关后，曲线将绘制在这里', th);
-      return;
-    }
     const g = this.layout();
     if (g === null) {
-      /* 选中序列在当前窗口无样本：没有可参照的纵轴刻度，
-         其余序列强行映射只会误导，整体给占位说明 */
+      /* 全部序列在当前窗口都无样本：曲线与纵轴都无处着手，给占位说明 */
       this.drawEmptyGrid(plotL, plotR, PAD_T, axisY, th);
-      this.drawMessage(
-        w / 2,
-        axisY / 2,
-        '选中信号在此时间窗内暂无数据',
-        list.length > 1
-          ? '纵轴刻度暂不可用；点击图例中的其他曲线切换'
-          : '纵轴刻度暂不可用；等待该信号接收数据后自动绘制',
-        th
-      );
+      if (list.length === 0) {
+        this.drawMessage(w / 2, axisY / 2, '暂无曲线数据', '开启信号开关后，曲线将绘制在这里', th);
+      } else {
+        this.drawMessage(w / 2, axisY / 2, '当前时间窗内暂无样本', '等待信号接收数据后自动绘制', th);
+      }
       return;
     }
-    this.drawValueAxis(g, th);
-    this.drawAllSeries(g, th);
-    this.drawSnapOverlay(g, th);
+    /* 吸附只算一次：纵轴刻度与光标叠层共用同一命中结果 */
+    const hit = this.hitFrom(g);
+    if (hit !== null) this.drawValueAxis(g, hit.scale, th);
+    this.drawAllSeries(g);
+    if (hit !== null) this.drawSnapOverlay(hit, g, th);
   }
 
   /** 纵向时间网格 + 底部时间标注 + 轴基线。 */
@@ -417,13 +422,14 @@ export class SignalChart {
     ctx.stroke();
   }
 
-  /** 纵轴：横向网格 + 刻度槽文案 + 单位标注（刻度槽顶部）。 */
-  private drawValueAxis(g: Layout, th: Theme): void {
+  /** 纵轴（只在吸附命中时绘制）：横向网格 + 刻度槽文案 + 单位标注（刻度槽顶部）。
+   *  值域取被吸附曲线的归一化值域，与提示框中的真实读数一致。 */
+  private drawValueAxis(g: Layout, scale: SeriesScale, th: Theme): void {
     const ctx = this.ctx;
-    const ticks = niceTicks(g.domain.lo, g.domain.hi, Y_TICK_TARGET);
+    const ticks = niceTicks(scale.domain.lo, scale.domain.hi, Y_TICK_TARGET);
     if (ticks.length === 0) return;
-    const step = ticks.length > 1 ? ticks[1] - ticks[0] : g.domain.hi - g.domain.lo;
-    const unit = g.active.unit.trim();
+    const step = ticks.length > 1 ? ticks[1] - ticks[0] : scale.domain.hi - scale.domain.lo;
+    const unit = scale.series.unit.trim();
     /* 单位标注占据刻度槽顶部一行；其下方 15px 内不放刻度文案避免叠字 */
     const labelTopMin = g.plotTop + (unit !== '' ? 15 : 3);
     ctx.strokeStyle = th.grid;
@@ -433,7 +439,7 @@ export class SignalChart {
     ctx.font = '400 9.5px ' + th.mono;
     ctx.fillStyle = th.mid;
     for (const v of ticks) {
-      const y = g.yOf(v);
+      const y = scale.yOf(v);
       if (y < g.plotTop - 0.5 || y > g.axisY + 0.5) continue;
       const yc = Math.round(y) + 0.5;
       ctx.beginPath();
@@ -482,23 +488,27 @@ export class SignalChart {
     ctx.fillText(sub, cx, cy + 14);
   }
 
-  /** 全部序列画进同一坐标系；裁剪到绘图区（绝不压刻度与时间标注），选中者最后且略粗。 */
-  private drawAllSeries(g: Layout, th: Theme): void {
+  /** 全部曲线按各自归一化映射画进同一绘图区；裁剪到绘图区（保险，正常不越界），
+   *  选中者最后绘制且略粗。 */
+  private drawAllSeries(g: Layout): void {
     const ctx = this.ctx;
     ctx.save();
     ctx.beginPath();
     ctx.rect(g.plotL, g.plotTop - 2, g.plotR - g.plotL, g.axisY - g.plotTop + 4);
     ctx.clip();
     for (const s of this.series) {
-      if (s.key === g.active.key) continue;
-      this.drawSeries(s, g, LINE_W);
+      const sc = g.scales.get(s.key);
+      if (sc === undefined || s.key === this.selectedKey) continue;
+      this.drawSeries(sc, g, LINE_W);
     }
-    this.drawSeries(g.active, g, LINE_W_ACTIVE);
+    const active = this.selectedKey === null ? undefined : g.scales.get(this.selectedKey);
+    if (active !== undefined) this.drawSeries(active, g, LINE_W_ACTIVE);
     ctx.restore();
   }
 
-  private drawSeries(s: ChartSeries, g: Layout, lineWidth: number): void {
+  private drawSeries(sc: SeriesScale, g: Layout, lineWidth: number): void {
     const ctx = this.ctx;
+    const s = sc.series;
     const samples = s.samples;
     const range = timeWindowRange(samples, g.tLeft, g.tRight);
     if (range === null) return;
@@ -536,14 +546,14 @@ export class SignalChart {
     ctx.lineCap = 'round';
     ctx.setLineDash(s.dash ?? []);
     ctx.beginPath();
-    this.pathColumns(cols, g.xOf, g.yOf);
+    this.pathColumns(cols, g.xOf, sc.yOf);
     ctx.stroke();
     ctx.setLineDash([]);
     if (cols.length === 1) {
       /* 单点：零长线段不可见，画实心圆点 */
       ctx.fillStyle = s.color;
       ctx.beginPath();
-      ctx.arc(g.xOf(cols[0].tF), g.yOf(cols[0].vF), lineWidth >= 2 ? 3 : 2.5, 0, Math.PI * 2);
+      ctx.arc(g.xOf(cols[0].tF), sc.yOf(cols[0].vF), lineWidth >= 2 ? 3 : 2.5, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -581,16 +591,16 @@ export class SignalChart {
   /** 完整重算吸附命中（指针按下等事件路径用；绘制路径复用已算好的 layout）。 */
   private computeSnap(): SnapHit | null {
     if (!this.syncSize()) return null;
-    return this.hitFrom(this.layout());
+    const g = this.layout();
+    return g === null ? null : this.hitFrom(g);
   }
 
   /**
-   * 光标吸附：每个序列先按时间二分找最近采样，再取其相邻两点，
-   * 在屏幕距离意义下选全局最近者；距离超过 SNAP_PX 视为“不在曲线上”。
-   * 所有序列的屏幕 y 都用选中序列的纵轴映射（它们本来就这么画）。
+   * 光标吸附：每条曲线按时间二分找最近采样，再取其相邻两点，
+   * 用该曲线自己的归一化映射换算屏幕坐标，在屏幕距离意义下选全局最近者；
+   * 距离超过 SNAP_PX 视为“不在曲线上”。
    */
-  private hitFrom(g: Layout | null): SnapHit | null {
-    if (g === null) return null;
+  private hitFrom(g: Layout): SnapHit | null {
     const cur = this.cursor;
     if (cur === null) return null;
     if (cur.x < g.plotL || cur.x > g.plotR || cur.y < g.plotTop || cur.y > g.axisY) {
@@ -599,20 +609,21 @@ export class SignalChart {
     const cursorT = g.tLeft + ((cur.x - g.plotL) / (g.plotR - g.plotL)) * this.windowMs;
     let best: SnapHit | null = null;
     let bestDist = SNAP_PX;
-    for (const s of this.series) {
-      const n = s.samples.length;
+    for (const sc of g.scales.values()) {
+      const samples = sc.series.samples;
+      const n = samples.length;
       if (n === 0) continue;
-      const i = nearestIndex(s.samples, cursorT);
+      const i = nearestIndex(samples, cursorT);
       for (let j = i - 1; j <= i + 1; j++) {
         if (j < 0 || j >= n) continue;
-        const smp = s.samples[j];
+        const smp = samples[j];
         if (!Number.isFinite(smp.v) || smp.t < g.tLeft || smp.t > g.tRight) continue;
         const x = g.xOf(smp.t);
-        const y = g.yOf(smp.v);
+        const y = sc.yOf(smp.v);
         const dist = Math.hypot(x - cur.x, y - cur.y);
         if (dist < bestDist) {
           bestDist = dist;
-          best = { series: s, t: smp.t, v: smp.v, x, y };
+          best = { scale: sc, t: smp.t, v: smp.v, x, y };
         }
       }
     }
@@ -620,9 +631,7 @@ export class SignalChart {
   }
 
   /** 参考线 + 采样点标记 + 光标旁提示框；未命中时不画任何光标元素。 */
-  private drawSnapOverlay(g: Layout, th: Theme): void {
-    const hit = this.hitFrom(g);
-    if (hit === null) return;
+  private drawSnapOverlay(hit: SnapHit, g: Layout, th: Theme): void {
     const ctx = this.ctx;
     /* 竖向参考线（点虚，与网格/曲线区分） */
     const x = Math.round(hit.x) + 0.5;
@@ -637,7 +646,7 @@ export class SignalChart {
     /* 采样点标记：曲线色实心 + 纸色描边圈，压在曲线上仍然醒目 */
     ctx.beginPath();
     ctx.arc(hit.x, hit.y, 3.2, 0, Math.PI * 2);
-    ctx.fillStyle = hit.series.color;
+    ctx.fillStyle = hit.scale.series.color;
     ctx.fill();
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = th.paper;
@@ -650,7 +659,8 @@ export class SignalChart {
     const ctx = this.ctx;
     const w = this.cssW;
     const h = this.cssH;
-    const unit = hit.series.unit.trim();
+    const s = hit.scale.series;
+    const unit = s.unit.trim();
     const valTxt = fmtVal(hit.v) + (unit !== '' ? ' ' + unit : '');
     const timeTxt = fmtRelExact(hit.t - g.tRight);
     const nameFont = '600 11px ' + th.ui;
@@ -660,7 +670,7 @@ export class SignalChart {
     const PAD_Y = 5;
     const LINE_H = 15;
     ctx.font = nameFont;
-    const nameW = ctx.measureText(hit.series.label).width;
+    const nameW = ctx.measureText(s.label).width;
     ctx.font = valFont;
     const valW = ctx.measureText(timeTxt + ' · ' + valTxt).width;
     const boxW = Math.max(SWATCH + 5 + nameW, valW) + PAD_X * 2;
@@ -681,11 +691,11 @@ export class SignalChart {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
     const nameY = by + PAD_Y + 9;
-    ctx.fillStyle = hit.series.color;
+    ctx.fillStyle = s.color;
     ctx.fillRect(bx + PAD_X, nameY - 4, SWATCH, 2);
     ctx.fillStyle = th.border;
     ctx.font = nameFont;
-    ctx.fillText(hit.series.label, bx + PAD_X + SWATCH + 5, nameY);
+    ctx.fillText(s.label, bx + PAD_X + SWATCH + 5, nameY);
     ctx.fillStyle = th.mid;
     ctx.font = valFont;
     ctx.fillText(timeTxt + ' · ' + valTxt, bx + PAD_X, nameY + LINE_H);
