@@ -160,7 +160,7 @@ export class SignalWindow {
     canvas.setAttribute('role', 'img');
     canvas.setAttribute(
       'aria-label',
-      '信号曲线图：各曲线按自身量程归一化后共用同一时间轴，光标吸附到曲线时显示该曲线的纵轴刻度与数值'
+      '信号曲线图：各曲线归一化后共用同一时间轴；纵轴刻度虚线默认跟随选中曲线，吸附时切换并显示单位与数值'
     );
     chartBox.appendChild(canvas);
     this.chartCanvas = canvas;
@@ -393,8 +393,8 @@ export class SignalWindow {
     this.chartCanvas.setAttribute(
       'aria-label',
       name === null
-        ? '信号曲线图：各曲线按自身量程归一化后共用同一时间轴，光标吸附到曲线时显示该曲线的纵轴刻度与数值'
-        : '信号曲线图：当前突出显示 ' + name + '；各曲线归一化共用时间轴，光标吸附到曲线时显示该曲线的纵轴刻度与数值'
+        ? '信号曲线图：各曲线归一化后共用同一时间轴；纵轴刻度虚线默认跟随选中曲线，吸附时切换并显示单位与数值'
+        : '信号曲线图：当前突出显示 ' + name + '；纵轴刻度虚线显示最近吸附曲线的刻度，吸附时显示单位与数值'
     );
   }
 
@@ -422,7 +422,7 @@ export class SignalWindow {
     );
   }
 
-  /** 图例按钮是可点控件：点击选中曲线，纵轴切换为其刻度（aria-pressed + 视觉态）。
+  /** 图例按钮是可点控件：点击选中曲线并加粗突出显示（aria-pressed + 视觉态）。
    *  原位更新：只要 key 序列不变就复用已有按钮（只改态与文本），
    *  避免每帧 replaceChildren 打断键盘焦点/悬停；集合或顺序变化才整体重建。 */
   private renderLegend(): void {

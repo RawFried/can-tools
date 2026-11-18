@@ -4,14 +4,13 @@
  * - 每条曲线按自身窗口内值域归一化后铺满绘图高度（正常 12% 余量 / 恒定对称余量），
  *   单位与量程不同的信号也能同图对比；越界部分被裁剪在绘图区内，
  *   不压左侧刻度槽与底部时间标注（裁剪仅作保险，正常不会触发）；
- * - 纵轴刻度只在“光标吸附到某条曲线”时出现：按被吸附曲线的值域画好读刻度、
- *   数值标注与单位，与光标提示框中的真实读数一致；未吸附时刻度区整体留空，
- *   曲线不动（刻度槽宽度固定）；
+ * - 纵轴刻度线为虚线：默认取第一个选中曲线的值域；吸附到其他曲线时切换为该曲线的
+ *   刻度与单位；移开光标后刻度线保留（单位隐藏），继续显示上次吸附曲线的刻度，
+ *   曲线不横移（刻度槽宽度固定）；
  * - 选中（点击曲线/图例行）只影响强调：选中曲线最后绘制且略粗，图例行保持按下态；
  * - 光标吸附：每条曲线按时间二分找最近采样（含 ±1 邻域），在屏幕距离 SNAP_PX 内
- *   取全局最近的真实采样点，画竖向参考线、横向数值虚线、点标记与
- *   “名称/相对时间/数值”提示框（贴边自动翻转，始终留在画布内）；
- *   移开光标后横向虚线保留上次读数，吸附到其他曲线时按新值切换；
+ *   取全局最近的真实采样点，画竖向参考线、点标记与“名称/相对时间/数值”提示框
+ *   （贴边自动翻转，始终留在画布内）；移开后提示框与参考线隐藏，刻度保留；
  * - 纵轴好读刻度用 1/2/2.5/5 × 10^k 步长取约 4 档；值域只按当前窗口内样本计算；
  * - 每像素列做 min/max 抽稀，超长样本数组不拖慢绘制；
  * - 网格/文字颜色经 getComputedStyle 读取 app.css 的 --ef-* 变量，深/浅主题自动跟随；
@@ -150,8 +149,8 @@ export class SignalChart {
   private selectHandler: ((key: string | null) => void) | null = null;
   /** 最近一次光标位置（画布内 CSS 像素）；null = 无光标（离开/取消）。 */
   private cursor: { x: number; y: number } | null = null;
-  /** 最近一次吸附到的真实数值：无吸附时保留一条横向虚线，作为上次读数参照。 */
-  private lastValue: { key: string; v: number } | null = null;
+  /** 纵轴刻度归属：吸附时切到被吸附曲线，移开后保留；null 时回落到选中曲线。 */
+  private axisKey: string | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -389,13 +388,10 @@ export class SignalChart {
     }
     /* 吸附只算一次：纵轴刻度与光标叠层共用同一命中结果 */
     const hit = this.hitFrom(g);
-    if (hit !== null) {
-      this.lastValue = { key: hit.scale.series.key, v: hit.v };
-      this.drawValueAxis(g, hit.scale, th);
-    }
+    if (hit !== null) this.axisKey = hit.scale.series.key;
+    const axis = hit !== null ? hit.scale : this.axisScale(g);
+    if (axis !== null) this.drawValueAxis(g, axis, th, hit !== null);
     this.drawAllSeries(g);
-    /* 横向数值虚线：吸附时跟随当前点，移开光标后保留上次读数（Y 轴对齐用） */
-    this.drawValueGuide(g, hit, th);
     if (hit !== null) this.drawSnapOverlay(hit, g, th);
   }
 
@@ -432,14 +428,31 @@ export class SignalChart {
     ctx.stroke();
   }
 
-  /** 纵轴（只在吸附命中时绘制）：横向网格 + 刻度槽文案 + 单位标注（刻度槽顶部）。
-   *  值域取被吸附曲线的归一化值域，与提示框中的真实读数一致。 */
-  private drawValueAxis(g: Layout, scale: SeriesScale, th: Theme): void {
+  /** 纵轴刻度归属：优先上次吸附的曲线，其次选中曲线，最后任一有数据的曲线；
+   *  保证移开光标后仍保留上次的刻度虚线。 */
+  private axisScale(g: Layout): SeriesScale | null {
+    for (const key of [this.axisKey, this.selectedKey]) {
+      if (key === null) continue;
+      const sc = g.scales.get(key);
+      if (sc !== undefined) return sc;
+    }
+    for (const sc of g.scales.values()) return sc;
+    return null;
+  }
+
+  /** 纵轴：横向刻度虚线 + 刻度槽文案 +（吸附时）单位标注。
+   *  值域取当前归属曲线的归一化值域，与提示框中的真实读数一致。 */
+  private drawValueAxis(
+    g: Layout,
+    scale: SeriesScale,
+    th: Theme,
+    showUnit: boolean
+  ): void {
     const ctx = this.ctx;
     const ticks = niceTicks(scale.domain.lo, scale.domain.hi, Y_TICK_TARGET);
     if (ticks.length === 0) return;
     const step = ticks.length > 1 ? ticks[1] - ticks[0] : scale.domain.hi - scale.domain.lo;
-    const unit = scale.series.unit.trim();
+    const unit = showUnit ? scale.series.unit.trim() : '';
     /* 单位标注占据刻度槽顶部一行；其下方 15px 内不放刻度文案避免叠字 */
     const labelTopMin = g.plotTop + (unit !== '' ? 15 : 3);
     ctx.strokeStyle = th.grid;
@@ -448,6 +461,8 @@ export class SignalChart {
     ctx.textBaseline = 'middle';
     ctx.font = '400 9.5px ' + th.mono;
     ctx.fillStyle = th.mid;
+    /* 刻度线用虚线：与时间网格/曲线区分，也便于保留上次吸附的刻度 */
+    ctx.setLineDash([4, 3]);
     for (const v of ticks) {
       const y = scale.yOf(v);
       if (y < g.plotTop - 0.5 || y > g.axisY + 0.5) continue;
@@ -461,6 +476,7 @@ export class SignalChart {
         ctx.fillText(fmtTick(v, step), g.plotL - 6, y);
       }
     }
+    ctx.setLineDash([]);
     if (unit !== '') {
       ctx.font = '600 9.5px ' + th.ui;
       ctx.fillStyle = th.faint;
@@ -638,28 +654,6 @@ export class SignalChart {
       }
     }
     return best;
-  }
-
-  /** 横向数值虚线：吸附时跟随命中值，移开光标后停在最近一次吸附的真实值上；
-   *  线从左侧 Y 轴贯到绘图区右缘，吸附其他曲线后按新值切换。 */
-  private drawValueGuide(g: Layout, hit: SnapHit | null, th: Theme): void {
-    const mark = hit !== null ? { key: hit.scale.series.key, v: hit.v } : this.lastValue;
-    if (mark === null) return;
-    const scale = g.scales.get(mark.key);
-    if (scale === undefined) return;
-    const y = Math.round(scale.yOf(mark.v)) + 0.5;
-    if (y < g.plotTop || y > g.axisY) return;
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.strokeStyle = th.mid;
-    ctx.globalAlpha = 0.55;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 3]);
-    ctx.beginPath();
-    ctx.moveTo(g.plotL, y);
-    ctx.lineTo(g.plotR, y);
-    ctx.stroke();
-    ctx.restore();
   }
 
   /** 参考线 + 采样点标记 + 光标旁提示框；未命中时不画任何光标元素。 */
