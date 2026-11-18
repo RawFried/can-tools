@@ -160,7 +160,7 @@ export class SignalWindow {
     canvas.setAttribute('role', 'img');
     canvas.setAttribute(
       'aria-label',
-      '信号曲线图：各曲线归一化后共用同一时间轴；纵轴刻度虚线默认跟随选中曲线，吸附时切换并显示单位与数值'
+      '信号曲线图：各曲线归一化后共用同一时间轴；纵轴虚线默认跟随选中曲线，吸附时显示该曲线刻度值，并列出同一 X 上各曲线的数值'
     );
     chartBox.appendChild(canvas);
     this.chartCanvas = canvas;
@@ -393,8 +393,8 @@ export class SignalWindow {
     this.chartCanvas.setAttribute(
       'aria-label',
       name === null
-        ? '信号曲线图：各曲线归一化后共用同一时间轴；纵轴刻度虚线默认跟随选中曲线，吸附时切换并显示单位与数值'
-        : '信号曲线图：当前突出显示 ' + name + '；纵轴刻度虚线显示最近吸附曲线的刻度，吸附时显示单位与数值'
+        ? '信号曲线图：各曲线归一化后共用同一时间轴；纵轴虚线默认跟随选中曲线，吸附时显示该曲线刻度值，并列出同一 X 上各曲线的数值'
+        : '信号曲线图：当前突出显示 ' + name + '；纵轴虚线保留最近刻度，吸附时显示刻度值并列出同一 X 上各曲线的数值'
     );
   }
 

@@ -8,6 +8,7 @@ import {
   fmtTick,
   nearestIndex,
   niceTicks,
+  valueAt,
   padDomain,
   scanDomain,
   timeWindowRange,
@@ -148,6 +149,30 @@ test('nearestIndex 越界与空数组', () => {
   eq(nearestIndex(s, -100), 0, '早于全部');
   eq(nearestIndex(s, 100), 1, '晚于全部');
   eq(nearestIndex([], 0), -1, '空数组');
+});
+
+/* ---------- valueAt ---------- */
+
+test('valueAt 命中采样点直接返回原值', () => {
+  const s = pts([0, 10], [10, 20], [20, 30]);
+  eq(valueAt(s, 10), 20, '精确命中');
+});
+
+test('valueAt 在相邻样本间线性插值', () => {
+  const s = pts([0, 10], [10, 20]);
+  near(valueAt(s, 5) ?? Number.NaN, 15, '中点');
+  near(valueAt(s, 2.5) ?? Number.NaN, 12.5, '四分之一点');
+});
+
+test('valueAt 范围外与空数组返回 null', () => {
+  const s = pts([0, 10], [10, 20]);
+  eq(valueAt(s, -1), null, '早于首点');
+  eq(valueAt(s, 11), null, '晚于末点');
+  eq(valueAt([], 0), null, '空数组');
+});
+
+test('valueAt 最近点非法值返回 null', () => {
+  eq(valueAt(pts([0, Number.NaN], [10, 20]), 0), null, 'NaN');
 });
 
 /* ---------- 文案格式化 ---------- */

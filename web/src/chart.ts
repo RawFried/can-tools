@@ -5,12 +5,13 @@
  *   单位与量程不同的信号也能同图对比；越界部分被裁剪在绘图区内，
  *   不压左侧刻度槽与底部时间标注（裁剪仅作保险，正常不会触发）；
  * - 纵轴刻度线为虚线：默认取第一个选中曲线的值域；吸附到其他曲线时切换为该曲线的
- *   刻度与单位；移开光标后刻度线保留（单位隐藏），继续显示上次吸附曲线的刻度，
- *   曲线不横移（刻度槽宽度固定）；
+ *   刻度并显示数值与单位；移开光标后只保留刻度虚线（数值与单位都隐藏），
+ *   继续沿用上次吸附曲线的刻度，曲线不横移（刻度槽宽度固定）；
  * - 选中（点击曲线/图例行）只影响强调：选中曲线最后绘制且略粗，图例行保持按下态；
  * - 光标吸附：每条曲线按时间二分找最近采样（含 ±1 邻域），在屏幕距离 SNAP_PX 内
- *   取全局最近的真实采样点，画竖向参考线、点标记与“名称/相对时间/数值”提示框
- *   （贴边自动翻转，始终留在画布内）；移开后提示框与参考线隐藏，刻度保留；
+ *   取全局最近的真实采样点，画竖向参考线、点标记与提示框；提示框先给该 X 的
+ *   相对时间，再一次性列出同一时刻所有曲线的 Y 值（线性插值、各自单位），
+ *   被吸附曲线加粗高亮（贴边自动翻转，始终留在画布内）；移开后提示框与参考线隐藏；
  * - 纵轴好读刻度用 1/2/2.5/5 × 10^k 步长取约 4 档；值域只按当前窗口内样本计算；
  * - 每像素列做 min/max 抽稀，超长样本数组不拖慢绘制；
  * - 网格/文字颜色经 getComputedStyle 读取 app.css 的 --ef-* 变量，深/浅主题自动跟随；
@@ -29,6 +30,7 @@ import {
   padDomain,
   scanDomain,
   timeWindowRange,
+  valueAt,
 } from './chart-math';
 
 /** 单个采样点：t 为毫秒时间戳（升序），v 为物理值。 */
@@ -446,13 +448,13 @@ export class SignalChart {
     g: Layout,
     scale: SeriesScale,
     th: Theme,
-    showUnit: boolean
+    showDetails: boolean
   ): void {
     const ctx = this.ctx;
     const ticks = niceTicks(scale.domain.lo, scale.domain.hi, Y_TICK_TARGET);
     if (ticks.length === 0) return;
     const step = ticks.length > 1 ? ticks[1] - ticks[0] : scale.domain.hi - scale.domain.lo;
-    const unit = showUnit ? scale.series.unit.trim() : '';
+    const unit = showDetails ? scale.series.unit.trim() : '';
     /* 单位标注占据刻度槽顶部一行；其下方 15px 内不放刻度文案避免叠字 */
     const labelTopMin = g.plotTop + (unit !== '' ? 15 : 3);
     ctx.strokeStyle = th.grid;
@@ -472,7 +474,7 @@ export class SignalChart {
       ctx.lineTo(g.plotR, yc);
       ctx.stroke();
       /* 底部 7px 内不放文案：避免压到时间轴基线 */
-      if (yc >= labelTopMin && yc <= g.axisY - 7) {
+      if (showDetails && yc >= labelTopMin && yc <= g.axisY - 7) {
         ctx.fillText(fmtTick(v, step), g.plotL - 6, y);
       }
     }
@@ -680,27 +682,55 @@ export class SignalChart {
     this.drawTip(hit, g, th);
   }
 
-  /** 光标旁的紧凑提示框：名称 + 相对时间 + 数值单位；贴边翻转且始终留在画布内。 */
+  /** 光标旁的提示框：先按 X 轴给出相对时间，再一次性列出同一时刻所有曲线的 Y 值。
+   *  读数按折线线性插值，单位各自跟随曲线；贴边翻转并夹在画布内。 */
   private drawTip(hit: SnapHit, g: Layout, th: Theme): void {
     const ctx = this.ctx;
     const w = this.cssW;
     const h = this.cssH;
-    const s = hit.scale.series;
-    const unit = s.unit.trim();
-    const valTxt = fmtVal(hit.v) + (unit !== '' ? ' ' + unit : '');
     const timeTxt = fmtRelExact(hit.t - g.tRight);
     const nameFont = '600 11px ' + th.ui;
-    const valFont = '400 10.5px ' + th.mono;
-    const SWATCH = 12; // 名称行前的曲线色标宽度
+    const valFont = '600 10.5px ' + th.mono;
+    const timeFont = '400 10px ' + th.mono;
+    const SWATCH = 10; // 行首曲线色标宽度
     const PAD_X = 7;
     const PAD_Y = 5;
-    const LINE_H = 15;
+    const HEADER_H = 14;
+    const ROW_H = 16;
+    /* 名称按可用宽度截断，避免长信号名把提示框撑出画布 */
+    const maxNameW = Math.max(70, Math.min(170, w * 0.45));
+    const rows: Array<{ color: string; name: string; value: number | null; unit: string; active: boolean }> = [];
     ctx.font = nameFont;
-    const nameW = ctx.measureText(s.label).width;
-    ctx.font = valFont;
-    const valW = ctx.measureText(timeTxt + ' · ' + valTxt).width;
-    const boxW = Math.max(SWATCH + 5 + nameW, valW) + PAD_X * 2;
-    const boxH = PAD_Y * 2 + LINE_H * 2 - 1;
+    for (const sc of g.scales.values()) {
+      const s = sc.series;
+      const value = s.key === hit.scale.series.key ? hit.v : valueAt(s.samples, hit.t);
+      let name = s.label;
+      if (ctx.measureText(name).width > maxNameW) {
+        let lo = 0;
+        let hi = name.length;
+        while (lo < hi) {
+          const mid = (lo + hi + 1) >> 1;
+          if (ctx.measureText(name.slice(0, mid) + '…').width <= maxNameW) lo = mid;
+          else hi = mid - 1;
+        }
+        name = name.slice(0, lo) + '…';
+      }
+      rows.push({ color: s.color, name, value, unit: s.unit.trim(), active: s.key === hit.scale.series.key });
+    }
+    let nameCol = SWATCH + 5;
+    let valCol = 40;
+    for (const r of rows) {
+      const nameW = ctx.measureText(r.name).width;
+      if (SWATCH + 5 + nameW > nameCol) nameCol = SWATCH + 5 + nameW;
+      ctx.font = valFont;
+      const vTxt = r.value === null ? '—' : fmtVal(r.value) + (r.unit !== '' ? ' ' + r.unit : '');
+      const vW = ctx.measureText(vTxt).width;
+      if (vW > valCol) valCol = vW;
+      ctx.font = nameFont;
+    }
+    ctx.font = timeFont;
+    const boxW = Math.max(nameCol + 12 + valCol, ctx.measureText(timeTxt).width) + PAD_X * 2;
+    const boxH = PAD_Y * 2 + HEADER_H + 1 + rows.length * ROW_H;
     /* 先按“右上优先”放置，越界则左右/上下翻转，最后整体夹回画布 */
     let bx = hit.x + 14;
     if (bx + boxW > w - 4) bx = hit.x - 14 - boxW;
@@ -716,14 +746,34 @@ export class SignalChart {
     ctx.strokeRect(bx + 0.5, by + 0.5, boxW - 1, boxH - 1);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
-    const nameY = by + PAD_Y + 9;
-    ctx.fillStyle = s.color;
-    ctx.fillRect(bx + PAD_X, nameY - 4, SWATCH, 2);
-    ctx.fillStyle = th.border;
-    ctx.font = nameFont;
-    ctx.fillText(s.label, bx + PAD_X + SWATCH + 5, nameY);
-    ctx.fillStyle = th.mid;
-    ctx.font = valFont;
-    ctx.fillText(timeTxt + ' · ' + valTxt, bx + PAD_X, nameY + LINE_H);
+    const timeY = by + PAD_Y + 10;
+    ctx.font = timeFont;
+    ctx.fillStyle = th.faint;
+    ctx.fillText(timeTxt, bx + PAD_X, timeY);
+    const sepY = Math.round(by + PAD_Y + HEADER_H) + 0.5;
+    ctx.strokeStyle = th.grid;
+    ctx.beginPath();
+    ctx.moveTo(bx + PAD_X, sepY);
+    ctx.lineTo(bx + boxW - PAD_X, sepY);
+    ctx.stroke();
+    const valueRight = bx + boxW - PAD_X;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const y = by + PAD_Y + HEADER_H + 1 + i * ROW_H + 11;
+      ctx.fillStyle = r.color;
+      ctx.fillRect(bx + PAD_X, y - 4, SWATCH, 2);
+      ctx.font = nameFont;
+      ctx.fillStyle = r.active ? th.border : th.mid;
+      ctx.fillText(r.name, bx + PAD_X + SWATCH + 5, y);
+      ctx.font = valFont;
+      ctx.fillStyle = th.border;
+      ctx.textAlign = 'right';
+      ctx.fillText(
+        r.value === null ? '—' : fmtVal(r.value) + (r.unit !== '' ? ' ' + r.unit : ''),
+        valueRight,
+        y
+      );
+      ctx.textAlign = 'left';
+    }
   }
 }

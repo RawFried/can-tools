@@ -158,3 +158,26 @@ export function nearestIndex(samples: readonly TimePoint[], t: number): number {
   if (lo > 0 && samples[lo].t - t >= t - samples[lo - 1].t) return lo - 1;
   return lo;
 }
+
+/**
+ * 任意时刻 t 的曲线读数：t 落在样本时间范围内时，在相邻两点间线性插值，
+ * 恰好命中采样点则直接返回该点；范围外或最近点值非法时返回 null。
+ * 用于“同一 X 刻度读取全部曲线”的提示框，与折线绘制保持一致。
+ */
+export function valueAt(samples: readonly TimePoint[], t: number): number | null {
+  const n = samples.length;
+  if (n === 0 || !Number.isFinite(t)) return null;
+  if (t < samples[0].t || t > samples[n - 1].t) return null;
+  const i = nearestIndex(samples, t);
+  if (i < 0) return null;
+  const hit = samples[i];
+  if (!Number.isFinite(hit.v)) return null;
+  if (hit.t === t) return hit.v;
+  const j = hit.t < t ? i + 1 : i - 1;
+  if (j < 0 || j >= n) return hit.v;
+  const a = hit.t < t ? hit : samples[j];
+  const b = hit.t < t ? samples[j] : hit;
+  if (!Number.isFinite(a.v) || !Number.isFinite(b.v) || b.t === a.t) return hit.v;
+  const f = (t - a.t) / (b.t - a.t);
+  return a.v + (b.v - a.v) * f;
+}
