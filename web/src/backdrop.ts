@@ -54,14 +54,16 @@ function drawContours(
     const cluster = clusters[c];
     const phase = c === 0 ? 0.6 : 2.4;
     for (let ring = 0; ring < 5; ring += 1) {
-      const base = cluster.base * (1 + ring * 0.18);
+      /* 环间距大于相邻环的最大摆动差，保证轮廓永不粘连、始终留出细小间隙 */
+      const base = cluster.base + ring * cluster.base * 0.26;
       ctx.beginPath();
       for (let step = 0; step <= 96; step += 1) {
         const angle = (step / 96) * Math.PI * 2;
-        /* 多正弦叠加：每圈轮廓缓慢变形，但保持闭合、平滑 */
+        /* 多正弦叠加：振幅按簇基数固定（最大 0.08×基数），
+           环间距 0.26×基数，理论最小间隙仍有 0.10×基数，不会粘连 */
         const wobble =
-          Math.sin(angle * 3 + time * 0.13 + phase + ring * 0.7) * base * 0.12 +
-          Math.cos(angle * 5 - time * 0.09 + phase * 0.7 + ring) * base * 0.055;
+          Math.sin(angle * 3 + time * 0.13 + phase + ring * 0.7) * cluster.base * 0.05 +
+          Math.cos(angle * 5 - time * 0.09 + phase * 0.7 + ring) * cluster.base * 0.03;
         const radius = base + wobble;
         const x = cluster.cx + Math.cos(angle) * radius + parallaxX;
         const y = cluster.cy + Math.sin(angle) * radius * 0.78 + parallaxY;

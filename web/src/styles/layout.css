@@ -32,6 +32,8 @@
   align-self: start;
   max-height: calc(100dvh - 4.9rem);
   overflow-y: auto;
+  /* 按钮悬停擦入的伪元素向右溢出；禁止横向滚动条 */
+  overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--ef-rule) transparent;

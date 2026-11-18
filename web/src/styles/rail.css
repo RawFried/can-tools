@@ -189,6 +189,8 @@
 /* 行高定值：8px 上/下内边距 + 18px 文件名行 + 1px 行距 + 16px 次行 + 1px 分隔线
    = 52px（border-box，行内文字均为 nowrap 省略，不随内容变化）。 */
 .recs-wrap {
+  /* 行内下载/删除按钮的悬停擦入同样不允许产生横向滚动条 */
+  overflow-x: hidden;
   --rec-row-h: 52px;
   max-height: calc(var(--rec-row-h) * 5);
   overflow-y: auto;
