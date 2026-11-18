@@ -1,5 +1,12 @@
 /* ---------- 应用控件（在 ef-form / ef-btn / ef-seg 之上的定制） ---------- */
 
+/* 表单容器：字段、状态行与按钮行之间的统一纵向节奏（上游 ef-form 本身无布局） */
+.ef-form {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
 /* 输入行：标签 + 控件 + 说明，细线分隔 */
 .field {
   display: grid;
