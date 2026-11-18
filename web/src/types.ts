@@ -5,8 +5,8 @@
 
 /* ---------- API 数据形状（与 docs/api.md 一致） ---------- */
 
-import { parseNullableDbc } from './dbc-types';
-import type { DbcDefinitionDto } from './dbc-types';
+import { parseDbcDto, parseNullableDbc } from './dbc-types';
+import type { DbcChannelDto, DbcDefinitionDto } from './dbc-types';
 
 /* DBC 契约已拆到 dbc-types.ts；重新导出以保持既有 import 路径不变 */
 export * from './dbc-types';
@@ -183,13 +183,19 @@ export interface SendBody {
   data: string;
 }
 
+/** GET/POST /api/dbc/{channel} 的响应：单通道定义。 */
+export interface DbcResponseDto {
+  channel: number;
+  dbc: DbcDefinitionDto | null;
+}
+
 /** WebSocket 服务端消息（快照 + 事件） */
 export type WsServerMessage =
-  | { type: 'snapshot'; status: StatusDto; frames: FrameDto[]; dbc: DbcDefinitionDto | null }
+  | { type: 'snapshot'; status: StatusDto; frames: FrameDto[]; dbcs: DbcChannelDto[] }
   | { type: 'frames'; frames: FrameDto[] }
   | { type: 'status'; status: StatusDto }
   | { type: 'log'; level: 'info' | 'warn' | 'error'; message: string }
-  | { type: 'dbc'; dbc: DbcDefinitionDto | null }
+  | { type: 'dbc'; channel: number; dbc: DbcDefinitionDto | null }
   | { type: 'cleared' };
 
 /* ---------- JSON 类型守卫 ---------- */
@@ -268,6 +274,26 @@ function parseFrames(v: unknown): FrameDto[] {
   const out: FrameDto[] = [];
   for (const it of v) if (isObj(it)) out.push(parseFrameDto(it));
   return out;
+}
+
+/** 收窄快照的 dbcs 数组；非法项（缺通道号或定义损坏）直接跳过。 */
+export function parseDbcChannels(v: unknown): DbcChannelDto[] {
+  if (!Array.isArray(v)) return [];
+  const out: DbcChannelDto[] = [];
+  for (const it of v) {
+    if (!isObj(it) || !isNum(it['channel'])) continue;
+    const dbc = parseDbcDto(it['dbc']);
+    if (dbc !== null) out.push({ channel: it['channel'], dbc });
+  }
+  return out;
+}
+
+/** 收窄 /api/dbc/{channel} 的响应；格式不完整时返回 null（调用方报错）。 */
+export function parseDbcResponse(v: unknown): DbcResponseDto | null {
+  if (!isObj(v) || !isNum(v['channel'])) return null;
+  const dbc = parseNullableDbc(v['dbc']);
+  if (dbc === undefined) return null;
+  return { channel: v['channel'], dbc };
 }
 
 /** 校验并收窄未知 JSON 为 StatusDto；缺少关键结构时返回 null。 */
@@ -414,10 +440,12 @@ export function parseWsMessage(v: unknown): WsServerMessage | null {
     case 'snapshot': {
       const st = parseStatusDto(v['status']);
       if (!st) return null;
-      /* 快照里的 dbc 字段缺失视为「无定义」，非法也按 null 处理以免阻断快照 */
-      const dbcRaw = v['dbc'];
-      const dbc = dbcRaw === undefined ? null : parseNullableDbc(dbcRaw) ?? null;
-      return { type: 'snapshot', status: st, frames: parseFrames(v['frames']), dbc };
+      return {
+        type: 'snapshot',
+        status: st,
+        frames: parseFrames(v['frames']),
+        dbcs: parseDbcChannels(v['dbcs']),
+      };
     }
     case 'frames':
       return { type: 'frames', frames: parseFrames(v['frames']) };
@@ -426,9 +454,10 @@ export function parseWsMessage(v: unknown): WsServerMessage | null {
       return st ? { type: 'status', status: st } : null;
     }
     case 'dbc': {
+      if (!isNum(v['channel'])) return null;
       const dbc = parseNullableDbc(v['dbc']);
       /* 缺失/非法 dbc 字段视为坏消息，避免误删已加载定义 */
-      return dbc === undefined ? null : { type: 'dbc', dbc };
+      return dbc === undefined ? null : { type: 'dbc', channel: v['channel'], dbc };
     }
     case 'log': {
       const lvl = v['level'];

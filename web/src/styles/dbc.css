@@ -1,6 +1,7 @@
-/* ---------- DBC 信号曲线（数据区卡片的视图二） ---------- */
-/* 视图根 .view-signals 的显隐由 .panel-data:has(...) 控制（见 data.css）。
-   曲线配色：墨/灰三级 + 虚线区分（不用红绿与渐变），变量供 chart.ts 读取。 */
+/* ---------- 信号曲线：通道选择弹窗 + 按通道可拖拽浮窗 ---------- */
+/* 曲线配色：墨/灰三级 + 虚线区分（不用红绿与渐变），变量供 chart.ts 读取。
+   浮窗与弹窗沿用纸/墨/细线语言：无模糊、无圆角、无投影/柔光；
+   切角只出现在按钮上，黄色只作填充（当前报文/运行态/错误提示）。 */
 
 :root {
   --chart-1: #161616;
@@ -20,44 +21,324 @@
   }
 }
 
-/* 未加载时的空状态 */
-.dbc-empty {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 0.5rem;
-  padding: 2rem 1.5rem;
-  text-align: center;
-  min-height: 280px;
-}
-.dbc-empty .t {
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-.dbc-empty .h {
-  font-size: 0.82rem;
-  color: var(--ef-ink-2);
-  max-width: 460px;
-  line-height: 1.8;
-}
-.dbc-empty .ef-btn {
-  margin-top: 0.5rem;
+/* 顶栏入口：与命令栏同为深色块，悬停仍是套件的黄色擦入 */
+.ef-cmdbar .signal-open {
+  --fill: #2e2e2e;
+  color: #ededed;
+  flex: none;
 }
 
-/* 已加载：左侧报文列表 + 右侧曲线区 */
-.dbc-body {
-  display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
-  align-items: stretch;
+/* ---------- 通道选择弹窗 ---------- */
+.signal-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(1rem, 9vh, 5rem) 1rem 2rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
-
-.dbc-msg-pane {
+.signal-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, #161616 46%, transparent);
+}
+body.signal-picker-open {
+  overflow: hidden;
+}
+.signal-modal-panel {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 3rem);
+  margin: 0;
+}
+.signal-modal-head {
+  flex: none;
+}
+.signal-modal-hint {
+  flex: none;
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: var(--ef-ink-2);
+}
+.signal-picker {
+  flex: 1;
+  min-height: 84px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ef-rule) transparent;
+  border-top: 1px solid var(--ef-rule);
+  border-bottom: 1px solid var(--ef-rule);
+}
+.signal-picker-row {
+  display: grid;
+  grid-template-columns: minmax(88px, auto) minmax(0, 1fr) minmax(0, auto);
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  width: 100%;
+  padding: 0.55rem 0.45rem;
+  border: 0;
+  border-bottom: 1px solid var(--ef-rule);
+  background: none;
+  color: var(--ef-ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.signal-picker-row:last-child {
+  border-bottom: 0;
+}
+.signal-picker-row:hover,
+.signal-picker-row:focus-visible {
+  background: var(--ef-chip);
+}
+.signal-picker-row:focus-visible {
+  outline: 2px solid var(--ef-trace);
+  outline-offset: -3px;
+}
+.signal-picker-row.is-open {
+  background:
+    linear-gradient(var(--ef-signal), var(--ef-signal)) left / 4px 100% no-repeat;
+}
+.signal-picker-row.is-open .spr-name {
+  font-weight: 800;
+}
+.spr-name {
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.spr-meta,
+.spr-dbc {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.72rem;
+  color: var(--ef-ink-2);
+}
+.spr-dbc {
+  text-align: right;
+}
+.signal-picker-row.is-open .spr-dbc {
+  color: var(--ef-ink);
+  font-weight: 600;
+}
+.signal-picker-empty {
+  flex: none;
+  padding: 1.2rem 0.8rem;
+}
+
+/* ---------- 浮窗容器与窗口本体 ---------- */
+.signal-windows {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+.signal-window {
+  position: fixed;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  width: 720px;
+  max-width: calc(100vw - 2rem);
+  height: 520px;
+  max-height: min(520px, calc(100dvh - 6rem));
+  overflow: hidden;
+  background: var(--ef-panel);
+  border: 1px solid var(--ef-ink);
+  pointer-events: auto;
+}
+.signal-window:focus-visible {
+  outline: 2px solid var(--ef-trace);
+  outline-offset: -2px;
+}
+
+/* 标题栏：拖动区；关闭按钮仍走 ef-btn 的切角命中区 */
+.signal-window-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.35rem 0.35rem 0.35rem 0.85rem;
+  border-bottom: 1px solid var(--ef-ink);
+  background: var(--ef-paper);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.signal-window.is-dragging .signal-window-head {
+  cursor: grabbing;
+  background: var(--ef-chip);
+}
+.sw-id {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.sw-name {
+  font-size: 0.9rem;
+  font-weight: 800;
+  font-stretch: var(--ef-wider);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.sw-meta {
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.7rem;
+  color: var(--ef-ink-2);
+  white-space: nowrap;
+}
+.sw-meta.is-running {
+  color: var(--ef-ink);
+  font-weight: 700;
+}
+.sw-dbc {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--ef-rule);
+}
+.sw-dbc-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.sw-drag {
+  flex: none;
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.68rem;
+  color: var(--ef-ink-2);
+  white-space: nowrap;
+}
+.sw-close {
+  flex: none;
+}
+
+/* 工具条：本窗独立的 DBC 入口与时间窗 */
+.sw-tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0.85rem;
+  border-bottom: 1px solid var(--ef-rule);
+}
+.sw-window-label {
+  font-size: 0.76rem;
+  color: var(--ef-ink-2);
+  white-space: nowrap;
+}
+.sw-window-select {
+  width: auto;
+  min-height: 1.85rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+/* 内容：左报文列表 + 右曲线；高度由窗口剩余空间决定 */
+.sw-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+}
+.sw-msg-pane {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   border-right: 1px solid var(--ef-rule);
 }
+.sw-msg-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+.sw-chart-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.5rem 0.85rem 0.65rem;
+}
+.sw-chart-box {
+  flex: 1;
+  min-height: 150px;
+  height: auto;
+}
+.sw-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.signal-window .dbc-signal-bar {
+  max-height: 64px;
+}
+.signal-window .dbc-legend {
+  max-height: 42px;
+}
+
+/* 无 DBC：一句完整说明 + 可加载入口 */
+.sw-no-dbc {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+.sw-no-dbc p {
+  max-width: 34rem;
+  font-size: 0.82rem;
+  line-height: 1.8;
+  color: var(--ef-ink-2);
+}
+
+/* 底部提示：加载中/失败说明；错误用黄色整块提示（不用红） */
+.sw-hint {
+  flex: none;
+  margin: 0;
+  padding: 0.4rem 0.85rem;
+  border-top: 1px solid var(--ef-rule);
+  font-size: 0.74rem;
+  line-height: 1.6;
+  color: var(--ef-ink-2);
+}
+.sw-hint:empty {
+  display: none;
+}
+.sw-hint.is-error {
+  background: var(--ef-signal);
+  color: var(--ef-on-signal);
+  font-weight: 700;
+}
+
+/* ---------- 报文列表（沿用原 DBC 面板的视觉语言） ---------- */
 .dbc-pane-head {
   display: flex;
   align-items: center;
@@ -104,6 +385,10 @@
 .dbc-msg:hover {
   background: var(--ef-paper);
 }
+.dbc-msg:focus-visible {
+  outline: 2px solid var(--ef-trace);
+  outline-offset: -2px;
+}
 .dbc-msg-id {
   font-family: var(--ef-font-ui);
   font-stretch: var(--ef-wide);
@@ -145,33 +430,7 @@
   color: var(--ef-on-signal);
 }
 
-/* 曲线区：工具条 + 信号开关条 + 画布 + 图例 */
-.dbc-chart-pane {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  padding: 0.7rem 1.15rem 0.9rem;
-  min-width: 0;
-}
-.dbc-chart-tools {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.dbc-win {
-  font-size: 0.78rem;
-  color: var(--ef-ink-2);
-  white-space: nowrap;
-}
-.dbc-chart-tools select {
-  width: auto;
-  min-height: 1.9rem;
-  padding: 0.1rem 0.4rem;
-  font-size: 0.78rem;
-}
-
-/* 信号开关：浅灰切角小块，开启 = 黄（kit 的筛选块语言） */
+/* ---------- 信号开关 / 空状态 / 画布 / 图例 ---------- */
 .dbc-signal-bar {
   display: flex;
   flex-wrap: wrap;
@@ -203,6 +462,10 @@
 }
 .sig-chip:hover {
   background: linear-gradient(-45deg, transparent calc(var(--ef-cut) - 0.5px), color-mix(in srgb, var(--ef-ink) 14%, var(--ef-chip)) var(--ef-cut));
+}
+.sig-chip:focus-visible {
+  outline: 2px solid var(--ef-trace);
+  outline-offset: -2px;
 }
 .sig-chip-name {
   font-family: var(--ef-font-ui);
@@ -241,11 +504,6 @@
   border: 1px solid var(--ef-rule);
   background: var(--ef-paper);
   overflow: hidden;
-}
-#signalChart {
-  display: block;
-  width: 100%;
-  height: 100%;
 }
 
 /* 图例：名称 + 末值（真实读数）；线形标记与曲线的虚实一致 */
@@ -289,57 +547,55 @@
   white-space: nowrap;
 }
 
-/* 面板底部状态行（加载结果 / 错误提示） */
-.dbc-hint {
-  margin: 0.7rem -1.15rem -1.15rem;
-  padding: 0.45rem 1.15rem;
-  border-top: 1px solid var(--ef-rule);
-  font-size: 0.75rem;
-  line-height: 1.7;
-  color: var(--ef-ink-2);
-}
-
-/* 中等宽度：收窄报文列表，给曲线让位 */
-@media (max-width: 1180px) {
-  .dbc-body {
-    grid-template-columns: 220px minmax(0, 1fr);
+/* ---------- 响应式：小屏窗口铺满，报文列表与图表上下排列 ---------- */
+@media (max-width: 760px) {
+  .signal-modal {
+    align-items: center;
+    padding: 1rem 0.75rem;
   }
-}
+  .signal-modal-panel {
+    max-height: calc(100dvh - 2rem);
+  }
+  .signal-picker-row {
+    grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
+  }
+  .spr-dbc {
+    grid-column: 1 / -1;
+    max-width: none;
+    text-align: left;
+  }
 
-/* 窄屏：报文列表与曲线上下堆叠 */
-@media (max-width: 900px) {
-  .dbc-body {
+  .signal-window {
+    width: calc(100vw - 2rem);
+    max-width: none;
+    height: calc(100dvh - 2rem);
+    max-height: none;
+  }
+  .sw-drag {
+    display: none;
+  }
+  .sw-body {
     grid-template-columns: 1fr;
+    grid-template-rows: minmax(110px, 34%) minmax(0, 1fr);
   }
-  .dbc-msg-pane {
+  .sw-msg-pane {
     border-right: 0;
     border-bottom: 1px solid var(--ef-rule);
   }
-  .dbc-msg-list {
+  .sw-msg-list {
     flex: none;
-    min-height: 0;
-    max-height: 168px;
-  }
-  .dbc-chart-box {
-    height: 208px;
-  }
-  .dbc-signal-bar {
-    max-height: 120px;
+    max-height: 160px;
   }
 }
 
 @media (max-width: 520px) {
-  .dbc-chart-pane {
-    padding: 0.6rem 0.8rem;
+  .sw-tools {
+    padding: 0.4rem 0.65rem;
   }
-  .dbc-chart-box {
-    height: 200px;
+  .sw-chart-pane {
+    padding: 0.45rem 0.65rem 0.55rem;
   }
-  .dbc-name {
-    max-width: 170px;
-  }
-  .dbc-empty {
-    padding: 1.5rem 1rem;
-    min-height: 240px;
+  .sw-hint {
+    padding: 0.4rem 0.65rem;
   }
 }

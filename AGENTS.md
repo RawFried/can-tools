@@ -34,7 +34,8 @@ src/                  Rust 后端（bin + lib）
   paths.rs            数据目录解析（CAN_TOOLS_DATA_DIR → XDG）
 web/                  前端（无框架 TypeScript + CSS + HTML 片段，源码按职责拆模块于 src/）
   src/main.ts         启动入口；types/format/dom/state/api/toast/ws/frames/status/
-                      devices/recordings/channel-stats/backdrop/filters(-model)/
+                      devices/recordings/channel-stats/backdrop/signals/
+                      signal-window/signal-session/signal-drag/filters(-model)/
                       send/events 各司其职
   src/styles/         CSS 源码：vendor/endfield（上游套件）/fonts/base/
                       backdrop/layout/controls/rail/stats/data/send/dbc/

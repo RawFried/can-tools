@@ -3,7 +3,7 @@
  */
 import { initBackdrop } from './backdrop';
 import { els } from './dom';
-import { initDbc } from './dbc';
+import { initSignals } from './signals';
 import { bindEvents } from './events';
 import { setRangeRowsChangedHandler } from './filters';
 import { fmtDur } from './format';
@@ -26,7 +26,7 @@ function init(): void {
   setRangeRowsChangedHandler(updateControls);
   bindEvents();
   initBackdrop();
-  initDbc();
+  initSignals();
   renderRecordings();
   updateStrip();
   updateEmpty();

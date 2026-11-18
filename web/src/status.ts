@@ -8,6 +8,7 @@ import { selectedChannel, syncChannels } from './channels';
 import { els } from './dom';
 import { MAX_RANGE_ROWS, rangeRowCount } from './filters';
 import { errText, fmtDur, fmtInt } from './format';
+import { refreshSignalWindows } from './signals';
 import { syncSendChannels, updateSendControls } from './send';
 import { BUFFER_CAP, busy, state } from './state';
 import { toast } from './toast';
@@ -59,6 +60,9 @@ export function applyStatus(st: StatusDto): void {
 
   /* 版本 */
   if (st.server.version) els.versionLabel.textContent = 'v' + st.server.version;
+
+  /* 信号曲线窗口头部与通道选择弹窗跟随通道状态 */
+  refreshSignalWindows();
 
   updateControls();
   updateEmpty();

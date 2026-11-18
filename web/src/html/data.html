@@ -1,113 +1,44 @@
-    <!-- 数据区：实时报文 / 信号曲线（同一面板，零 JS 选项卡切换） -->
+    <!-- 数据区：实时报文（信号曲线已独立为按通道浮窗） -->
     <section class="ef-panel panel-data" id="framesPanel" aria-labelledby="h-frames">
       <header class="panel-head data-head">
-        <p class="ef-eyebrow slash" aria-hidden="true">05</p>
-        <div class="view-tabs">
-          <input class="view-radio" type="radio" name="data-view" id="dataViewFrames" checked>
-          <label class="view-tab" for="dataViewFrames">实时报文</label>
-          <input class="view-radio" type="radio" name="data-view" id="dataViewSignals">
-          <label class="view-tab" for="dataViewSignals">信号曲线</label>
-        </div>
-        <div class="dbc-meta">
-          <span class="dbc-name" id="dbcName">未加载 DBC</span>
-          <span class="dbc-summary" id="dbcSummary"></span>
-        </div>
-        <div class="dbc-actions">
-          <button class="ef-btn small" id="btnDbcLoad" type="button">
-            <span>加载 DBC</span>
-          </button>
-          <button class="ef-btn small" id="btnDbcRemove" type="button" disabled>
-            <span>移除</span>
-          </button>
-        </div>
+        <h2 class="ef-pair" id="h-frames"><span class="ef-eyebrow slash">05 / Frames</span><span>实时报文</span></h2>
       </header>
 
-      <!-- 视觉隐藏（保留可激活性，label 点击可唤起选择器）；键盘路径走 btnDbcLoad -->
-      <input class="sr-only" type="file" id="dbcFileInput" accept=".dbc,text/plain" tabindex="-1" aria-hidden="true">
-
-      <!-- 视图一：实时报文（默认） -->
-      <div class="view view-frames">
-        <h2 id="h-frames" class="sr-only">实时报文</h2>
-        <div class="frames-tools">
-          <div class="tools">
-            <label class="search">
-              <input type="search" id="frameFilter" placeholder="过滤 ID / 数据 / 通道（按 / 聚焦）" aria-label="快速过滤报文">
-            </label>
-            <label class="switch" title="开启时始终跟随最新报文；关闭后可向上查看历史"><input class="ef-switch" type="checkbox" id="autoscrollCheck" checked><span>自动滚动</span></label>
-            <button class="ef-btn small btn-press" id="btnPauseView" type="button" aria-pressed="false" disabled title="暂停或恢复显示（不影响接收与录制）">
-              <span id="btnPauseLabel">暂停显示</span>
-            </button>
-            <button class="ef-btn small" id="btnClearView" type="button" title="清空实时缓冲（不影响录制文件）">
-              <span>清空</span>
-            </button>
-          </div>
-        </div>
-        <div class="table-area">
-          <div class="table-wrap" id="tableWrap" tabindex="0" aria-label="报文列表，区域可滚动">
-            <table class="frames">
-              <caption class="sr-only">实时 CAN 报文</caption>
-              <colgroup>
-                <col style="width:88px"><col style="width:118px"><col style="width:124px"><col style="width:134px"><col style="width:92px"><col style="width:52px"><col style="width:100%">
-              </colgroup>
-              <thead>
-                <tr><th class="num" scope="col">序列</th><th scope="col">时间</th><th scope="col">通道</th><th scope="col">ID</th><th scope="col">类型</th><th class="num" scope="col">DLC</th><th scope="col">数据</th></tr>
-              </thead>
-              <tbody id="framesBody"></tbody>
-            </table>
-          </div>
-          <div class="empty" id="frameEmpty">
-            <p class="t" id="emptyTitle">等待报文</p>
-            <p class="h" id="emptyHint">在左侧选择通道并点击「启动通道」，捕获的报文将显示在这里。</p>
-          </div>
-          <div class="paused-badge" id="pausedBadge" hidden>已暂停 <span id="pausedCount">0</span> 帧未显示</div>
-        </div>
-        <footer class="strip">
-          <span class="log" id="lastLogMsg">就绪</span>
-          <span class="strip-right"><span id="visibleCount">显示 0 行</span><span id="bufferUsage">缓冲 0 / 5,000</span></span>
-        </footer>
-      </div>
-
-      <!-- 视图二：信号曲线（DBC） -->
-      <section class="view view-signals" id="dbcPanel" aria-labelledby="h-dbc">
-        <h2 id="h-dbc" class="sr-only">信号曲线（DBC）</h2>
-
-        <div class="dbc-empty" id="dbcEmpty">
-          <p class="t">加载 DBC 报文定义</p>
-          <p class="h">解析 .dbc 文件后，收到的报文会按定义解码为信号值；选择要观察的信号，即可在此绘制实时曲线。定义会同步到所有已打开的页面。</p>
-          <label class="ef-btn go" for="dbcFileInput">
-            <span>加载 DBC 文件</span>
+      <div class="frames-tools">
+        <div class="tools">
+          <label class="search">
+            <input type="search" id="frameFilter" placeholder="过滤 ID / 数据 / 通道（按 / 聚焦）" aria-label="快速过滤报文">
           </label>
+          <label class="switch" title="开启时始终跟随最新报文；关闭后可向上查看历史"><input class="ef-switch" type="checkbox" id="autoscrollCheck" checked><span>自动滚动</span></label>
+          <button class="ef-btn small btn-press" id="btnPauseView" type="button" aria-pressed="false" disabled title="暂停或恢复显示（不影响接收与录制）">
+            <span id="btnPauseLabel">暂停显示</span>
+          </button>
+          <button class="ef-btn small" id="btnClearView" type="button" title="清空实时缓冲（不影响录制文件）">
+            <span>清空</span>
+          </button>
         </div>
-
-        <div class="dbc-body" id="dbcBody" hidden>
-          <div class="dbc-msg-pane">
-            <div class="dbc-pane-head"><span>报文</span><span class="dbc-pane-tip">点击切换</span></div>
-            <div class="dbc-msg-list" id="dbcMsgList" role="group" aria-label="DBC 报文列表"></div>
-          </div>
-
-          <div class="dbc-chart-pane">
-            <div class="dbc-chart-tools">
-              <label class="dbc-win" for="dbcWindowSelect">时间窗</label>
-              <select class="input" id="dbcWindowSelect">
-                <option value="10000">10 秒</option>
-                <option value="30000" selected>30 秒</option>
-                <option value="60000">1 分钟</option>
-                <option value="300000">5 分钟</option>
-              </select>
-              <span class="head-spacer"></span>
-              <button class="ef-btn small" id="btnChartClear" type="button" title="清空全部信号曲线数据">
-                <span>清空曲线</span>
-              </button>
-            </div>
-            <div class="dbc-signal-bar" id="dbcSignalBar" role="group" aria-label="信号开关"></div>
-            <div class="dbc-signal-empty" id="signalEmpty" hidden>选择左侧报文，并开启要观察的信号，曲线将绘制在这里。</div>
-            <div class="dbc-chart-box">
-              <canvas id="signalChart" role="img" aria-label="所选信号的实时曲线图：横轴为相对时间，每个信号独立缩放"></canvas>
-            </div>
-            <div class="dbc-legend" id="signalLegend"></div>
-          </div>
+      </div>
+      <div class="table-area">
+        <div class="table-wrap" id="tableWrap" tabindex="0" aria-label="报文列表，区域可滚动">
+          <table class="frames">
+            <caption class="sr-only">实时 CAN 报文</caption>
+            <colgroup>
+              <col style="width:88px"><col style="width:118px"><col style="width:124px"><col style="width:134px"><col style="width:92px"><col style="width:52px"><col style="width:100%">
+            </colgroup>
+            <thead>
+              <tr><th class="num" scope="col">序列</th><th scope="col">时间</th><th scope="col">通道</th><th scope="col">ID</th><th scope="col">类型</th><th class="num" scope="col">DLC</th><th scope="col">数据</th></tr>
+            </thead>
+            <tbody id="framesBody"></tbody>
+          </table>
         </div>
-
-        <p class="dbc-hint" id="dbcHint" aria-live="polite">未加载 DBC：点击「加载 DBC」选择 .dbc 文件，信号曲线将在此显示。</p>
-      </section>
+        <div class="empty" id="frameEmpty">
+          <p class="t" id="emptyTitle">等待报文</p>
+          <p class="h" id="emptyHint">在左侧选择通道并点击「启动通道」，捕获的报文将显示在这里。</p>
+        </div>
+        <div class="paused-badge" id="pausedBadge" hidden>已暂停 <span id="pausedCount">0</span> 帧未显示</div>
+      </div>
+      <footer class="strip">
+        <span class="log" id="lastLogMsg">就绪</span>
+        <span class="strip-right"><span id="visibleCount">显示 0 行</span><span id="bufferUsage">缓冲 0 / 5,000</span></span>
+      </footer>
     </section>

@@ -3,7 +3,7 @@
  */
 import { loadDevices } from './devices';
 import { els } from './dom';
-import { applyDbc, seedDbcFrames } from './dbc';
+import { applySignalEvent, applySignalSnapshot } from './signals';
 import { acceptFrames, clearLocalFrames, rebuildTable } from './frames';
 import { BUFFER_CAP, state } from './state';
 import { applyStatus } from './status';
@@ -117,8 +117,7 @@ function handleWsText(text: string): void {
       state.pending.length = 0;
       state.pausedHidden = 0;
       els.pausedCount.textContent = '0';
-      applyDbc(msg.dbc);
-      seedDbcFrames(msg.frames);
+      applySignalSnapshot(msg.dbcs, msg.frames);
       rebuildTable();
       break;
     case 'frames':
@@ -128,7 +127,7 @@ function handleWsText(text: string): void {
       applyStatus(msg.status);
       break;
     case 'dbc':
-      applyDbc(msg.dbc);
+      applySignalEvent(msg.channel, msg.dbc);
       break;
     case 'log':
       if (msg.level === 'error') toast(msg.message, 'error');

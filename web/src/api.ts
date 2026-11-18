@@ -3,6 +3,8 @@
  */
 import type {
   ConfigBody,
+  DbcDefinitionDto,
+  DbcResponseDto,
   DevicesResponseDto,
   FilterUpdateBody,
   RecordingFileDto,
@@ -13,6 +15,7 @@ import {
   isNum,
   isObj,
   isStr,
+  parseDbcResponse,
   parseDevicesDto,
   parseRecordingsDto,
   parseStatusDto,
@@ -132,4 +135,33 @@ export async function deleteRecordingFile(name: string): Promise<void> {
 /** 设置录制 CSV 保存目录；path 为空串时恢复后端默认目录。 */
 export async function setRecordingDir(path: string): Promise<StatusDto | null> {
   return statusOf(await api('/api/recording/dir', 'POST', { path }));
+}
+
+/* ---------- 按通道 DBC ---------- */
+
+function dbcOf(res: unknown): DbcResponseDto {
+  const parsed = parseDbcResponse(res);
+  if (!parsed) throw new Error('服务器返回的 DBC 响应格式异常');
+  return parsed;
+}
+
+/** 读取某通道当前加载的 DBC 定义（未加载时 dbc 为 null）。 */
+export async function fetchDbc(channel: number): Promise<DbcResponseDto> {
+  return dbcOf(await api('/api/dbc/' + channel));
+}
+
+/** 上传某通道的 DBC 文件内容；返回服务器解析后的定义。 */
+export async function uploadDbc(
+  channel: number,
+  name: string,
+  content: string
+): Promise<DbcDefinitionDto> {
+  const res = dbcOf(await api('/api/dbc/' + channel, 'POST', { name, content }));
+  if (res.dbc === null) throw new Error('服务器未返回 DBC 定义，请检查文件内容');
+  return res.dbc;
+}
+
+/** 移除某通道的 DBC 定义（不影响窗口本身）。 */
+export async function deleteDbc(channel: number): Promise<void> {
+  await api('/api/dbc/' + channel, 'DELETE');
 }

@@ -50,6 +50,12 @@ export interface DbcDefinitionDto {
   messages: DbcMessageDto[];
 }
 
+/** 快照中按通道携带的 DBC 定义（无定义的通道不会出现）。 */
+export interface DbcChannelDto {
+  channel: number;
+  dbc: DbcDefinitionDto;
+}
+
 const DBC_VALUE_KINDS: readonly DbcValueKind[] = ['unsigned', 'signed', 'float', 'double'];
 
 function asValueKind(v: unknown): DbcValueKind {

@@ -34,4 +34,23 @@
   </div>
 </template>
 
+<!-- 信号曲线：通道选择弹窗（窗口容器见文件末尾） -->
+<div class="signal-modal" id="signalModal" hidden>
+  <div class="signal-modal-backdrop" data-signal-close aria-hidden="true"></div>
+  <section class="ef-panel signal-modal-panel" role="dialog" aria-modal="true" aria-labelledby="h-signal-picker">
+    <header class="panel-head signal-modal-head">
+      <h2 class="ef-pair" id="h-signal-picker"><span class="ef-eyebrow slash">Signal / Channel</span><span>选择信号曲线通道</span></h2>
+      <span class="head-spacer"></span>
+      <button class="ef-btn small icon-only" id="btnSignalModalClose" type="button" aria-label="关闭通道选择">
+        <span>×</span>
+      </button>
+    </header>
+    <p class="signal-modal-hint">选择通道后为其打开独立的信号曲线浮窗；每个通道单独加载 DBC，可同时打开多个窗口。</p>
+    <div class="signal-picker" id="signalPickerList" role="group" aria-label="可用通道"></div>
+    <p class="empty-inline signal-picker-empty" id="signalPickerEmpty" hidden></p>
+  </section>
+</div>
+
+<div class="signal-windows" id="signalWindows" role="region" aria-label="信号曲线浮窗"></div>
+
 <noscript><div class="noscript">此页面需要启用 JavaScript 才能与 CAN 服务通信。</div></noscript>

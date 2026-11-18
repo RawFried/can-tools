@@ -151,8 +151,7 @@ select.input {
 }
 
 /* 「需要注意」的行内提示：垫黄块，不用红 */
-.hint.error,
-.dbc-hint.is-error {
+.hint.error {
   display: inline-block;
   padding: 0 0.4em;
   background: var(--ef-signal);

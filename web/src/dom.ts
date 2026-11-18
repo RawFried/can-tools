@@ -88,23 +88,13 @@ export const els = {
   recordingsCount: byId<HTMLElement>('recordingsCount'),
   btnRefreshRecordings: byId<HTMLButtonElement>('btnRefreshRecordings'),
 
-  /* DBC 信号曲线 */
-  dbcPanel: byId<HTMLElement>('dbcPanel'),
-  dbcName: byId<HTMLElement>('dbcName'),
-  dbcSummary: byId<HTMLElement>('dbcSummary'),
-  btnDbcLoad: byId<HTMLButtonElement>('btnDbcLoad'),
-  dbcFileInput: byId<HTMLInputElement>('dbcFileInput'),
-  btnDbcRemove: byId<HTMLButtonElement>('btnDbcRemove'),
-  dbcEmpty: byId<HTMLElement>('dbcEmpty'),
-  dbcBody: byId<HTMLElement>('dbcBody'),
-  dbcMsgList: byId<HTMLElement>('dbcMsgList'),
-  dbcSignalBar: byId<HTMLElement>('dbcSignalBar'),
-  signalChart: byId<HTMLCanvasElement>('signalChart'),
-  signalLegend: byId<HTMLElement>('signalLegend'),
-  dbcWindowSelect: byId<HTMLSelectElement>('dbcWindowSelect'),
-  btnChartClear: byId<HTMLButtonElement>('btnChartClear'),
-  signalEmpty: byId<HTMLElement>('signalEmpty'),
-  dbcHint: byId<HTMLElement>('dbcHint'),
+  /* 信号曲线：通道选择弹窗与浮窗容器 */
+  btnOpenSignals: byId<HTMLButtonElement>('btnOpenSignals'),
+  signalModal: byId<HTMLElement>('signalModal'),
+  btnSignalModalClose: byId<HTMLButtonElement>('btnSignalModalClose'),
+  signalPickerList: byId<HTMLElement>('signalPickerList'),
+  signalPickerEmpty: byId<HTMLElement>('signalPickerEmpty'),
+  signalWindows: byId<HTMLElement>('signalWindows'),
 
   /* 其它 */
   toasts: byId<HTMLElement>('toasts'),
