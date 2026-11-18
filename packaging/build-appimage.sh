@@ -47,6 +47,8 @@ install -Dm644 "${ROOT}/packaging/can-tools.desktop" \
 cp "${ROOT}/packaging/can-tools.desktop" "${APPDIR}/can-tools.desktop"
 install -Dm644 "${ROOT}/web/icon.svg" \
   "${APPDIR}/usr/share/icons/hicolor/scalable/apps/can-tools.svg"
+install -Dm644 "${ROOT}/web/fonts/Saira-OFL.txt" \
+  "${APPDIR}/usr/share/doc/can-tools/Saira-OFL.txt"
 cp "${ROOT}/web/icon.svg" "${APPDIR}/can-tools.svg"
 
 # .DirIcon 优先使用 PNG; 缺少 ImageMagick 时退回 SVG。

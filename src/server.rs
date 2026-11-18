@@ -38,6 +38,7 @@ pub fn router(state: AppState) -> Router {
         .route("/app.css", get(stylesheet))
         .route("/app.js", get(script))
         .route("/favicon.svg", get(icon))
+        .route("/fonts/Saira.ttf", get(saira_font))
         .route("/api/health", get(health))
         .route("/api/devices", get(list_devices))
         .route("/api/status", get(status))
@@ -80,6 +81,20 @@ async fn script() -> Response {
 
 async fn icon() -> Response {
     asset(include_str!("../web/icon.svg"), "image/svg+xml")
+}
+
+/// 自托管的 Saira 可变字体 (SIL OFL 1.1，许可证见 `web/fonts/Saira-OFL.txt`)。
+async fn saira_font() -> Response {
+    static_bytes(include_bytes!("../web/fonts/Saira.ttf"), "font/ttf")
+}
+
+/// 二进制静态资源: 内容随二进制发布，可长期缓存。
+fn static_bytes(body: &'static [u8], content_type: &'static str) -> Response {
+    Response::builder()
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+        .body(Body::from(body))
+        .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response())
 }
 
 fn asset(body: &'static str, content_type: &'static str) -> Response {

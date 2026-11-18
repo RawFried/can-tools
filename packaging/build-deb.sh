@@ -96,6 +96,8 @@ install -m 0644 "${ROOT}/packaging/udev/99-usbcan.rules" \
   "${STAGE}/lib/udev/rules.d/99-usbcan.rules"
 install -m 0644 "${ROOT}/README.md" "${STAGE}/usr/share/doc/can-tools/README.md"
 install -m 0644 "${ROOT}/LICENSE" "${STAGE}/usr/share/doc/can-tools/copyright"
+install -D -m 0644 "${ROOT}/web/fonts/Saira-OFL.txt" \
+  "${STAGE}/usr/share/doc/can-tools/Saira-OFL.txt"
 
 printf '%s\n' /etc/default/can-tools-can > "${STAGE}/DEBIAN/conffiles"
 

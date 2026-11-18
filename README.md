@@ -190,6 +190,7 @@ cargo test --workspace --all-targets
 `web/index.html`、`web/app.js` 与 `web/app.css` 都是构建产物、不入库；后端在编译时用 `include_str!` 嵌入它们，
 产物缺失时 `build.rs` 会提示先执行 `npm run build`，因此 `cargo build` 前必须先生成前端产物。
 `web/index.html` 由 `web/src/html/**` 的片段拼装而成，改页面结构请改片段源码而不是生成物。
+界面字体使用自托管的 [Saira](https://github.com/googlefonts/saira-fonts)（SIL OFL 1.1，`web/fonts/Saira-OFL.txt`），中文使用系统中文字体。
 
 ## Debian / Ubuntu 包（.deb）
 
