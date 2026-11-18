@@ -141,7 +141,7 @@ string when `dlc` is 0).
 
 ## DBC definition object
 
-A parsed DBC file is exposed as one definition. All fields are always present.
+Each channel can have its own parsed DBC definition with this shape. All fields are always present.
 
 ```json
 {

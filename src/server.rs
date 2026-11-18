@@ -383,7 +383,10 @@ async fn clear_channel_dbc_files(data_dir: &Path, channel: u8) -> Result<(), Api
         .map_err(|error| ApiError::internal(format!("读取 DBC 目录失败: {error}")))?
     {
         let name = entry.file_name().to_string_lossy().into_owned();
-        if !name.starts_with(&prefix) || !name.ends_with(".dbc") {
+        let channel_file = name.starts_with(&prefix);
+        /* 兼容旧版单文件: 通道 0 也清理没有 channel- 前缀的 .dbc */
+        let legacy_zero = channel == 0 && !name.starts_with("channel-");
+        if (!channel_file && !legacy_zero) || !name.ends_with(".dbc") {
             continue;
         }
         match tokio::fs::remove_file(entry.path()).await {
