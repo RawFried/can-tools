@@ -14,8 +14,9 @@
  * - 纵轴好读刻度用 1/2/2.5/5 × 10^k 步长取约 4 档；值域只按当前窗口内样本计算；
  * - 每像素列做 min/max 抽稀，超长样本数组不拖慢绘制；
  * - 网格/文字颜色经 getComputedStyle 读取 app.css 的 --ef-* 变量，深/浅主题自动跟随；
- *   序列外观（灰阶级别 × 实线/虚线）由 seriesPalette() 从 --chart-1..3 解析后交给
- *   调用方分配，不用红绿与渐变填充。
+ *   序列外观（钢蓝/青绿/岩紫 × 实线/虚线）由 seriesPalette() 从 --chart-1..3 解析后
+ *   交给调用方分配：颜色是第一层编码，虚实线型是第二层（色弱/灰度下仍可分辨），
+ *   不用红/黄系，也不用渐变填充。
  */
 import type { ValueDomain } from './chart-math';
 import {
@@ -47,8 +48,9 @@ export interface ChartSeries {
   samples: readonly ChartSample[];
 }
 
-/** 曲线外观：色级 + 线型。色级来自 CSS 变量 --chart-1..3（墨/灰，随主题），
- *  线型在实线 / 长虚 / 点虚之间轮换 —— 不用红绿，也不用渐变填充。 */
+/** 曲线外观：颜色 + 线型。颜色来自 CSS 变量 --chart-1..3（钢蓝/青绿/岩紫，随主题），
+ *  线型在实线 / 长虚 / 点虚之间轮换，是颜色之外的第二层编码 ——
+ *  不用红/黄系，也不用渐变填充。 */
 export interface SeriesLook {
   color: string;
   dash: readonly number[];
@@ -539,7 +541,7 @@ export class SignalChart {
     }
     if (cols.length === 0) return;
 
-    /* 面积渐变填充已按视觉规范移除：只保留灰阶线 + 虚线区分 */
+    /* 面积渐变填充已按视觉规范移除：只保留彩色细线 + 虚线区分 */
     ctx.strokeStyle = s.color;
     ctx.lineWidth = lineWidth;
     ctx.lineJoin = 'round';
