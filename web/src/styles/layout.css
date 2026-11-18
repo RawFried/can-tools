@@ -64,7 +64,7 @@
 .rail .card:nth-child(5) { animation-delay: 0.18s; }
 .main .panel-channel-stats { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) 0.05s backwards; }
 .main .panel-data { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) 0.10s backwards; }
-.main .panel-recs { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.3, 1) 0.14s backwards; }
+/* 录制卡已移入 .rail，入场沿用上方 .rail .card:nth-child(n) 的阶梯延迟，无需单独规则 */
 
 .card-head {
   position: relative;

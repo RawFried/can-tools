@@ -1,22 +1,26 @@
-/* ---------- 录制（CSV） ---------- */
-/* 工具行：左侧起停按钮，中间行内录制信息，右侧数据目录；窄屏整体换行 */
+/* ---------- 录制（CSV）：侧栏窄卡工具区 ---------- */
+/* 录制卡已移入 320px 侧栏，工具区按窄栏优先纵向堆叠：
+   起停一行等宽 → 录制中信息 → CSV 目录，不再有宽屏横排形态 */
 .rec-toolbar {
-  display: flex; align-items: center; flex-wrap: wrap;
-  gap: 10px 14px;
-  padding: 10px 14px;
+  display: grid; gap: 10px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--border);
+  min-width: 0;
 }
-.rec-actions { display: flex; gap: 8px; flex: none; }
 
-/* 录制中：行内胶囊（文件名可省略、数字等宽，不随帧数增长而抖动） */
+/* 起停按钮：一行两个等宽 */
+.rec-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; min-width: 0; }
+
+/* 录制中：两行布局 —— 第一行圆点 + 文件名（省略），第二行帧数/时长（不换行、不被挤压） */
 .rec-active {
-  display: flex; align-items: center; gap: 12px;
-  flex: 1 1 260px; min-width: 0; max-width: 520px;
-  padding: 4px 12px;
+  display: grid; gap: 3px;
+  padding: 7px 10px;
   border: 1px solid var(--err-line);
   background: var(--err-dim);
-  border-radius: 999px;
+  border-radius: var(--r-m);
+  min-width: 0;
 }
+.rec-live { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .rec-dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--err); flex: none;
@@ -24,10 +28,11 @@
   animation: pulse 2.4s ease-in-out infinite;
 }
 .rec-file {
-  flex: 1 1 140px; min-width: 0;
+  flex: 1 1 auto; min-width: 0;
   font: 600 12px/1.5 var(--font-mono);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.rec-stats { display: flex; gap: 14px; min-width: 0; }
 .rec-stat {
   display: inline-flex; align-items: baseline; gap: 4px;
   flex: none;
@@ -41,13 +46,9 @@
   color: var(--text);
 }
 
-/* CSV 目录：工具行右侧的紧凑编辑字段；输入框为等宽路径，按钮不收缩 */
-.rec-dir {
-  display: flex; align-items: center; gap: 6px;
-  margin-left: auto; min-width: 0;
-}
+/* CSV 目录：标签独占一行，输入框 + 应用按钮一行；输入框占满剩余宽度且可收缩 */
+.rec-dir { display: grid; gap: 6px; min-width: 0; }
 .rec-dir .field-label {
-  flex: none;
   font-size: 11px; color: var(--text-faint);
   white-space: nowrap;
 }
@@ -57,14 +58,7 @@
 }
 .rec-path-input {
   flex: 1 1 auto;
-  width: 300px; min-width: 220px; max-width: 360px;
+  width: 100%; min-width: 0;
   font-family: var(--font-mono); font-size: 11.5px;
 }
 .rec-dir-row .btn { flex: none; }
-
-/* 窄屏：整块换到新行，输入占满剩余宽度 */
-@media (max-width: 820px) {
-  .rec-dir { flex: 1 1 100%; width: 100%; margin-left: 0; }
-  .rec-dir-row { flex: 1 1 auto; min-width: 0; }
-  .rec-path-input { width: auto; min-width: 0; max-width: none; }
-}

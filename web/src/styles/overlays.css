@@ -50,14 +50,13 @@
 }
 
 /* ---------- 滚动条 ---------- */
-.table-wrap::-webkit-scrollbar, .recs-wrap::-webkit-scrollbar { width: 10px; height: 10px; }
-.table-wrap::-webkit-scrollbar-thumb, .recs-wrap::-webkit-scrollbar-thumb {
+.table-wrap::-webkit-scrollbar { width: 10px; height: 10px; }
+.table-wrap::-webkit-scrollbar-thumb {
   background: var(--border-strong); border-radius: 6px;
   border: 2px solid var(--surface);
 }
-.table-wrap::-webkit-scrollbar-thumb:hover, .recs-wrap::-webkit-scrollbar-thumb:hover {
+.table-wrap::-webkit-scrollbar-thumb:hover {
   background: var(--text-faint);
 }
-.table-wrap::-webkit-scrollbar-corner, .recs-wrap::-webkit-scrollbar-corner { background: transparent; }
+.table-wrap::-webkit-scrollbar-corner { background: transparent; }
 .table-wrap { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
-.recs-wrap { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }

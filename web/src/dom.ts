@@ -84,7 +84,7 @@ export const els = {
   bufferUsage: byId<HTMLElement>('bufferUsage'),
 
   /* 录制文件 */
-  recordingsList: byId<HTMLTableSectionElement>('recordingsList'),
+  recordingsList: byId<HTMLUListElement>('recordingsList'),
   recordingsEmpty: byId<HTMLElement>('recordingsEmpty'),
   recordingsCount: byId<HTMLElement>('recordingsCount'),
   btnRefreshRecordings: byId<HTMLButtonElement>('btnRefreshRecordings'),
@@ -115,5 +115,5 @@ export const els = {
 };
 
 export const rowTplRow = els.rowTpl.content.firstElementChild as HTMLTableRowElement | null;
-export const recTplRow = els.recRowTpl.content.firstElementChild as HTMLTableRowElement | null;
+export const recTplRow = els.recRowTpl.content.firstElementChild as HTMLLIElement | null;
 export const filterTplRow = els.filterRowTpl.content.firstElementChild as HTMLElement | null;

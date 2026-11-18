@@ -1,5 +1,5 @@
 /**
- * 录制文件列表：加载/排序、行渲染、下载链接与删除（二次确认 + busy 态）。
+ * 录制文件列表：加载/排序、列表项渲染、下载链接与删除（二次确认 + busy 态）。
  */
 import { deleteRecordingFile, fetchRecordings } from './api';
 import { els, q, recTplRow } from './dom';
@@ -9,20 +9,24 @@ import { runBusy } from './status';
 import { toast } from './toast';
 import type { RecordingFileDto } from './types';
 
-function buildRecRow(rec: RecordingFileDto): HTMLTableRowElement {
+/** 侧栏窄列表行：第一行文件名（省略 + title 全名），第二行「大小 · 修改时间」，右侧图标按钮。 */
+function buildRecRow(rec: RecordingFileDto): HTMLLIElement {
   const src = recTplRow;
-  const row = (src ? src.cloneNode(true) : document.createElement('tr')) as HTMLTableRowElement;
+  const row = (src ? src.cloneNode(true) : document.createElement('li')) as HTMLLIElement;
 
   const name = q<HTMLElement>(row, '.r-name');
   name.textContent = rec.name;
+  name.title = rec.name;
   q<HTMLElement>(row, '.r-size').textContent = fmtBytes(rec.size);
   q<HTMLElement>(row, '.r-time').textContent = fmtDateTime(rec.modified_ms);
 
   const link = q<HTMLAnchorElement>(row, 'a.btn');
   link.href = '/api/recordings/' + encodeURIComponent(rec.name);
   link.setAttribute('download', rec.name);
+  link.setAttribute('aria-label', '下载 ' + rec.name);
 
   const del = q<HTMLButtonElement>(row, 'button.btn-danger');
+  del.setAttribute('aria-label', '删除 ' + rec.name);
   del.addEventListener('click', () => {
     void deleteRecording(rec.name, del);
   });

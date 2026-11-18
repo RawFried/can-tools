@@ -33,19 +33,11 @@
   .table-area { max-height: 58vh; }
 
   .grid-2 { grid-template-columns: 1fr; }
-
-  /* 录制文件操作退化为纯图标按钮，保证可达 */
-  .r-act .btn span { display: none; }
-  .r-act .btn { width: 30px; padding: 0; justify-content: center; }
-  .r-act .btn + .btn { margin-left: 4px; }
-  td.r-name { max-width: 40vw; }
 }
 
 @media (max-width: 520px) {
   .layout { padding: 10px 10px 20px; }
   .version { display: none; }
-  table.recs-table .r-time, table.recs-table th.c-time { display: none; }
-  td.r-name { max-width: 52vw; }
   .card-body { padding: 12px; }
 
   /* 通道统计：再隐藏「累计接收」列，只留通道/帧率/负载 */

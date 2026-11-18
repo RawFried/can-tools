@@ -17,10 +17,14 @@
           <button class="btn btn-danger" id="btnRecStop" type="button" disabled><span>停止并保存</span></button>
         </div>
         <div class="rec-active" id="recActive" hidden aria-live="polite">
-          <span class="rec-dot" aria-hidden="true"></span>
-          <span class="rec-file" id="recActiveFile">—</span>
-          <span class="rec-stat">已录 <span class="rec-num" id="recActiveFrames">0</span> 帧</span>
-          <span class="rec-stat">时长 <span class="rec-num" id="recActiveElapsed">00:00</span></span>
+          <span class="rec-live">
+            <span class="rec-dot" aria-hidden="true"></span>
+            <span class="rec-file" id="recActiveFile">—</span>
+          </span>
+          <span class="rec-stats">
+            <span class="rec-stat">已录 <span class="rec-num" id="recActiveFrames">0</span> 帧</span>
+            <span class="rec-stat">时长 <span class="rec-num" id="recActiveElapsed">00:00</span></span>
+          </span>
         </div>
         <div class="rec-dir">
           <label class="field-label" for="dataDirInput">CSV 目录</label>
@@ -31,16 +35,7 @@
         </div>
       </div>
       <div class="recs-wrap">
-        <table class="recs-table">
-          <caption class="sr-only">已保存的 CSV 录制文件</caption>
-          <colgroup>
-            <col style="width:100%"><col style="width:96px"><col style="width:176px"><col style="width:168px">
-          </colgroup>
-          <thead>
-            <tr><th scope="col">文件名</th><th class="num c-size" scope="col">大小</th><th class="c-time" scope="col">修改时间</th><th class="right" scope="col">操作</th></tr>
-          </thead>
-          <tbody id="recordingsList"></tbody>
-        </table>
+        <ul class="recs-list" id="recordingsList" aria-label="已保存的 CSV 录制文件"></ul>
         <div class="empty-inline" id="recordingsEmpty" hidden>暂无录制文件。点击「开始录制」开始采集。</div>
       </div>
     </section>
