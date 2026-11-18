@@ -9,8 +9,9 @@
  *   曲线不动（刻度槽宽度固定）；
  * - 选中（点击曲线/图例行）只影响强调：选中曲线最后绘制且略粗，图例行保持按下态；
  * - 光标吸附：每条曲线按时间二分找最近采样（含 ±1 邻域），在屏幕距离 SNAP_PX 内
- *   取全局最近的真实采样点，画竖向参考线、点标记与“名称/相对时间/数值”提示框
- *   （贴边自动翻转，始终留在画布内）；未命中时不画任何光标元素；
+ *   取全局最近的真实采样点，画竖向参考线、横向数值虚线、点标记与
+ *   “名称/相对时间/数值”提示框（贴边自动翻转，始终留在画布内）；
+ *   移开光标后横向虚线保留上次读数，吸附到其他曲线时按新值切换；
  * - 纵轴好读刻度用 1/2/2.5/5 × 10^k 步长取约 4 档；值域只按当前窗口内样本计算；
  * - 每像素列做 min/max 抽稀，超长样本数组不拖慢绘制；
  * - 网格/文字颜色经 getComputedStyle 读取 app.css 的 --ef-* 变量，深/浅主题自动跟随；
@@ -149,6 +150,8 @@ export class SignalChart {
   private selectHandler: ((key: string | null) => void) | null = null;
   /** 最近一次光标位置（画布内 CSS 像素）；null = 无光标（离开/取消）。 */
   private cursor: { x: number; y: number } | null = null;
+  /** 最近一次吸附到的真实数值：无吸附时保留一条横向虚线，作为上次读数参照。 */
+  private lastValue: { key: string; v: number } | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -386,8 +389,13 @@ export class SignalChart {
     }
     /* 吸附只算一次：纵轴刻度与光标叠层共用同一命中结果 */
     const hit = this.hitFrom(g);
-    if (hit !== null) this.drawValueAxis(g, hit.scale, th);
+    if (hit !== null) {
+      this.lastValue = { key: hit.scale.series.key, v: hit.v };
+      this.drawValueAxis(g, hit.scale, th);
+    }
     this.drawAllSeries(g);
+    /* 横向数值虚线：吸附时跟随当前点，移开光标后保留上次读数（Y 轴对齐用） */
+    this.drawValueGuide(g, hit, th);
     if (hit !== null) this.drawSnapOverlay(hit, g, th);
   }
 
@@ -630,6 +638,28 @@ export class SignalChart {
       }
     }
     return best;
+  }
+
+  /** 横向数值虚线：吸附时跟随命中值，移开光标后停在最近一次吸附的真实值上；
+   *  线从左侧 Y 轴贯到绘图区右缘，吸附其他曲线后按新值切换。 */
+  private drawValueGuide(g: Layout, hit: SnapHit | null, th: Theme): void {
+    const mark = hit !== null ? { key: hit.scale.series.key, v: hit.v } : this.lastValue;
+    if (mark === null) return;
+    const scale = g.scales.get(mark.key);
+    if (scale === undefined) return;
+    const y = Math.round(scale.yOf(mark.v)) + 0.5;
+    if (y < g.plotTop || y > g.axisY) return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.strokeStyle = th.mid;
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(g.plotL, y);
+    ctx.lineTo(g.plotR, y);
+    ctx.stroke();
+    ctx.restore();
   }
 
   /** 参考线 + 采样点标记 + 光标旁提示框；未命中时不画任何光标元素。 */
