@@ -1,6 +1,6 @@
 [package]
 name = "canalyst-ii"
-version = "0.4.6"
+version = "0.4.7"
 edition = "2021"
 rust-version = "1.82"
 description = "Chuangxin USBCAN/CANalyst-II (04d8:0053) USB driver for can-tools"

@@ -1,7 +1,7 @@
 {
   "name": "can-tools-web",
   "private": true,
-  "version": "0.4.6",
+  "version": "0.4.7",
   "description": "CAN Tools 前端（TypeScript / CSS / HTML 片段源码；编译产物 index.html / app.js / app.css 由 Rust 后端嵌入并分发）",
   "scripts": {
     "build": "npm run build:html && npm run build:js && npm run build:css",
