@@ -59,13 +59,14 @@ install -Dm644 "${ROOT}/web/fonts/Saira-OFL.txt" \
   "${APPDIR}/usr/share/doc/can-tools/Saira-OFL.txt"
 cp "${ROOT}/web/icon.svg" "${APPDIR}/can-tools.svg"
 
-# .DirIcon 优先使用 PNG; 缺少 ImageMagick 时退回 SVG。
-if command -v convert >/dev/null 2>&1; then
-  convert -background none "${ROOT}/web/icon.svg" -resize 256x256 "${APPDIR}/can-tools.png"
+# .DirIcon 优先使用 PNG; 缺少 ImageMagick / SVG 解码器时退回 SVG。
+if command -v convert >/dev/null 2>&1 && \
+  convert -background none "${ROOT}/web/icon.svg" -resize 256x256 "${APPDIR}/can-tools.png"; then
   install -Dm644 "${APPDIR}/can-tools.png" \
     "${APPDIR}/usr/share/icons/hicolor/256x256/apps/can-tools.png"
   ln -sf can-tools.png "${APPDIR}/.DirIcon"
 else
+  rm -f "${APPDIR}/can-tools.png"
   ln -sf can-tools.svg "${APPDIR}/.DirIcon"
 fi
 
