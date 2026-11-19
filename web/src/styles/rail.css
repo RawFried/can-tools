@@ -7,11 +7,11 @@
   gap: 0.5rem;
   min-width: 0;
   padding: 0.1rem 0;
-  font-family: var(--ef-font-ui);
-  font-stretch: var(--ef-wide);
-  font-size: var(--ef-t-field);
+  font-family: var(--ui-font-ui);
+  font-stretch: var(--ui-wide);
+  font-size: var(--ui-t-field);
   font-variant-numeric: tabular-nums;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   line-height: 1.5;
 }
 .channel-state::before {
@@ -19,14 +19,14 @@
   width: 8px;
   height: 8px;
   flex: none;
-  background: var(--ef-chip);
-  box-shadow: inset 0 0 0 1px var(--ef-ink-2);
+  background: var(--ui-chip);
+  box-shadow: inset 0 0 0 1px var(--ui-ink-2);
 }
 .channel-state.running {
-  color: var(--ef-ink);
+  color: var(--ui-ink);
 }
 .channel-state.running::before {
-  background: var(--ef-signal);
+  background: var(--ui-signal);
   box-shadow: none;
 }
 
@@ -49,8 +49,8 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 0.45rem;
   padding: 0.5rem 0.55rem 0.55rem;
-  border: 1px solid var(--ef-rule);
-  background: var(--ef-paper);
+  border: 1px solid var(--ui-rule);
+  background: var(--ui-paper);
 }
 .f-line {
   display: flex;
@@ -62,11 +62,11 @@
 .f-kind {
   gap: 0.55rem;
 }
-.f-kind .ef-seg {
+.f-kind .ui-seg {
   flex: 1;
   min-width: 0;
 }
-.f-kind .ef-seg label {
+.f-kind .ui-seg label {
   padding: 0 0.4rem;
 }
 .f-range .hex {
@@ -78,7 +78,7 @@
   min-width: 0;
 }
 .f-sep {
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   flex: none;
 }
 .filter-empty {
@@ -91,7 +91,7 @@
   display: grid;
   gap: 0.7rem;
   padding-bottom: 0.9rem;
-  border-bottom: 1px solid var(--ef-rule);
+  border-bottom: 1px solid var(--ui-rule);
   min-width: 0;
 }
 .rec-actions {
@@ -100,7 +100,7 @@
   gap: 0.5rem;
   min-width: 0;
 }
-.rec-actions .ef-btn {
+.rec-actions .ui-btn {
   justify-content: center;
 }
 
@@ -109,8 +109,8 @@
   display: grid;
   gap: 0.2rem;
   padding: 0.5rem 0.6rem;
-  border: 1px solid var(--ef-ink);
-  background: var(--ef-panel);
+  border: 1px solid var(--ui-ink);
+  background: var(--ui-panel);
   min-width: 0;
 }
 .rec-live {
@@ -123,13 +123,13 @@
   width: 8px;
   height: 8px;
   flex: none;
-  background: var(--ef-signal);
+  background: var(--ui-signal);
 }
 .rec-file {
   flex: 1 1 auto;
   min-width: 0;
-  font-family: var(--ef-font-ui);
-  font-stretch: var(--ef-wide);
+  font-family: var(--ui-font-ui);
+  font-stretch: var(--ui-wide);
   font-size: 0.8rem;
   font-weight: 600;
   overflow: hidden;
@@ -147,7 +147,7 @@
   gap: 0.3rem;
   flex: none;
   font-size: 0.78rem;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   white-space: nowrap;
 }
 .rec-num {
@@ -156,7 +156,7 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  color: var(--ef-ink);
+  color: var(--ui-ink);
 }
 
 /* CSV 目录 */
@@ -166,7 +166,7 @@
   min-width: 0;
 }
 .rec-dir .field-label {
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   white-space: nowrap;
 }
 .rec-dir-row {
@@ -181,7 +181,7 @@
   min-width: 0;
   font-size: 0.78rem;
 }
-.rec-dir-row .ef-btn {
+.rec-dir-row .ui-btn {
   flex: none;
 }
 
@@ -195,10 +195,10 @@
   max-height: calc(var(--rec-row-h) * 5);
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: var(--ef-rule) transparent;
+  scrollbar-color: var(--ui-rule) transparent;
 }
 .recs-wrap:focus-visible {
-  outline: 2px solid var(--ef-ink);
+  outline: 2px solid var(--ui-ink);
   outline-offset: -2px;
 }
 .recs-list {
@@ -212,7 +212,7 @@
   gap: 0.6rem;
   height: var(--rec-row-h);
   padding: 0.5rem 0.1rem 0.5rem 0.2rem;
-  border-bottom: 1px solid var(--ef-rule);
+  border-bottom: 1px solid var(--ui-rule);
   position: relative;
 }
 .rec-item::before {
@@ -220,13 +220,13 @@
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  background: var(--ef-trace);
+  background: var(--ui-trace);
   transform: scaleY(0);
   transform-origin: top;
-  transition: transform 0.2s var(--ef-snap);
+  transition: transform 0.2s var(--ui-snap);
 }
 .rec-item:hover {
-  background: var(--ef-paper);
+  background: var(--ui-paper);
 }
 .rec-item:hover::before {
   transform: none;
@@ -249,11 +249,11 @@
   white-space: nowrap;
 }
 .rec-item-sub {
-  font-family: var(--ef-font-ui);
-  font-stretch: var(--ef-wide);
+  font-family: var(--ui-font-ui);
+  font-stretch: var(--ui-wide);
   font-size: 0.72rem;
   line-height: 16px;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -262,7 +262,7 @@
 .rec-item-sub .r-size::after {
   content: '│';
   margin: 0 0.45rem;
-  color: var(--ef-rule);
+  color: var(--ui-rule);
 }
 .r-act {
   display: flex;

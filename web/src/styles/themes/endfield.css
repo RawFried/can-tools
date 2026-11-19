@@ -1,86 +1,86 @@
 /* ---------- 主题插件：endfield（终末地工业风） ----------
-   令牌从 vendor/endfield.css（原 §1 与 §14 的 accent/paper/cut 变体）、
+   令牌从 vendor/ui-shell.css（原 §1 与 §14 的 accent/paper/cut 变体）、
    fonts.css（Saira 字体栈）与 dbc.css（曲线三色）原样迁出，仅追加
    [data-ui-theme='endfield'] 作用域；所有取值零改动，保证与拆分前逐像素一致。
    深浅两轴沿用套件约定：<html data-theme='dark'> 显式深色；
    未写 data-theme 时跟随系统 prefers-color-scheme。 */
 
 :root[data-ui-theme='endfield'] {
-  --ef-paper: #f4f4f2; /* 页面纸面 */
-  --ef-panel: #ffffff; /* 板面：面板 / 输入件 */
-  --ef-ink: #161616; /* 墨：正文与所有重要线条 */
-  --ef-ink-2: #5c5c5c; /* 次要文字 / 字段标签 */
-  --ef-rule: #d9d9d6; /* 1px 细线 */
-  --ef-chip: #e4e4e0; /* 安静底色：chip / 待机按钮 */
-  --ef-signal: #fffa00; /* 唯一强调黄：“在这里” / “可操作” / “看这里” */
-  --ef-on-signal: #161616; /* 黄底文字，深浅两主题一致 */
-  --ef-trace: var(--ef-ink); /* “在这里”的线：白天用墨，夜里用黄 */
-  --ef-tag-bg: var(--ef-ink); /* 数字标签底 */
-  --ef-tag-fg: var(--ef-panel);
-  --ef-danger: #b3261e; /* 仅用于删除，别无他用 */
-  --ef-tri-a: #ff00f0; /* 三色条：品红 / 黄 / 薄荷 */
-  --ef-tri-b: var(--ef-signal);
-  --ef-tri-c: #00ffa2;
-  --ef-mark: color-mix(in srgb, var(--ef-signal) 55%, transparent); /* 荧光笔 */
-  --ef-contour: color-mix(in srgb, var(--ef-ink) 9%, transparent);
-  --ef-hatch: repeating-linear-gradient(-45deg, transparent 0 5px, color-mix(in srgb, var(--ef-ink) 22%, transparent) 5px 6.5px);
+  --ui-paper: #f4f4f2; /* 页面纸面 */
+  --ui-panel: #ffffff; /* 板面：面板 / 输入件 */
+  --ui-ink: #161616; /* 墨：正文与所有重要线条 */
+  --ui-ink-2: #5c5c5c; /* 次要文字 / 字段标签 */
+  --ui-rule: #d9d9d6; /* 1px 细线 */
+  --ui-chip: #e4e4e0; /* 安静底色：chip / 待机按钮 */
+  --ui-signal: #fffa00; /* 唯一强调黄：“在这里” / “可操作” / “看这里” */
+  --ui-on-signal: #161616; /* 黄底文字，深浅两主题一致 */
+  --ui-trace: var(--ui-ink); /* “在这里”的线：白天用墨，夜里用黄 */
+  --ui-tag-bg: var(--ui-ink); /* 数字标签底 */
+  --ui-tag-fg: var(--ui-panel);
+  --ui-danger: #b3261e; /* 仅用于删除，别无他用 */
+  --ui-tri-a: #ff00f0; /* 三色条：品红 / 黄 / 薄荷 */
+  --ui-tri-b: var(--ui-signal);
+  --ui-tri-c: #00ffa2;
+  --ui-mark: color-mix(in srgb, var(--ui-signal) 55%, transparent); /* 荧光笔 */
+  --ui-contour: color-mix(in srgb, var(--ui-ink) 9%, transparent);
+  --ui-hatch: repeating-linear-gradient(-45deg, transparent 0 5px, color-mix(in srgb, var(--ui-ink) 22%, transparent) 5px 6.5px);
 
   /* 字体：拉丁与数字走宽体 Saira，中文走黑体（原 fonts.css 的栈） */
-  --ef-font-ui: 'Saira', 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC',
+  --ui-font-ui: 'Saira', 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
-  --ef-font-text: 'Saira', 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC',
+  --ui-font-text: 'Saira', 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
-  --ef-font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', Consolas, monospace;
-  --ef-wide: 112%;
-  --ef-wider: 125%;
+  --ui-font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', Consolas, monospace;
+  --ui-wide: 112%;
+  --ui-wider: 125%;
 
-  --ef-t-h1: 2.5rem;
-  --ef-t-title: 1.875rem;
-  --ef-t-h2: 1.375rem;
-  --ef-t-body: 1.0625rem;
-  --ef-t-ui: 0.9375rem;
-  --ef-t-field: 0.8125rem;
+  --ui-t-h1: 2.5rem;
+  --ui-t-title: 1.875rem;
+  --ui-t-h2: 1.375rem;
+  --ui-t-body: 1.0625rem;
+  --ui-t-ui: 0.9375rem;
+  --ui-t-field: 0.8125rem;
 
-  --ef-measure: 40rem; /* 阅读行宽，约 38 个汉字 */
-  --ef-pad: clamp(1rem, 4vw, 2.5rem);
-  --ef-cut-k: 1; /* 切角缩放：小入口 7px × k */
-  --ef-cut: calc(7px * var(--ef-cut-k));
+  --ui-measure: 40rem; /* 阅读行宽，约 38 个汉字 */
+  --ui-pad: clamp(1rem, 4vw, 2.5rem);
+  --ui-cut-k: 1; /* 切角缩放：小入口 7px × k */
+  --ui-cut: calc(7px * var(--ui-cut-k));
 
-  --ef-ease: cubic-bezier(0.2, 0.7, 0.1, 1);
-  --ef-snap: cubic-bezier(0.16, 1, 0.3, 1); /* 快进缓停 */
-  --ef-mech: cubic-bezier(0.7, 0, 0.2, 1); /* 机械快门 */
+  --ui-ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+  --ui-snap: cubic-bezier(0.16, 1, 0.3, 1); /* 快进缓停 */
+  --ui-mech: cubic-bezier(0.7, 0, 0.2, 1); /* 机械快门 */
 
   color-scheme: light;
 }
 
 :root[data-ui-theme='endfield'][data-theme='dark'] {
-  --ef-paper: #191919;
-  --ef-panel: #222222;
-  --ef-ink: #ededed;
-  --ef-ink-2: #a3a3a3;
-  --ef-rule: #353535;
-  --ef-chip: #2e2e2e;
-  --ef-trace: var(--ef-signal);
-  --ef-tag-bg: #3a3a3a;
-  --ef-tag-fg: var(--ef-ink);
-  --ef-danger: #ff8a7a;
-  --ef-mark: color-mix(in srgb, var(--ef-signal) 22%, transparent);
+  --ui-paper: #191919;
+  --ui-panel: #222222;
+  --ui-ink: #ededed;
+  --ui-ink-2: #a3a3a3;
+  --ui-rule: #353535;
+  --ui-chip: #2e2e2e;
+  --ui-trace: var(--ui-signal);
+  --ui-tag-bg: #3a3a3a;
+  --ui-tag-fg: var(--ui-ink);
+  --ui-danger: #ff8a7a;
+  --ui-mark: color-mix(in srgb, var(--ui-signal) 22%, transparent);
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root[data-ui-theme='endfield']:not([data-theme]) {
-    --ef-paper: #191919;
-    --ef-panel: #222222;
-    --ef-ink: #ededed;
-    --ef-ink-2: #a3a3a3;
-    --ef-rule: #353535;
-    --ef-chip: #2e2e2e;
-    --ef-trace: var(--ef-signal);
-    --ef-tag-bg: #3a3a3a;
-    --ef-tag-fg: var(--ef-ink);
-    --ef-danger: #ff8a7a;
-    --ef-mark: color-mix(in srgb, var(--ef-signal) 22%, transparent);
+    --ui-paper: #191919;
+    --ui-panel: #222222;
+    --ui-ink: #ededed;
+    --ui-ink-2: #a3a3a3;
+    --ui-rule: #353535;
+    --ui-chip: #2e2e2e;
+    --ui-trace: var(--ui-signal);
+    --ui-tag-bg: #3a3a3a;
+    --ui-tag-fg: var(--ui-ink);
+    --ui-danger: #ff8a7a;
+    --ui-mark: color-mix(in srgb, var(--ui-signal) 22%, transparent);
     color-scheme: dark;
   }
 }
@@ -106,58 +106,58 @@
 }
 
 /* 套件的身份变体（原 §14 的 accent / paper / cut），仅在本主题下生效 */
-:root[data-ui-theme='endfield'][data-ef-accent='lime'] {
-  --ef-signal: #b8ff3d;
+:root[data-ui-theme='endfield'][data-ui-accent='lime'] {
+  --ui-signal: #b8ff3d;
 }
-:root[data-ui-theme='endfield'][data-ef-accent='ice'] {
-  --ef-signal: #7de6ff;
+:root[data-ui-theme='endfield'][data-ui-accent='ice'] {
+  --ui-signal: #7de6ff;
 }
-:root[data-ui-theme='endfield'][data-ef-accent='amber'] {
-  --ef-signal: #ffb31f;
+:root[data-ui-theme='endfield'][data-ui-accent='amber'] {
+  --ui-signal: #ffb31f;
 }
 
-:root[data-ui-theme='endfield'][data-ef-paper='warm'] {
-  --ef-paper: #f3f1ea;
-  --ef-panel: #fffefa;
-  --ef-rule: #dcd8cc;
-  --ef-chip: #e7e3d8;
+:root[data-ui-theme='endfield'][data-ui-paper='warm'] {
+  --ui-paper: #f3f1ea;
+  --ui-panel: #fffefa;
+  --ui-rule: #dcd8cc;
+  --ui-chip: #e7e3d8;
 }
-:root[data-ui-theme='endfield'][data-ef-paper='cool'] {
-  --ef-paper: #f0f3f5;
-  --ef-panel: #ffffff;
-  --ef-rule: #d3dadf;
-  --ef-chip: #e0e6ea;
+:root[data-ui-theme='endfield'][data-ui-paper='cool'] {
+  --ui-paper: #f0f3f5;
+  --ui-panel: #ffffff;
+  --ui-rule: #d3dadf;
+  --ui-chip: #e0e6ea;
 }
-:root[data-ui-theme='endfield'][data-ef-paper='warm'][data-theme='dark'] {
-  --ef-paper: #1b1a17;
-  --ef-panel: #24221e;
-  --ef-rule: #38352f;
-  --ef-chip: #302d28;
+:root[data-ui-theme='endfield'][data-ui-paper='warm'][data-theme='dark'] {
+  --ui-paper: #1b1a17;
+  --ui-panel: #24221e;
+  --ui-rule: #38352f;
+  --ui-chip: #302d28;
 }
-:root[data-ui-theme='endfield'][data-ef-paper='cool'][data-theme='dark'] {
-  --ef-paper: #171a1c;
-  --ef-panel: #1f2326;
-  --ef-rule: #323a3f;
-  --ef-chip: #2a3034;
+:root[data-ui-theme='endfield'][data-ui-paper='cool'][data-theme='dark'] {
+  --ui-paper: #171a1c;
+  --ui-panel: #1f2326;
+  --ui-rule: #323a3f;
+  --ui-chip: #2a3034;
 }
 @media (prefers-color-scheme: dark) {
-  :root[data-ui-theme='endfield'][data-ef-paper='warm']:not([data-theme]) {
-    --ef-paper: #1b1a17;
-    --ef-panel: #24221e;
-    --ef-rule: #38352f;
-    --ef-chip: #302d28;
+  :root[data-ui-theme='endfield'][data-ui-paper='warm']:not([data-theme]) {
+    --ui-paper: #1b1a17;
+    --ui-panel: #24221e;
+    --ui-rule: #38352f;
+    --ui-chip: #302d28;
   }
-  :root[data-ui-theme='endfield'][data-ef-paper='cool']:not([data-theme]) {
-    --ef-paper: #171a1c;
-    --ef-panel: #1f2326;
-    --ef-rule: #323a3f;
-    --ef-chip: #2a3034;
+  :root[data-ui-theme='endfield'][data-ui-paper='cool']:not([data-theme]) {
+    --ui-paper: #171a1c;
+    --ui-panel: #1f2326;
+    --ui-rule: #323a3f;
+    --ui-chip: #2a3034;
   }
 }
 
-:root[data-ui-theme='endfield'][data-ef-cut='tight'] {
-  --ef-cut-k: 0.6;
+:root[data-ui-theme='endfield'][data-ui-cut='tight'] {
+  --ui-cut-k: 0.6;
 }
-:root[data-ui-theme='endfield'][data-ef-cut='wide'] {
-  --ef-cut-k: 1.6;
+:root[data-ui-theme='endfield'][data-ui-cut='wide'] {
+  --ui-cut-k: 1.6;
 }

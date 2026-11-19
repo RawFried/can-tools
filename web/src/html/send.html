@@ -1,10 +1,10 @@
-    <section class="ef-panel" id="sendPanel" aria-labelledby="h-send">
+    <section class="ui-panel" id="sendPanel" data-panel="04" aria-labelledby="h-send">
       <header class="panel-head">
-        <h2 class="ef-pair" id="h-send"><span class="ef-eyebrow slash">04 / Transmit</span><span>发送报文</span></h2>
+        <h2 class="ui-pair" id="h-send"><span class="ui-eyebrow slash">04 / Transmit</span><span>发送报文</span></h2>
         <span class="head-spacer"></span>
-        <span class="ef-field head-field send-count">已发送 <strong id="sendCount">0</strong> 帧</span>
+        <span class="ui-field head-field send-count">已发送 <strong id="sendCount">0</strong> 帧</span>
       </header>
-      <div class="ef-form send-body">
+      <div class="ui-form send-body">
         <div class="send-row">
           <div class="field send-ch">
             <label class="field-label" for="sendChannel">通道</label>
@@ -19,7 +19,7 @@
           </div>
           <div class="field send-type">
             <span class="field-label" id="lb-send-type">帧类型</span>
-            <div class="ef-seg" role="radiogroup" aria-labelledby="lb-send-type">
+            <div class="ui-seg" role="radiogroup" aria-labelledby="lb-send-type">
               <label><input type="radio" name="send-ext" value="std" checked><span>标准</span></label>
               <label><input type="radio" name="send-ext" value="ext" id="sendExtended"><span>扩展</span></label>
             </div>
@@ -33,7 +33,7 @@
             <input class="input" id="sendDlc" type="number" min="0" max="8" value="8" readonly aria-label="数据长度">
           </div>
           <label class="check-mini send-rtr"><input type="checkbox" id="sendRemote"><span>远程</span></label>
-          <button class="ef-btn go send-btn" id="btnSend" type="button" disabled>
+          <button class="ui-btn go send-btn" id="btnSend" type="button" disabled>
             <span>发送</span>
           </button>
         </div>

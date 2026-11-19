@@ -20,7 +20,7 @@ function buildRecRow(rec: RecordingFileDto): HTMLLIElement {
   q<HTMLElement>(row, '.r-size').textContent = fmtBytes(rec.size);
   q<HTMLElement>(row, '.r-time').textContent = fmtDateShort(rec.modified_ms);
 
-  const link = q<HTMLAnchorElement>(row, 'a.ef-btn');
+  const link = q<HTMLAnchorElement>(row, 'a.ui-btn');
   link.href = '/api/recordings/' + encodeURIComponent(rec.name);
   link.setAttribute('download', rec.name);
   link.setAttribute('aria-label', '下载 ' + rec.name);

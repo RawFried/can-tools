@@ -2,7 +2,7 @@
    Saira 可变字体（宽 50–125 / 字重 100–900，SIL OFL 1.1）的 @font-face
    声明在页面骨架 web/src/html/index.html 中（指向后端路由 /fonts/Saira.ttf，
    打包器无法在 CSS 内保持该绝对 URL 原样输出）。
-   套件字体栈 --ef-font-ui / --ef-font-text 已随主题插件迁移：
+   套件字体栈 --ui-font-ui / --ui-font-text 已随主题插件迁移：
    endfield 主题（themes/endfield.css）沿用「Saira + 中文黑体」；
    默认主题（themes/default.css）改用系统界面字体栈，不加载 Saira。
    本文件因此不再包含规则，仅保留接入说明与级联位置。 */

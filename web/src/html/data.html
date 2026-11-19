@@ -1,23 +1,23 @@
     <!-- 数据区：实时报文（信号曲线已独立为按通道浮窗） -->
-    <section class="ef-panel panel-data" id="framesPanel" aria-labelledby="h-frames">
+    <section class="ui-panel panel-data" id="framesPanel" data-panel="05" aria-labelledby="h-frames">
       <header class="panel-head data-head">
-        <h2 class="ef-pair" id="h-frames"><span class="ef-eyebrow slash">05 / Frames</span><span>实时报文</span></h2>
+        <h2 class="ui-pair" id="h-frames"><span class="ui-eyebrow slash">05 / Frames</span><span>实时报文</span></h2>
       </header>
 
       <div class="frames-tools">
         <div class="tools">
-          <div class="ef-seg frame-mode" role="radiogroup" aria-label="报文显示方式">
+          <div class="ui-seg frame-mode" role="radiogroup" aria-label="报文显示方式">
             <label><input type="radio" name="frame-mode" id="frameModeStream" value="stream" checked><span>流水线</span></label>
             <label><input type="radio" name="frame-mode" id="frameModeChanges" value="changes"><span>变化汇总</span></label>
           </div>
           <label class="search">
             <input type="search" id="frameFilter" placeholder="过滤 ID / 数据 / 通道（按 / 聚焦）" aria-label="快速过滤报文">
           </label>
-          <label class="switch" title="开启时始终跟随最新报文；关闭后可向上查看历史"><input class="ef-switch" type="checkbox" id="autoscrollCheck" checked><span>自动滚动</span></label>
-          <button class="ef-btn small btn-press" id="btnPauseView" type="button" aria-pressed="false" disabled title="暂停或恢复显示（不影响接收与录制）">
+          <label class="switch" title="开启时始终跟随最新报文；关闭后可向上查看历史"><input class="ui-switch" type="checkbox" id="autoscrollCheck" checked><span>自动滚动</span></label>
+          <button class="ui-btn small btn-press" id="btnPauseView" type="button" aria-pressed="false" disabled title="暂停或恢复显示（不影响接收与录制）">
             <span id="btnPauseLabel">暂停显示</span>
           </button>
-          <button class="ef-btn small" id="btnClearView" type="button" title="清空实时缓冲（不影响录制文件）">
+          <button class="ui-btn small" id="btnClearView" type="button" title="清空实时缓冲（不影响录制文件）">
             <span>清空</span>
           </button>
         </div>

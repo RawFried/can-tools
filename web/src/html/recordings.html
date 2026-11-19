@@ -1,18 +1,18 @@
-    <section class="ef-panel" aria-labelledby="h-files">
+    <section class="ui-panel" data-panel="02" aria-labelledby="h-files">
       <header class="panel-head">
-        <h2 class="ef-pair" id="h-files"><span class="ef-eyebrow slash">02 / Recording</span><span>录制</span></h2>
-        <span class="ef-field" id="recordingsCount">0</span>
+        <h2 class="ui-pair" id="h-files"><span class="ui-eyebrow slash">02 / Recording</span><span>录制</span></h2>
+        <span class="ui-field" id="recordingsCount">0</span>
         <span class="head-spacer"></span>
-        <button class="ef-btn small" id="btnRefreshRecordings" type="button">
+        <button class="ui-btn small" id="btnRefreshRecordings" type="button">
           <span>刷新</span>
         </button>
       </header>
-      <div class="rec-toolbar ef-form">
+      <div class="rec-toolbar ui-form">
         <div class="rec-actions">
-          <button class="ef-btn go" id="btnRecStart" type="button" disabled>
+          <button class="ui-btn go" id="btnRecStart" type="button" disabled>
             <span>开始录制</span>
           </button>
-          <button class="ef-btn" id="btnRecStop" type="button" disabled><span>停止并保存</span></button>
+          <button class="ui-btn" id="btnRecStop" type="button" disabled><span>停止并保存</span></button>
         </div>
         <div class="rec-active" id="recActive" hidden aria-live="polite">
           <span class="rec-live">
@@ -28,7 +28,7 @@
           <label class="field-label" for="dataDirInput">CSV 目录</label>
           <div class="rec-dir-row">
             <input class="input rec-path-input" id="dataDirInput" type="text" spellcheck="false" autocomplete="off" placeholder="留空使用默认目录" aria-label="CSV 保存目录（绝对路径，清空恢复默认）">
-            <button class="ef-btn small" id="btnApplyDir" type="button">应用</button>
+            <button class="ui-btn small" id="btnApplyDir" type="button">应用</button>
           </div>
         </div>
       </div>

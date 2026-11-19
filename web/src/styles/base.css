@@ -1,15 +1,15 @@
 /* ---------- 基础（在 vendor 套件之上做应用级微调） ---------- */
 
 /* 数字一律等宽：读数跳动时不改变列宽 */
-.ef {
+.ui-root {
   font-variant-numeric: tabular-nums;
 }
 
-.ef :is(h1, h2, h3, h4, p, dl, dd, dt, figure) {
+.ui-root :is(h1, h2, h3, h4, p, dl, dd, dt, figure) {
   margin: 0;
 }
 
-.ef button {
+.ui-root button {
   font: inherit;
   color: inherit;
 }
@@ -36,8 +36,8 @@
   left: 10px;
   z-index: 200;
   padding: 0.45rem 1.2rem 0.45rem 0.9rem;
-  background: var(--ef-signal);
-  color: var(--ef-on-signal);
+  background: var(--ui-signal);
+  color: var(--ui-on-signal);
   font-weight: 700;
   text-decoration: none;
   transform: translateY(-160px);
@@ -50,14 +50,14 @@
   margin: 1.5rem auto;
   max-width: 34rem;
   padding: 0.8rem 1rem 0.8rem calc(0.8rem);
-  border: 1px solid var(--ef-ink);
-  background: var(--ef-panel);
+  border: 1px solid var(--ui-ink);
+  background: var(--ui-panel);
 }
 
 /* ---------- 深色命令栏里的真实状态字段 ---------- */
 /* 设备 / 链路 / 录制三块读数：小方块 + 文本，字段用宽体 112%。 */
 
-.ef-cmdbar .topbar-status {
+.ui-cmdbar .topbar-status {
   display: flex;
   align-items: center;
   gap: 0 1.1rem;
@@ -73,9 +73,9 @@
   gap: 0.5rem;
   min-width: 0;
   max-width: 340px;
-  font-family: var(--ef-font-ui);
-  font-size: var(--ef-t-field);
-  font-stretch: var(--ef-wide);
+  font-family: var(--ui-font-ui);
+  font-size: var(--ui-t-field);
+  font-stretch: var(--ui-wide);
   font-variant-numeric: tabular-nums;
   color: #b8b8b8;
   white-space: nowrap;
@@ -102,14 +102,14 @@
 }
 .cm-dot.err {
   /* 需要注意的状态：整块信号色（填充，不作描边） */
-  background: var(--ef-signal);
+  background: var(--ui-signal);
 }
 
 /* 录制中：整块垫强调色（“需要注意”），文字用墨色 */
 #recPill {
   padding: 0 0.5em;
-  background: var(--ef-signal);
-  color: var(--ef-on-signal);
+  background: var(--ui-signal);
+  color: var(--ui-on-signal);
   font-weight: 700;
 }
 #recPill .cm-dot {
@@ -125,7 +125,7 @@
    与 .signal-open 按钮同语言的深色小件——同底色、细线描边、直角、
    自绘下箭头（UA 默认带圆角与系统强调色，需整体替换）。
    弹出列表强制浅底深字，保证深浅模式与跨浏览器的选项可读。 */
-.ef-cmdbar .theme-select {
+.ui-cmdbar .theme-select {
   flex: none;
   width: auto;
   min-width: 4.75rem;
@@ -139,28 +139,28 @@
       right 0.5rem center / 10px 6px no-repeat,
     #2e2e2e;
   color: #ededed;
-  font-family: var(--ef-font-ui);
-  font-stretch: var(--ef-wide);
+  font-family: var(--ui-font-ui);
+  font-stretch: var(--ui-wide);
   font-size: 0.78rem;
   line-height: 1.4;
   appearance: none;
   -webkit-appearance: none;
 }
-.ef-cmdbar .theme-select:hover {
+.ui-cmdbar .theme-select:hover {
   border-color: #6a6a6a;
   /* 悬停时箭头同步提亮（重绘同一 data URI，填充改白） */
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23ffffff'/%3E%3C/svg%3E");
 }
-.ef-cmdbar .theme-select option {
+.ui-cmdbar .theme-select option {
   background: #ffffff;
   color: #161616;
 }
 
 @media (max-width: 759px) {
-  .ef-cmdbar {
+  .ui-cmdbar {
     padding-inline: 1rem;
   }
-  .ef-cmdbar .topbar-status {
+  .ui-cmdbar .topbar-status {
     width: 100%;
     justify-content: flex-start;
   }

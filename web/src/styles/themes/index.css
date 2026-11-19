@@ -1,9 +1,25 @@
 /* ---------- 主题插件入口 ----------
-   经 styles/index.css 在所有共享样式之后引入，令牌覆盖必然胜出。
+   经 styles/index.css 在所有共享样式之后引入，主题令牌与组件覆盖必然胜出。
    顺序约定：default 在前（含裸 :root 兜底，默认主题可不带 data-ui-theme 属性），
    endfield 在后（[data-ui-theme='endfield'] 属性选择器优先级更高，
    两组选择器互斥，深浅与主题两轴不会串味）。
-   新增主题：建一份完整令牌集（浅色 + 深色 + prefers-color-scheme 兜底
-   + --chart-1..3），在此追加 @import，并同步 src/theme.ts 的注册表。 */
+
+   ---------- 组件覆盖面契约 ----------
+   主题文件在级联最后，除令牌外可用「带 [data-ui-theme] 作用域的选择器」
+   重定义以下部件的皮肤（底色/边框/圆角/模糊/阴影/动效）：
+   - 面板：.ui-panel —— 含 01–05 主面板钩子 section.ui-panel[data-panel="01"…"05"]
+     （通道/录制/通道统计/发送报文/实时报文），可整体或逐板覆盖；
+   - 按钮：.ui-btn 全状态（含 ::before/::after、.small/.icon-only/.go/.danger、
+     :hover/:focus-visible/:active/:disabled/[aria-busy]）与分段控件 .ui-seg；
+   - 同语言按钮类小件：.sig-chip / .dbc-msg / .sig-legend / .theme-select。
+   约束：不得改变尺寸、内边距节奏与网格布局（布局归共享样式）；
+   状态语义保持——红色只给删除、禁用可分辨、焦点环在深浅两态可见。
+   现状：default 覆盖 .ui-panel / .ui-btn / .ui-seg / .ui-cmdbar /
+   .signal-open / .theme-select / .sig-chip / .sig-legend / .dbc-msg /
+   表单输入与行悬停（玻璃语言）；endfield 只定义令牌，零组件覆盖。
+
+   新增主题：建完整令牌集（浅色 + 深色 + prefers-color-scheme 兜底 +
+   --chart-1..3），按需追加组件覆盖，在此追加 @import，
+   并同步 src/theme.ts 注册表与 index.html 早绘脚本的 id 列表。 */
 @import './default.css';
 @import './endfield.css';

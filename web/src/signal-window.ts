@@ -89,7 +89,7 @@ export class SignalWindow {
     idBlock.append(this.nameEl, this.metaEl);
     const dbcBlock = mk('div', 'sw-dbc');
     dbcBlock.appendChild(this.dbcNameEl);
-    this.closeBtn = mk('button', 'ef-btn small icon-only sw-close');
+    this.closeBtn = mk('button', 'ui-btn small icon-only sw-close');
     this.closeBtn.type = 'button';
     this.closeBtn.setAttribute('aria-label', '关闭此通道的信号曲线窗口');
     this.closeBtn.appendChild(text('span', '', '×'));
@@ -101,7 +101,7 @@ export class SignalWindow {
     );
 
     const tools = mk('div', 'sw-tools');
-    this.loadBtn = mk('button', 'ef-btn small sw-load');
+    this.loadBtn = mk('button', 'ui-btn small sw-load');
     this.loadBtn.type = 'button';
     this.loadBtn.appendChild(text('span', '', '加载 DBC'));
     this.fileInput = document.createElement('input');
@@ -110,7 +110,7 @@ export class SignalWindow {
     this.fileInput.accept = '.dbc,text/plain';
     this.fileInput.tabIndex = -1;
     this.fileInput.setAttribute('aria-hidden', 'true');
-    this.removeBtn = mk('button', 'ef-btn small danger sw-remove');
+    this.removeBtn = mk('button', 'ui-btn small danger sw-remove');
     this.removeBtn.type = 'button';
     this.removeBtn.appendChild(text('span', '', '移除 DBC'));
     this.removeBtn.disabled = true;
@@ -173,7 +173,7 @@ export class SignalWindow {
 
     this.noDbc = mk('div', 'sw-no-dbc');
     this.noDbcText = text('p', '', '');
-    const emptyLoad = mk('button', 'ef-btn small sw-empty-load');
+    const emptyLoad = mk('button', 'ui-btn small sw-empty-load');
     emptyLoad.type = 'button';
     emptyLoad.appendChild(text('span', '', '加载 DBC 文件'));
     this.noDbc.append(this.noDbcText, emptyLoad);

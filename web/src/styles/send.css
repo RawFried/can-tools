@@ -18,7 +18,7 @@
   gap: 0.3rem;
 }
 .send-row .field-label {
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
 }
 .send-data input {
   letter-spacing: 0.03em;
@@ -37,21 +37,21 @@
   justify-content: center;
 }
 .send-count {
-  font-family: var(--ef-font-ui);
-  font-stretch: var(--ef-wide);
+  font-family: var(--ui-font-ui);
+  font-stretch: var(--ui-wide);
   font-size: 0.78rem;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .send-count strong {
-  color: var(--ef-ink);
+  color: var(--ui-ink);
   font-weight: 700;
 }
 .send-hint {
   font-size: 0.75rem;
   line-height: 1.6;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
 }
 
 /* 单行放不下时（约 1330px 视口以下）改为两段式：

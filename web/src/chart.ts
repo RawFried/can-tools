@@ -14,7 +14,7 @@
  *   被吸附曲线加粗高亮（贴边自动翻转，始终留在画布内）；移开后提示框与参考线隐藏；
  * - 纵轴好读刻度用 1/2/2.5/5 × 10^k 步长取约 4 档；值域只按当前窗口内样本计算；
  * - 每像素列做 min/max 抽稀，超长样本数组不拖慢绘制；
- * - 网格/文字颜色经 getComputedStyle 读取 app.css 的 --ef-* 变量，深/浅主题自动跟随；
+ * - 网格/文字颜色经 getComputedStyle 读取 app.css 的 --ui-* 变量，深/浅主题自动跟随；
  *   序列外观（钢蓝/青绿/岩紫 × 实线/虚线）由 seriesPalette() 从 --chart-1..3 解析后
  *   交给调用方分配：颜色是第一层编码，虚实线型是第二层（色弱/灰度下仍可分辨），
  *   不用红/黄系，也不用渐变填充。
@@ -74,7 +74,7 @@ export function seriesPalette(): SeriesLook[] {
   return looks;
 }
 
-/** 主题相关的颜色与字体（来自 app.css 的 --ef-* 变量；缺省值用于无样式环境）。 */
+/** 主题相关的颜色与字体（来自 app.css 的 --ui-* 变量；缺省值用于无样式环境）。 */
 interface Theme {
   faint: string;
   mid: string;
@@ -277,13 +277,13 @@ export class SignalChart {
       return raw !== '' ? raw : fb;
     };
     return {
-      faint: pick('--ef-ink-2', '#5c5c5c'),
-      mid: pick('--ef-ink-2', '#5c5c5c'),
-      grid: pick('--ef-rule', '#d9d9d6'),
-      border: pick('--ef-ink', '#161616'),
-      paper: pick('--ef-paper', '#f4f4f2'),
-      mono: pick('--ef-font-mono', 'Menlo, Consolas, monospace'),
-      ui: pick('--ef-font-ui', 'system-ui, sans-serif'),
+      faint: pick('--ui-ink-2', '#5c5c5c'),
+      mid: pick('--ui-ink-2', '#5c5c5c'),
+      grid: pick('--ui-rule', '#d9d9d6'),
+      border: pick('--ui-ink', '#161616'),
+      paper: pick('--ui-paper', '#f4f4f2'),
+      mono: pick('--ui-font-mono', 'Menlo, Consolas, monospace'),
+      ui: pick('--ui-font-ui', 'system-ui, sans-serif'),
     };
   }
 

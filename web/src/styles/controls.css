@@ -1,7 +1,7 @@
-/* ---------- 应用控件（在 ef-form / ef-btn / ef-seg 之上的定制） ---------- */
+/* ---------- 应用控件（在 ui-form / ui-btn / ui-seg 之上的定制） ---------- */
 
-/* 表单容器：字段、状态行与按钮行之间的统一纵向节奏（上游 ef-form 本身无布局） */
-.ef-form {
+/* 表单容器：字段、状态行与按钮行之间的统一纵向节奏（上游 ui-form 本身无布局） */
+.ui-form {
   display: grid;
   gap: 0.85rem;
   min-width: 0;
@@ -14,9 +14,9 @@
   min-width: 0;
 }
 .field-label {
-  font-size: var(--ef-t-field);
+  font-size: var(--ui-t-field);
   font-weight: 600;
-  color: var(--ef-ink);
+  color: var(--ui-ink);
 }
 
 /* 十六进制输入：0x 前缀 + 大写 */
@@ -31,10 +31,10 @@
   left: 0.55rem;
   top: 50%;
   transform: translateY(-50%);
-  font-family: var(--ef-font-ui);
-  font-stretch: var(--ef-wide);
+  font-family: var(--ui-font-ui);
+  font-stretch: var(--ui-wide);
   font-size: 0.78rem;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   pointer-events: none;
 }
 .hex input {
@@ -45,17 +45,17 @@
 
 /* 输入框统一紧凑高度（套件的默认内边距偏阅读向）；
    边框比 hairline 深一档，控件轮廓在深浅两主题下都可辨（≈2:1，悬停再加深） */
-.ef-form :is(input:not([type='checkbox'], [type='radio']), select) {
+.ui-form :is(input:not([type='checkbox'], [type='radio']), select) {
   min-height: 2.1rem;
   padding: 0.25rem 0.55rem;
-  border-color: color-mix(in srgb, var(--ef-ink) 30%, var(--ef-panel));
+  border-color: color-mix(in srgb, var(--ui-ink) 30%, var(--ui-panel));
   font-variant-numeric: tabular-nums;
 }
-.ef-form :is(input, select)::placeholder {
-  color: var(--ef-ink-2);
+.ui-form :is(input, select)::placeholder {
+  color: var(--ui-ink-2);
 }
 /* 0x 前缀是装饰层；上面的通用 padding 简写会覆盖 .hex input，需提高优先级 */
-.ef-form .hex input {
+.ui-form .hex input {
   padding-left: 1.9rem;
 }
 select.input {
@@ -63,16 +63,16 @@ select.input {
 }
 
 /* 禁用按钮：不用半透明（浅色下会像洗掉的主操作），改安静底色 + 次要墨字 */
-.ef-btn:disabled {
-  --fill: color-mix(in srgb, var(--ef-ink) 5%, var(--ef-panel));
-  color: var(--ef-ink-2);
+.ui-btn:disabled {
+  --fill: color-mix(in srgb, var(--ui-ink) 5%, var(--ui-panel));
+  color: var(--ui-ink-2);
   opacity: 1;
 }
-.ef-btn.go:disabled {
-  color: var(--ef-ink-2);
+.ui-btn.go:disabled {
+  color: var(--ui-ink-2);
 }
-.ef-btn.danger:disabled {
-  color: color-mix(in srgb, var(--ef-danger) 55%, var(--ef-ink-2));
+.ui-btn.danger:disabled {
+  color: color-mix(in srgb, var(--ui-danger) 55%, var(--ui-ink-2));
 }
 
 /* 按钮行：等分拉满（滤波/通道操作的窄栏布局） */
@@ -81,25 +81,25 @@ select.input {
   flex-wrap: wrap;
   gap: 0.5rem;
 }
-.btn-row .ef-btn {
+.btn-row .ui-btn {
   flex: 1;
   justify-content: center;
 }
 /* 行内窄按钮上，擦入前沿的亮线会被看成底层颜色透出一线：
    这里只保留纯色填充（强调色铺满），其余按钮仍用套件的亮边。 */
-.btn-row .ef-btn::after {
+.btn-row .ui-btn::after {
   display: none;
 }
 
 /* 本工具为桌面指针设备优化；触屏恢复 ≥44px 的命中区 */
-.ef-seg label {
+.ui-seg label {
   min-height: 2.1rem;
 }
 @media (hover: none) {
-  .ef-seg label {
+  .ui-seg label {
     min-height: 44px;
   }
-  .ef-btn.small {
+  .ui-btn.small {
     padding-top: 0.55rem;
     padding-bottom: 0.55rem;
   }
@@ -113,7 +113,7 @@ select.input {
 }
 
 /* 按钮内的小图标对齐（保留少量真实图标的按钮） */
-.ef-btn svg {
+.ui-btn svg {
   flex: none;
 }
 
@@ -123,13 +123,13 @@ select.input {
   align-items: center;
   gap: 0.45rem;
   font-size: 0.85rem;
-  color: var(--ef-ink);
+  color: var(--ui-ink);
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
 }
 .check-mini input {
-  accent-color: var(--ef-ink);
+  accent-color: var(--ui-ink);
   margin: 0;
 }
 
@@ -137,14 +137,14 @@ select.input {
 .hint {
   font-size: 0.78rem;
   line-height: 1.7;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
 }
 .hint code {
-  font-family: var(--ef-font-mono);
+  font-family: var(--ui-font-mono);
   font-size: 0.75rem;
   padding: 0.05em 0.3em;
-  border: 1px solid var(--ef-rule);
-  background: var(--ef-paper);
+  border: 1px solid var(--ui-rule);
+  background: var(--ui-paper);
   overflow-wrap: anywhere;
 }
 .hint code.nobreak {
@@ -159,8 +159,8 @@ select.input {
 .hint.error {
   display: inline-block;
   padding: 0 0.4em;
-  background: var(--ef-signal);
-  color: var(--ef-on-signal);
+  background: var(--ui-signal);
+  color: var(--ui-on-signal);
   font-weight: 700;
 }
 
@@ -169,6 +169,6 @@ select.input {
   padding: 0.9rem 0.8rem;
   text-align: center;
   font-size: 0.85rem;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   line-height: 1.8;
 }

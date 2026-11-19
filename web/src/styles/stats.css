@@ -1,10 +1,10 @@
-/* ---------- 通道统计：每秒刷新的真实读数（ef-table） ---------- */
+/* ---------- 通道统计：每秒刷新的真实读数（ui-table） ---------- */
 
 .stats-note {
-  font-family: var(--ef-font-ui);
-  font-stretch: var(--ef-wide);
+  font-family: var(--ui-font-ui);
+  font-stretch: var(--ui-wide);
   font-size: 0.72rem;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   white-space: nowrap;
 }
 
@@ -19,11 +19,11 @@ table.channel-stats-table {
 }
 table.channel-stats-table th {
   padding: 0.4rem 0.9rem;
-  border-bottom: 1px solid var(--ef-ink);
-  color: var(--ef-ink-2);
-  font-family: var(--ef-font-ui);
+  border-bottom: 1px solid var(--ui-ink);
+  color: var(--ui-ink-2);
+  font-family: var(--ui-font-ui);
   font-size: 0.7rem;
-  font-stretch: var(--ef-wider);
+  font-stretch: var(--ui-wider);
   font-weight: 600;
   text-transform: uppercase;
   text-align: left;
@@ -31,9 +31,9 @@ table.channel-stats-table th {
 }
 table.channel-stats-table td {
   padding: 0.5rem 0.9rem;
-  border-bottom: 1px solid var(--ef-rule);
+  border-bottom: 1px solid var(--ui-rule);
   font-size: 0.82rem;
-  color: var(--ef-ink);
+  color: var(--ui-ink);
   white-space: nowrap;
 }
 /* 首末列与面板内边距对齐 */
@@ -49,13 +49,13 @@ table.channel-stats-table tbody tr:last-child td {
   border-bottom: 0;
 }
 table.channel-stats-table tbody tr:hover {
-  background: var(--ef-paper);
-  box-shadow: inset 4px 0 0 var(--ef-trace);
+  background: var(--ui-paper);
+  box-shadow: inset 4px 0 0 var(--ui-trace);
 }
 table.channel-stats-table th.num,
 table.channel-stats-table td.num {
   text-align: right;
-  font-stretch: var(--ef-wide);
+  font-stretch: var(--ui-wide);
 }
 
 /* 通道列允许换行；来源徽标（USB / SOCKET） */
@@ -69,20 +69,20 @@ table.channel-stats-table td.cs-ch {
 }
 .src-tag {
   display: inline-block;
-  font-family: var(--ef-font-ui);
-  font-stretch: var(--ef-wider);
+  font-family: var(--ui-font-ui);
+  font-stretch: var(--ui-wider);
   font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.1em;
-  color: var(--ef-ink-2);
-  border: 1px solid var(--ef-rule);
+  color: var(--ui-ink-2);
+  border: 1px solid var(--ui-rule);
   padding: 0.1rem 0.3rem;
   vertical-align: 1px;
 }
 
 .unit-sm {
   font-size: 0.68rem;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   margin-left: 0.2rem;
 }
 
@@ -97,13 +97,13 @@ td.cs-load {
 }
 .load-val {
   min-width: 44px;
-  font-stretch: var(--ef-wide);
+  font-stretch: var(--ui-wide);
 }
 .load-track {
   flex: 1 1 auto;
   min-width: 36px;
   height: 6px;
-  background: var(--ef-chip);
+  background: var(--ui-chip);
   overflow: hidden;
   /* 分段条：与进度条同语言的 24 格 */
   -webkit-mask: repeating-linear-gradient(90deg, #000 0 calc(100% / 24 - 2px), transparent 0 calc(100% / 24));
@@ -111,9 +111,9 @@ td.cs-load {
 }
 .load-fill {
   height: 100%;
-  background: color-mix(in srgb, var(--ef-ink-2) 70%, transparent);
-  transition: width 0.28s var(--ef-mech);
+  background: color-mix(in srgb, var(--ui-ink-2) 70%, transparent);
+  transition: width 0.28s var(--ui-mech);
 }
 .load-fill.over {
-  background: var(--ef-signal);
+  background: var(--ui-signal);
 }

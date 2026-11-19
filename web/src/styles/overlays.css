@@ -17,19 +17,19 @@
   gap: 0.55rem;
   padding: 0.6rem 0.7rem 0.6rem calc(6px + 0.7rem);
   background:
-    linear-gradient(var(--ef-signal), var(--ef-signal)) left / 6px 100% no-repeat,
+    linear-gradient(var(--ui-signal), var(--ui-signal)) left / 6px 100% no-repeat,
     #161616;
   color: #ededed;
   font-size: 0.82rem;
   line-height: 1.55;
-  animation: toast-in 0.28s var(--ef-mech) both;
+  animation: toast-in 0.28s var(--ui-mech) both;
 }
 /* 需要注意的级别：前置强调色旗文字（不用红） */
 .toast-flag {
   flex: none;
   padding: 0 0.4em;
-  background: var(--ef-signal);
-  color: var(--ef-on-signal);
+  background: var(--ui-signal);
+  color: var(--ui-on-signal);
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.6;
@@ -53,7 +53,7 @@
   color: #fff;
 }
 .toast.out {
-  animation: toast-out 0.2s var(--ef-mech) forwards;
+  animation: toast-out 0.2s var(--ui-mech) forwards;
 }
 
 /* ---------- 滚动条：细而直角 ---------- */
@@ -62,17 +62,17 @@
   height: 10px;
 }
 .table-wrap::-webkit-scrollbar-thumb {
-  background: var(--ef-rule);
+  background: var(--ui-rule);
 }
 .table-wrap::-webkit-scrollbar-thumb:hover {
-  background: var(--ef-ink-2);
+  background: var(--ui-ink-2);
 }
 .table-wrap::-webkit-scrollbar-corner {
   background: transparent;
 }
 .table-wrap {
   scrollbar-width: thin;
-  scrollbar-color: var(--ef-rule) transparent;
+  scrollbar-color: var(--ui-rule) transparent;
 }
 .rail::-webkit-scrollbar,
 .recs-wrap::-webkit-scrollbar,
@@ -86,7 +86,7 @@
 .dbc-msg-list::-webkit-scrollbar-thumb,
 .dbc-legend::-webkit-scrollbar-thumb,
 .dbc-signal-bar::-webkit-scrollbar-thumb {
-  background: var(--ef-rule);
+  background: var(--ui-rule);
 }
 
 /* ---------- 动效 ---------- */

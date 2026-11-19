@@ -13,7 +13,7 @@
 /* ---------- 实时报文工具条 ---------- */
 .frames-tools {
   padding: 0.5rem 1.15rem;
-  border-bottom: 1px solid var(--ef-rule);
+  border-bottom: 1px solid var(--ui-rule);
 }
 .frames-tools .tools {
   display: flex;
@@ -30,17 +30,17 @@
   flex: 1 1 220px;
   max-width: 320px;
   padding: 0 0.7rem;
-  border: 1px solid var(--ef-rule);
-  background: var(--ef-panel);
+  border: 1px solid var(--ui-rule);
+  background: var(--ui-panel);
 }
 /* 搜索框前缀与 skill 的表单语言一致 */
 .search::before {
   content: '//';
   flex: none;
-  font-family: var(--ef-font-ui);
-  font-stretch: var(--ef-wider);
+  font-family: var(--ui-font-ui);
+  font-stretch: var(--ui-wider);
   font-size: 0.72rem;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
 }
 .search input {
   flex: 1;
@@ -48,7 +48,7 @@
   height: 2.1rem;
   border: 0;
   background: none;
-  color: var(--ef-ink);
+  color: var(--ui-ink);
   font: inherit;
   font-size: 0.85rem;
   outline: none;
@@ -58,11 +58,11 @@
   outline: none;
 }
 .search input::placeholder {
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
 }
 .search:focus-within {
-  border-color: var(--ef-ink);
-  box-shadow: inset 0 -2px 0 var(--ef-trace);
+  border-color: var(--ui-ink);
+  box-shadow: inset 0 -2px 0 var(--ui-trace);
 }
 .search input::-webkit-search-cancel-button {
   cursor: pointer;
@@ -82,12 +82,12 @@
   display: inline-block;
 }
 .frame-byte.is-changed {
-  animation: frame-byte-flash 0.9s var(--ef-mech);
+  animation: frame-byte-flash 0.9s var(--ui-mech);
 }
 @keyframes frame-byte-flash {
   0% {
-    background: var(--ef-signal);
-    color: var(--ef-on-signal);
+    background: var(--ui-signal);
+    color: var(--ui-on-signal);
   }
   100% {
     background: transparent;
@@ -97,8 +97,8 @@
 @media (prefers-reduced-motion: reduce) {
   .frame-byte.is-changed {
     animation: none;
-    background: var(--ef-signal);
-    color: var(--ef-on-signal);
+    background: var(--ui-signal);
+    color: var(--ui-on-signal);
   }
 }
 
@@ -108,13 +108,13 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8rem;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
 }
 .switch:has(input:checked) {
-  color: var(--ef-ink);
+  color: var(--ui-ink);
 }
 .switch:has(input:disabled) {
   opacity: 0.6;
@@ -123,14 +123,14 @@
 
 /* 暂停按钮按下后为“继续显示”：墨底反白标记当前态 */
 .btn-press[aria-pressed='true'] {
-  --fill: var(--ef-ink);
-  color: var(--ef-paper);
+  --fill: var(--ui-ink);
+  color: var(--ui-paper);
 }
 .btn-press[aria-pressed='true']:is(:hover, :focus-visible):not(:disabled) {
-  color: var(--ef-on-signal);
+  color: var(--ui-on-signal);
 }
 
-/* ---------- 报文表（ef-table 语言：眉标表头 + 细线 + 等宽数字） ---------- */
+/* ---------- 报文表（ui-table 语言：眉标表头 + 细线 + 等宽数字） ---------- */
 .table-area {
   position: relative;
   display: flex;
@@ -156,16 +156,16 @@ table.frames th {
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--ef-panel);
-  color: var(--ef-ink-2);
-  font-family: var(--ef-font-ui);
+  background: var(--ui-panel);
+  color: var(--ui-ink-2);
+  font-family: var(--ui-font-ui);
   font-size: 0.68rem;
-  font-stretch: var(--ef-wider);
+  font-stretch: var(--ui-wider);
   font-weight: 600;
   text-transform: uppercase;
   text-align: left;
   padding: 0.45rem 0.7rem;
-  border-bottom: 1px solid var(--ef-ink);
+  border-bottom: 1px solid var(--ui-ink);
   white-space: nowrap;
 }
 table.frames th.num {
@@ -173,7 +173,7 @@ table.frames th.num {
 }
 table.frames td {
   padding: 0.22rem 0.7rem;
-  border-bottom: 1px solid var(--ef-rule);
+  border-bottom: 1px solid var(--ui-rule);
   white-space: nowrap;
   font-size: 0.82rem;
 }
@@ -187,41 +187,41 @@ table.frames td:last-child {
   padding-right: 1.15rem;
 }
 table.frames tbody tr:hover td {
-  background: var(--ef-paper);
+  background: var(--ui-paper);
 }
 
 td.c-seq,
 td.c-dlc {
   text-align: right;
-  color: var(--ef-ink-2);
-  font-stretch: var(--ef-wide);
+  color: var(--ui-ink-2);
+  font-stretch: var(--ui-wide);
 }
 td.c-time {
-  color: var(--ef-ink-2);
-  font-stretch: var(--ef-wide);
+  color: var(--ui-ink-2);
+  font-stretch: var(--ui-wide);
 }
 td.c-id {
   font-weight: 600;
-  font-stretch: var(--ef-wide);
+  font-stretch: var(--ui-wide);
 }
 td.c-type {
   font-size: 0.78rem;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
 }
 td.c-data {
   letter-spacing: 0.03em;
   white-space: pre;
-  font-stretch: var(--ef-wide);
+  font-stretch: var(--ui-wide);
 }
 
 /* 远程帧：类型格用虚线框，数据弱化（不能把 td 改成 inline-block，会破坏表格行） */
 tr.remote td.c-type {
   padding: 0 0.4em;
-  border: 1px dashed var(--ef-ink-2);
-  color: var(--ef-ink-2);
+  border: 1px dashed var(--ui-ink-2);
+  color: var(--ui-ink-2);
 }
 tr.remote td.c-data {
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
 }
 
 /* 通道来源标识：墨底编号标签（不靠多色相区分通道） */
@@ -232,13 +232,13 @@ tr.remote td.c-data {
   max-width: 100%;
   /* 不可点击的通道标识：直角实心标签，不用切角（切角只给可点元素） */
   padding: 0.08rem 0.4rem;
-  font-family: var(--ef-font-ui);
+  font-family: var(--ui-font-ui);
   font-size: 0.68rem;
-  font-stretch: var(--ef-wide);
+  font-stretch: var(--ui-wide);
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: var(--ef-tag-fg);
-  background: var(--ef-tag-bg);
+  color: var(--ui-tag-fg);
+  background: var(--ui-tag-bg);
 }
 .ch-badge .ch-name {
   min-width: 0;
@@ -248,9 +248,9 @@ tr.remote td.c-data {
 }
 /* 未知来源（状态里尚无该通道）：虚线框占位 */
 .ch-badge.ch-x {
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   background: none;
-  border: 1px dashed var(--ef-ink-2);
+  border: 1px dashed var(--ui-ink-2);
 }
 
 /* 空状态：一句完整的话 */
@@ -269,8 +269,8 @@ tr.remote td.c-data {
   content: '';
   width: 64px;
   height: 0.7rem;
-  background: var(--ef-hatch);
-  border-left: 0.7rem solid var(--ef-ink);
+  background: var(--ui-hatch);
+  border-left: 0.7rem solid var(--ui-ink);
   margin-bottom: 0.4rem;
 }
 .empty .t {
@@ -279,7 +279,7 @@ tr.remote td.c-data {
 }
 .empty .h {
   font-size: 0.82rem;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   max-width: 380px;
   line-height: 1.75;
 }
@@ -294,8 +294,8 @@ tr.remote td.c-data {
   align-items: baseline;
   gap: 0.3rem;
   padding: 0.1rem 0.5em;
-  background: var(--ef-signal);
-  color: var(--ef-on-signal);
+  background: var(--ui-signal);
+  color: var(--ui-on-signal);
   font-size: 0.75rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -309,11 +309,11 @@ tr.remote td.c-data {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.45rem 1.15rem;
-  border-top: 1px solid var(--ef-rule);
-  font-family: var(--ef-font-ui);
-  font-stretch: var(--ef-wide);
+  border-top: 1px solid var(--ui-rule);
+  font-family: var(--ui-font-ui);
+  font-stretch: var(--ui-wide);
   font-size: 0.72rem;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
   font-variant-numeric: tabular-nums;
 }
 .strip .log {

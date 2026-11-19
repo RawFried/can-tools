@@ -13,7 +13,7 @@ Rust 后端直接通过 USB 与设备通信，浏览器前端负责配置与展�
 - **发送单帧**（标准/扩展/远程），并在自测模式下回环验证；
 - 实时查看报文（流水线滚动 / 按 ID 汇总最新值并高亮变化字节），并 **保存为 CSV**；可下载、删除历史文件；
 - **按通道**上传 DBC 定义，独立解码该通道报文并绘制实时曲线（刷新/重启后仍保留）；
-- **可切换界面主题**：内置「默认（石墨工作台）」与「终末地」两套主题插件，切换即时生效并记忆选择；
+- **可切换界面主题**：内置「默认（石墨工作台，玻璃面板/按键）」与「终末地」两套主题插件；主题可重定义 01–05 面板与按钮皮肤，切换即时生效并记忆选择；
 - 单文件 AppImage 分发，内置静态前端，无需 Node 运行时。
 
 ![界面](docs/ui.png)
@@ -177,9 +177,9 @@ USBCAN/CANalyst-II (04d8:0053)
 前端按 `endfield-ui` skill 的**标准变体**与**控制台**页型实现：
 纸面/墨/单一信号黄、切角只给可点击元素、细线分区、宽体 Saira + 中文黑体。
 变体参数写在 `web/src/html/index.html` 的 `<html>` 上
-（`data-ef-density="compact"`、`data-ef-motion="calm"`）；等高线保留静态 mask，
+（`data-ui-density="compact"`、`data-ui-motion="calm"`）；等高线保留静态 mask，
 尘埃由 `backdrop.ts` 的固定 canvas 动态渲染（减少动态效果时退化为静态一帧）；颜色与部件来自
-`web/src/styles/vendor/endfield.css`，应用侧只做布局与定制。界面不使用游戏素材；
+`web/src/styles/vendor/ui-shell.css`，应用侧只做布局与定制。界面不使用游戏素材；
 Saira 为 SIL OFL 1.1，许可证见 `web/fonts/Saira-OFL.txt`。
 
 ## 构建

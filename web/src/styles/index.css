@@ -1,12 +1,12 @@
 /* CSS 入口，esbuild 打包为 web/app.css（后端 include_str! 嵌入）。
    级联顺序：
-   1. vendor/   endfield-ui 部件外壳（ef-* 规则与等高线数据 URI；
+   1. vendor/   ui-shell 部件外壳（源自 endfield-ui 的 ui-* 规则与等高线数据 URI；
                 主题身份令牌已迁出，见 themes/）；
    2. fonts     字体接入说明（字体栈随主题插件定义，本文件无规则）；
-   3. base      应用级基础（.ef 微调、命令栏状态字段、skip-link）；
+   3. base      应用级基础（.ui-root 微调、命令栏状态字段、skip-link）；
    4. backdrop  动态等高线/尘埃 canvas 的定位与静态降级；
    5. layout    骨架网格与面板头部；
-   6. controls  表单控件与通用小件（在 ef-form/ef-btn 之上）；
+   6. controls  表单控件与通用小件（在 ui-form/ui-btn 之上）；
    7. rail      左栏：通道/滤波/录制；
    8. stats     通道统计读数表；
    9. data      实时报文与选项卡外壳；
@@ -19,7 +19,7 @@
        深浅（data-theme / prefers-color-scheme）与主题（data-ui-theme）
        两轴独立组合，不会互相串味。
    新增样式请放入对应职责文件，不要在本文件写规则。 */
-@import './vendor/endfield.css';
+@import './vendor/ui-shell.css';
 @import './fonts.css';
 @import './base.css';
 @import './backdrop.css';

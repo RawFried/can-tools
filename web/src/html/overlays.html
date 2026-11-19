@@ -11,8 +11,8 @@
       <div class="rec-item-sub"><span class="r-size"></span><span class="r-time"></span></div>
     </div>
     <div class="r-act">
-      <a class="ef-btn small" href="#" download><span>下载</span></a>
-      <button class="ef-btn small danger" type="button"><span>删除</span></button>
+      <a class="ui-btn small" href="#" download><span>下载</span></a>
+      <button class="ui-btn small danger" type="button"><span>删除</span></button>
     </div>
   </li>
 </template>
@@ -20,7 +20,7 @@
 <template id="filterRowTpl">
   <div class="filter-row">
     <div class="f-line f-kind">
-      <div class="ef-seg" role="radiogroup" aria-label="帧类型">
+      <div class="ui-seg" role="radiogroup" aria-label="帧类型">
         <label><input type="radio" value="std" checked><span>标准</span></label>
         <label><input type="radio" value="ext"><span>扩展</span></label>
       </div>
@@ -29,7 +29,7 @@
       <span class="hex"><input class="input f-start" type="text" autocomplete="off" spellcheck="false" value="100" aria-label="起始 ID（十六进制）"></span>
       <span class="f-sep">–</span>
       <span class="hex"><input class="input f-end" type="text" autocomplete="off" spellcheck="false" value="7FF" aria-label="结束 ID（十六进制）"></span>
-      <button class="ef-btn small icon-only f-del" type="button" aria-label="删除此 ID 区间"><span>×</span></button>
+      <button class="ui-btn small icon-only f-del" type="button" aria-label="删除此 ID 区间"><span>×</span></button>
     </div>
   </div>
 </template>
@@ -37,11 +37,11 @@
 <!-- 信号曲线：通道选择弹窗（窗口容器见文件末尾） -->
 <div class="signal-modal" id="signalModal" hidden>
   <div class="signal-modal-backdrop" data-signal-close aria-hidden="true"></div>
-  <section class="ef-panel signal-modal-panel" role="dialog" aria-modal="true" aria-labelledby="h-signal-picker">
+  <section class="ui-panel signal-modal-panel" role="dialog" aria-modal="true" aria-labelledby="h-signal-picker">
     <header class="panel-head signal-modal-head">
-      <h2 class="ef-pair" id="h-signal-picker"><span class="ef-eyebrow slash">Signal / Channel</span><span>选择信号曲线通道</span></h2>
+      <h2 class="ui-pair" id="h-signal-picker"><span class="ui-eyebrow slash">Signal / Channel</span><span>选择信号曲线通道</span></h2>
       <span class="head-spacer"></span>
-      <button class="ef-btn small icon-only" id="btnSignalModalClose" type="button" aria-label="关闭通道选择">
+      <button class="ui-btn small icon-only" id="btnSignalModalClose" type="button" aria-label="关闭通道选择">
         <span>×</span>
       </button>
     </header>

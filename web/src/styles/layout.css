@@ -1,5 +1,5 @@
 /* ---------- 深色命令栏：常驻可视区顶部（滚动报文时状态仍可见） ---------- */
-.ef-cmdbar {
+.ui-cmdbar {
   position: sticky;
   top: 0;
   z-index: 50;
@@ -14,7 +14,7 @@
   --rail-w: 328px;
   max-width: 108rem;
   margin: 0 auto;
-  padding: 1.1rem var(--ef-pad) 2.5rem;
+  padding: 1.1rem var(--ui-pad) 2.5rem;
   display: grid;
   grid-template-columns: var(--rail-w) minmax(0, 1fr);
   gap: 1.1rem;
@@ -36,7 +36,7 @@
   overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--ef-rule) transparent;
+  scrollbar-color: var(--ui-rule) transparent;
   padding-right: 2px;
 }
 
@@ -48,7 +48,7 @@
 }
 
 /* ---------- 面板头部：编号眉标 + 中文粗体 + 右侧字段 ---------- */
-/* 面板本体用 vendor 的 .ef-panel（白板 + 顶边粗墨页签）。 */
+/* 面板本体用 vendor 的 .ui-panel（白板 + 顶边粗墨页签）。 */
 
 .panel-head {
   display: flex;
@@ -57,7 +57,7 @@
   flex-wrap: wrap;
   margin: 0 0 0.8rem;
 }
-.panel-head .ef-pair > :last-child {
+.panel-head .ui-pair > :last-child {
   font-size: 1rem;
 }
 .head-spacer {
@@ -72,12 +72,12 @@
   display: grid;
   gap: 0.75rem;
   min-width: 0;
-  /* 与 .ef-form 的容器 gap 叠加会过大；只保留内缩与分隔线 */
+  /* 与 .ui-form 的容器 gap 叠加会过大；只保留内缩与分隔线 */
   margin-top: 0;
   padding-top: 0.9rem;
-  border-top: 1px solid var(--ef-rule);
+  border-top: 1px solid var(--ui-rule);
 }
-.panel-section .ef-pair > :last-child {
+.panel-section .ui-pair > :last-child {
   font-size: 0.9rem;
 }
 
@@ -85,8 +85,8 @@
 .panel-foot {
   margin: 0.8rem -1.15rem -1.15rem;
   padding: 0.5rem 1.15rem;
-  border-top: 1px solid var(--ef-rule);
+  border-top: 1px solid var(--ui-rule);
   font-size: 0.78rem;
   line-height: 1.7;
-  color: var(--ef-ink-2);
+  color: var(--ui-ink-2);
 }

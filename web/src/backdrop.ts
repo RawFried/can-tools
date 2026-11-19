@@ -3,7 +3,7 @@
  *
  * 单独的固定 canvas，位于页面内容之后（z-index:-1），不拦截指针。
  * 只有一帧绘制循环；窗口隐藏、系统减少动态效果时暂停/退化为静态一帧。
- * 颜色取自 endfield-ui 的 --ef-ink / --ef-ink-2，跟随深浅主题。
+ * 颜色取自 endfield-ui 的 --ui-ink / --ui-ink-2，跟随深浅主题。
  */
 
 interface Dust {
@@ -142,7 +142,7 @@ class Backdrop {
   };
 
   private refreshPalette(): void {
-    this.ink2 = cssColor('--ef-ink-2', this.isDark ? '#a3a3a3' : '#5c5c5c');
+    this.ink2 = cssColor('--ui-ink-2', this.isDark ? '#a3a3a3' : '#5c5c5c');
   }
 
   private resize(): void {
@@ -192,7 +192,7 @@ class Backdrop {
     const delta = Math.min(0.05, Math.max(0, (now - this.lastFrame) / 1000));
     this.lastFrame = now;
     this.time += delta;
-    const speed = document.documentElement.dataset.efMotion === 'calm' ? 0.65 : 1;
+    const speed = document.documentElement.dataset.uiMotion === 'calm' ? 0.65 : 1;
     this.pointerX += (this.targetX - this.pointerX) * 0.035;
     this.pointerY += (this.targetY - this.pointerY) * 0.035;
     for (const particle of this.particles) {
@@ -235,7 +235,7 @@ export function initBackdrop(): void {
   backdrop.start();
 }
 
-/** 主题切换后重新解析 --ef-ink-2：系统深浅模式未变，但主题变量可能已换。 */
+/** 主题切换后重新解析 --ui-ink-2：系统深浅模式未变，但主题变量可能已换。 */
 export function refreshBackdropTheme(): void {
   backdrop?.refreshTheme();
 }
