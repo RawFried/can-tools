@@ -4,45 +4,94 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   check:
+    name: Check
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+
       - uses: Swatinem/rust-cache@v2
-      - name: Build frontend
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libudev-dev pkg-config
+
+      - name: Check, test and build frontend
         working-directory: web
         run: |
           npm ci
-          npm run build
+          npm run check
           npm run test
-      - name: Format
+          npm run build
+
+      - name: Check formatting
         run: cargo fmt --all -- --check
+
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+
       - name: Test
         run: cargo test --workspace --all-targets
 
   deb:
+    name: Build deb
     needs: check
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libudev-dev pkg-config
+
       - name: Build frontend
         working-directory: web
         run: |
           npm ci
           npm run build
-      # 说明: CI 用本机工具链打 deb（适合当前 Ubuntu）；面向旧发行版/其他架构请用
+
+      # CI 用本机工具链打 deb（适合当前 Ubuntu）；面向旧发行版/其他架构请用
       # `./packaging/build-deb.sh`（默认 zigbuild，glibc 2.17）或 `ARCH=arm64 ...`。
       - name: Build deb
         run: ZIG=0 ./packaging/build-deb.sh
+
       - uses: actions/upload-artifact@v4
         with:
           name: can-tools-deb
           path: dist/*.deb
+          if-no-files-found: error
+          retention-days: 14

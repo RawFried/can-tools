@@ -221,6 +221,30 @@ cargo test --workspace --all-targets
 endfield 主题使用自托管的 [Saira](https://github.com/googlefonts/saira-fonts)（SIL OFL 1.1，`web/fonts/Saira-OFL.txt`），
 默认主题使用系统界面字体；中文均使用系统中文字体。
 
+## CI / CD
+
+GitHub Actions：
+
+- `.github/workflows/ci.yml`：push / pull request 触发。先跑前端 `npm ci`、类型检查、测试与构建，再跑
+  `cargo fmt --check`、`clippy -D warnings`、`cargo test`；通过后在 `ubuntu-24.04` 上用本机工具链
+  构建 `.deb` 并上传为构建产物（保留 14 天）。
+- `.github/workflows/release.yml`：推送 `v*` 标签触发。校验标签与 `Cargo.toml` 版本一致，重跑前端与
+  Rust 测试，构建 release 二进制、`.deb`、AppImage，生成 `SHA256SUMS`，并创建 / 更新对应 GitHub Release。
+
+发布新版本：
+
+```bash
+# 1. 更新 Cargo.toml / 子 crate / web/package*.json 版本
+# 2. 提交并打标签（标签必须等于 v + Cargo.toml 的 version）
+git commit -am "chore(release): bump version to X.Y.Z"
+git tag -a vX.Y.Z -m "CAN Tools X.Y.Z"
+git push origin main
+git push origin vX.Y.Z
+```
+
+标签推送后 Release 工作流自动产出安装包；CI 与 Release 都使用自带缓存的 Node 22 / stable Rust，
+并安装 `libudev-dev`、`pkg-config`。
+
 ## Debian / Ubuntu 包（.deb）
 
 适用于 Ubuntu/Debian 工控机；包内包含：
