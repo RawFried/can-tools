@@ -29,6 +29,8 @@
    - 状态与徽标：状态灯（.cm-dot）、录制牌（#recPill）、暂停徽标
      （.paused-badge）、通道标签（.ch-badge，色随 --ui-tag-*）、来源标识
      （.src-tag）——语义色不可改（红只给删除），皮肤与圆角可主题化；
+   - 形状细节：曲线小件颜色点（.sig-dot）与自动滚动开关（.ui-switch 轨道/滑块）
+     的形状也可主题化（default 为圆点 / 胶囊 + 圆滑块，endfield 保持方格）；
    - 弹窗与浮窗铬件：.signal-window / .signal-window-head / .sw-tools /
      .dbc-chart-box / .signal-modal-backdrop / toast（.toast / .toast-flag）；
    - 按钮机械动效：切角（--ui-cut-*）与擦入（.ui-btn::before/::after）；

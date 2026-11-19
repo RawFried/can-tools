@@ -222,6 +222,14 @@
   opacity: 1;
 }
 
+/* —— 自动滚动开关：玻璃主题用胶囊轨道 + 圆形滑块（endfield 保持原方形开关） —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-switch {
+  border-radius: 999px;
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-switch::before {
+  border-radius: 50%;
+}
+
 /* —— 按钮系统：玻璃替代切角+擦入。清除 mask 与 ::before/::after（亮边动画），
    悬停 = 描边提亮 + 内嵌白色泛光（box-shadow 可平滑过渡），按下 = 内嵌压暗，
    尺寸/字号/内边距全部沿用外壳，布局零位移。 —— */
@@ -376,7 +384,8 @@
 }
 
 /* —— 曲线小件：信号开关 / 图例行 / 报文行与 ID 标签，玻璃化以贴合面板；
-   开/选中态统一为信号色玻璃 + 信号底文字 —— */
+   开/选中态统一为信号色玻璃 + 信号底文字。
+   信号开关的颜色块（如 EngineSpeed）改为圆点，不再是 endfield 的方格。 —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-chip,
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-legend {
   background: var(--glass-chip-bg);
@@ -384,6 +393,9 @@
   border-radius: var(--glass-r-s);
   -webkit-backdrop-filter: blur(var(--glass-blur-s));
   backdrop-filter: blur(var(--glass-blur-s));
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-chip .sig-dot {
+  border-radius: 50%;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-chip:hover,
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-legend:hover {
