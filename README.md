@@ -12,11 +12,11 @@ Rust 后端直接通过 USB 与设备通信，浏览器前端负责配置与展�
 - **运行时实时应用滤波**：区间立即生效，硬件预过滤热重初始化，不停止通道；
 - **发送单帧**（标准/扩展/远程），并在自测模式下回环验证；
 - 实时查看报文（流水线滚动 / 按 ID 汇总最新值并高亮变化字节），并 **保存为 CSV**；可下载、删除历史文件；
-- **按通道**上传 DBC 定义，独立解码该通道报文并绘制实时曲线（刷新/重启后仍保留）；
-- **可切换界面主题**：内置「默认（石墨工作台，玻璃面板/按键）」与「终末地」两套主题插件；主题可重定义 01–05 面板与按钮皮肤，切换即时生效并记忆选择；
+- **按通道**上传 DBC 定义，独立解码该通道报文并绘制实时曲线：单坐标系归一化叠加、共享时间轴；光标吸附后按 X 轴一次性列出各曲线读数，Y 轴虚线保留上次吸附曲线刻度（刷新/重启后定义仍保留）；
+- **可切换界面主题**：插件式主题（默认「石墨工作台」玻璃面板/按键 / 「终末地」），顶栏切换并记忆；01–05 面板与按钮皮肤可由主题重定义，图表色板随主题实时切换；
 - 单文件 AppImage 分发，内置静态前端，无需 Node 运行时。
 
-![界面](docs/ui.png)
+![界面：默认（石墨工作台）主题](docs/ui.png)
 
 ## 快速开始
 
@@ -167,20 +167,35 @@ USBCAN/CANalyst-II (04d8:0053)
 - `src/service/`：工作线程、配置/录制命令、CSV 记录器；
 - `src/state.rs`：状态快照、实时帧环形缓冲（5000 帧）、事件广播；
 - `src/server.rs`：REST、WebSocket、静态资源；
-- `web/src/`：前端模块化 TypeScript 源码（`main.ts` 入口，按职责拆分）；`web/src/styles/`：CSS 源码，经 `index.css` 按序 `@import` 后由 esbuild 打包为单个 `web/app.css`；`web/src/html/`：HTML 片段源码（骨架 + include 标记），由 `web/scripts/build-html.mjs` 拼装为单文件 `web/index.html`，与 `web/app.js`、`web/app.css` 一并嵌入二进制。
+- `web/src/`：前端模块化 TypeScript 源码（`main.ts` 入口，按职责拆分）；`web/src/theme.ts`：主题注册/切换；`web/src/styles/`：CSS 源码，经 `index.css` 按序 `@import` 后由 esbuild 打包为单个 `web/app.css`；其中 `themes/` 是主题插件（`default`/`endfield`），`vendor/ui-shell.css` 是共享部件外壳；`web/src/html/`：HTML 片段源码（骨架 + include 标记），由 `web/scripts/build-html.mjs` 拼装为单文件 `web/index.html`，与 `web/app.js`、`web/app.css` 一并嵌入二进制。
 
 协议字节布局见 [`docs/protocol.md`](docs/protocol.md)，HTTP API 见
 [`docs/api.md`](docs/api.md)。
 
-## 界面风格
+## 界面与主题
 
-前端按 `endfield-ui` skill 的**标准变体**与**控制台**页型实现：
-纸面/墨/单一信号黄、切角只给可点击元素、细线分区、宽体 Saira + 中文黑体。
-变体参数写在 `web/src/html/index.html` 的 `<html>` 上
-（`data-ui-density="compact"`、`data-ui-motion="calm"`）；等高线保留静态 mask，
-尘埃由 `backdrop.ts` 的固定 canvas 动态渲染（减少动态效果时退化为静态一帧）；颜色与部件来自
-`web/src/styles/vendor/ui-shell.css`，应用侧只做布局与定制。界面不使用游戏素材；
-Saira 为 SIL OFL 1.1，许可证见 `web/fonts/Saira-OFL.txt`。
+前端使用可插拔主题：`<html data-ui-theme="…">` 选择主题，`web/src/theme.ts` 管理注册表、顶栏选择器与
+localStorage（key `can-tools-theme`），`web/src/styles/themes/**` 提供主题令牌与组件覆盖；
+`web/src/styles/vendor/ui-shell.css` 只保留共享部件外壳（无主题身份令牌）。
+内置两套主题：
+
+- **`default` 石墨工作台（初始主题）**：冷灰纸面 + 静态极光地面；01–05 主面板、按钮、分段控件、
+  输入框与曲线浮窗/弹窗为磨砂玻璃（半透明 + `backdrop-filter`，不支持时退化为哑光）；
+  系统界面字体、蓝色强调；信号色点为圆形、自动滚动为胶囊开关、帧类型与流水线切换为滑块；
+  等高线、尘埃与三色条隐藏。
+- **`endfield` 终末地**：沿用 endfield-ui 标准变体与控制台页型——纸/墨/单一信号黄、切角只给可点击元素、
+  细线分区、宽体 Saira + 中文黑体、静态等高线与动态尘埃（减少动态效果时只画静态一帧）。
+
+主题覆盖范围包括 01–05 面板（`section.ui-panel[data-panel="01"…"05"]`）、`.ui-btn` 全状态、`.ui-seg`
+分段与滑块、`.sig-chip`/`.dbc-msg`/`.sig-legend` 等曲线小件，以及弹窗/浮窗铬件、眉标前缀、空状态标记、
+状态灯与徽标等 endfield 身份纹样；组件契约见 `web/src/styles/themes/index.css`。
+新增主题需提供完整的 `--ui-*`、`--chart-1..3` 与 `--ui-eyebrow-prefix` 令牌（浅色/深色/系统深色兜底），
+在 `themes/index.css` 追加 `@import`，并同步 `theme.ts` 与 `index.html` 早绘脚本里的主题 id。
+
+页面变体参数写在 `web/src/html/index.html` 的 `<html>` 上（`data-ui-density="compact"`、
+`data-ui-motion="calm"`）；endfield 主题另支持 `data-ui-accent/paper/cut/ground` 变体。
+界面不使用游戏素材；endfield 主题自托管 Saira（SIL OFL 1.1，许可证见 `web/fonts/Saira-OFL.txt`），
+默认主题使用系统字体栈。
 
 ## 构建
 
@@ -201,7 +216,8 @@ cargo test --workspace --all-targets
 `web/index.html`、`web/app.js` 与 `web/app.css` 都是构建产物、不入库；后端在编译时用 `include_str!` 嵌入它们，
 产物缺失时 `build.rs` 会提示先执行 `npm run build`，因此 `cargo build` 前必须先生成前端产物。
 `web/index.html` 由 `web/src/html/**` 的片段拼装而成，改页面结构请改片段源码而不是生成物。
-界面字体使用自托管的 [Saira](https://github.com/googlefonts/saira-fonts)（SIL OFL 1.1，`web/fonts/Saira-OFL.txt`），中文使用系统中文字体。
+endfield 主题使用自托管的 [Saira](https://github.com/googlefonts/saira-fonts)（SIL OFL 1.1，`web/fonts/Saira-OFL.txt`），
+默认主题使用系统界面字体；中文均使用系统中文字体。
 
 ## Debian / Ubuntu 包（.deb）
 
@@ -255,7 +271,7 @@ SKIP_BUILD=1 ./packaging/build-appimage.sh
 部分发行版没有 `libfuse2`，可直接解包运行：
 
 ```bash
-./can-tools-0.1.0-x86_64.AppImage --appimage-extract-and-run
+./can-tools-0.4.7-x86_64.AppImage --appimage-extract-and-run
 ```
 
 ## 交叉编译（cargo-zigbuild）
