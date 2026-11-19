@@ -13,10 +13,18 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "${ROOT}/Cargo.toml" | head -n 1)"
 ARCH="${ARCH:-$(uname -m)}"
+HOST_ARCH="$(uname -m)"
 case "${ARCH}" in
   x86_64 | aarch64) ;;
   *)
     echo "不支持的架构: ${ARCH}" >&2
+    exit 1
+    ;;
+esac
+case "${HOST_ARCH}" in
+  x86_64 | aarch64) ;;
+  *)
+    echo "不支持的构建机架构: ${HOST_ARCH}" >&2
     exit 1
     ;;
 esac
@@ -25,7 +33,7 @@ DIST="${ROOT}/dist"
 APPDIR="${DIST}/AppDir"
 TOOLS="${ROOT}/.tools"
 OUTPUT="${DIST}/can-tools-${VERSION}-${ARCH}.AppImage"
-BIN="${ROOT}/target/release/can-tools"
+BIN="${BIN:-${ROOT}/target/release/can-tools}"
 
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   (cd "${ROOT}" && cargo build --release --locked)
@@ -67,12 +75,13 @@ if [[ -z "${APPIMAGETOOL}" ]]; then
     APPIMAGETOOL="$(command -v appimagetool)"
   else
     mkdir -p "${TOOLS}"
-    APPIMAGETOOL="${TOOLS}/appimagetool-${ARCH}.AppImage"
+    # appimagetool 是打包工具，用构建机架构；实际 AppImage 架构由 runtime + AppDir 决定。
+    APPIMAGETOOL="${TOOLS}/appimagetool-${HOST_ARCH}.AppImage"
     if [[ ! -x "${APPIMAGETOOL}" ]]; then
       echo "下载 appimagetool: ${APPIMAGETOOL}"
       curl -fL --retry 5 --retry-all-errors --connect-timeout 20 \
         -o "${APPIMAGETOOL}" \
-        "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${ARCH}.AppImage"
+        "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${HOST_ARCH}.AppImage"
       chmod +x "${APPIMAGETOOL}"
     fi
   fi

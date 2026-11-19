@@ -229,7 +229,8 @@ GitHub Actions：
   `cargo fmt --check`、`clippy -D warnings`、`cargo test`；通过后在 `ubuntu-24.04` 上用本机工具链
   构建 `.deb` 并上传为构建产物（保留 14 天）。
 - `.github/workflows/release.yml`：推送 `v*` 标签触发。校验标签与 `Cargo.toml` 版本一致，重跑前端与
-  Rust 测试，构建 release 二进制、`.deb`、AppImage，生成 `SHA256SUMS`，并创建 / 更新对应 GitHub Release。
+  Rust 测试，分别构建 **amd64 与 arm64** 的 `.deb`、AppImage（arm64 用 Zig + cargo-zigbuild 交叉编译），
+  生成 `SHA256SUMS`，并创建 / 更新对应 GitHub Release。
 
 发布新版本：
 
@@ -242,8 +243,8 @@ git push origin main
 git push origin vX.Y.Z
 ```
 
-标签推送后 Release 工作流自动产出安装包；CI 与 Release 都使用自带缓存的 Node 22 / stable Rust，
-并安装 `libudev-dev`、`pkg-config`。
+标签推送后 Release 工作流自动产出双架构安装包；CI 与 Release 都使用自带缓存的 Node 22 / stable Rust，
+并安装 `libudev-dev`、`pkg-config`；Release 额外使用 Zig、cargo-zigbuild 与 arm64 target。
 
 ## Debian / Ubuntu 包（.deb）
 
@@ -292,6 +293,14 @@ sudo dpkg -i dist/can-tools_<version>_<arch>.deb
 
 ```bash
 SKIP_BUILD=1 ./packaging/build-appimage.sh
+```
+
+交叉构建 arm64（x86 主机；`appimagetool` 用构建机架构，runtime 按目标架构下载）：
+
+```bash
+ARCH=arm64 ./packaging/build-deb.sh          # 先用 zigbuild 生成 arm64 二进制
+ARCH=aarch64 BIN=target/aarch64-unknown-linux-gnu/release/can-tools \
+  SKIP_BUILD=1 ./packaging/build-appimage.sh
 ```
 
 部分发行版没有 `libfuse2`，可直接解包运行：

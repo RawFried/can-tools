@@ -73,6 +73,33 @@ jobs:
           SKIP_BUILD: '1'
         run: ./packaging/build-appimage.sh
 
+      - name: Set up Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Cache cargo-zigbuild
+        uses: actions/cache@v6
+        with:
+          path: ~/.cargo/bin/cargo-zigbuild
+          key: cargo-zigbuild-0.23.0
+
+      - name: Install cargo-zigbuild
+        run: command -v cargo-zigbuild >/dev/null || cargo install cargo-zigbuild --locked --version 0.23.0
+
+      - name: Add arm64 target
+        run: rustup target add aarch64-unknown-linux-gnu
+
+      - name: Build arm64 deb
+        run: ARCH=arm64 ./packaging/build-deb.sh
+
+      - name: Build arm64 AppImage
+        env:
+          ARCH: aarch64
+          BIN: target/aarch64-unknown-linux-gnu/release/can-tools
+          SKIP_BUILD: '1'
+        run: ./packaging/build-appimage.sh
+
       - name: Write checksums
         run: |
           cd dist
