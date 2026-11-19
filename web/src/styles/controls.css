@@ -172,3 +172,43 @@ select.input {
   color: var(--ui-ink-2);
   line-height: 1.8;
 }
+
+/* 滑块式分段选择（仅用于标记 .seg-slider 的两项组）：
+   指示块在段内滑动，而不是切换 label 的整块底色；颜色/圆角由主题变量控制，
+   endfield 为墨色方块，default 主题覆盖为信号色胶囊。 */
+.ui-seg.seg-slider {
+  --seg-thumb-bg: var(--ui-ink);
+  --seg-thumb-fg: var(--ui-paper);
+  --seg-thumb-radius: 0;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.ui-seg.seg-slider::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  background: var(--seg-thumb-bg);
+  border-radius: var(--seg-thumb-radius);
+  transform: translateX(0);
+  transition: transform 0.28s var(--ui-mech), background-color 0.2s;
+  pointer-events: none;
+}
+.ui-seg.seg-slider:has(> label:nth-child(2) > input:checked)::before {
+  transform: translateX(100%);
+}
+.ui-seg.seg-slider > label {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  color: var(--ui-ink);
+  transition: color 0.28s var(--ui-mech);
+}
+.ui-seg.seg-slider > label:has(> input:checked) {
+  background: transparent;
+  color: var(--seg-thumb-fg);
+}

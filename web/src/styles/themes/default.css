@@ -344,6 +344,18 @@
   box-shadow: inset 0 0 0 999px rgb(255 255 255 / 0.08);
 }
 
+/* —— 滑块式分段：默认主题用信号色胶囊滑块（结构见 controls.css），
+   并清掉上一版整块墨色选中底色，交给滑块表达状态。 —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-seg.seg-slider {
+  --seg-thumb-bg: var(--ui-signal);
+  --seg-thumb-fg: var(--ui-on-signal);
+  --seg-thumb-radius: calc(var(--glass-r-s) - 2px);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-seg.seg-slider > label:has(> input:checked) {
+  background: transparent;
+  color: var(--ui-on-signal);
+}
+
 /* —— 命令栏与顶栏控件：栏体本身半透明模糊（滚动内容从栏下透出）；
    「信号曲线」按钮与主题选择器是深色玻璃小件（命令栏两主题下都是深色，
    白色泛光/描边在深底上两态都成立） —— */

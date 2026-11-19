@@ -11,6 +11,9 @@
      （通道/录制/通道统计/发送报文/实时报文），可整体或逐板覆盖；
    - 按钮：.ui-btn 全状态（含 ::before/::after、.small/.icon-only/.go/.danger、
      :hover/:focus-visible/:active/:disabled/[aria-busy]）与分段控件 .ui-seg；
+   - 两项滑块分段：.ui-seg.seg-slider（帧类型、流水线/变化汇总）用
+     --seg-thumb-bg / --seg-thumb-fg / --seg-thumb-radius 控制滑块
+     （default 为信号色胶囊，endfield 为墨色方块）；
    - 同语言按钮类小件：.sig-chip / .dbc-msg / .sig-legend / .theme-select。
 
    ---------- 身份纹面契约（endfield 视觉残余，必须令牌化或主题覆盖） ----------
