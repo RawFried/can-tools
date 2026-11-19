@@ -314,6 +314,11 @@ export function refreshSignalWindows(): void {
   if (pickerOpen) renderPicker();
 }
 
+/** 主题切换后刷新所有已打开窗口的色板；没有窗口时为空操作。 */
+export function refreshSignalThemes(): void {
+  for (const win of windows.values()) win.refreshTheme();
+}
+
 /* ---------- 初始化 ---------- */
 
 /** 绑定顶栏按钮、弹窗关闭路径与窗口重排；必须在 connectWs() 之前调用。 */

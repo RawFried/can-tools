@@ -1,4 +1,4 @@
-/* ---------- 提示条（toast）：深色条 + 左侧黄条；出错/注意加黄旗 ---------- */
+/* ---------- 提示条（toast）：深色条 + 左侧强调色条；出错/注意加强调色旗 ---------- */
 #toasts {
   position: fixed;
   right: 1rem;
@@ -24,7 +24,7 @@
   line-height: 1.55;
   animation: toast-in 0.28s var(--ef-mech) both;
 }
-/* 需要注意的级别：前置黄旗文字（不用红） */
+/* 需要注意的级别：前置强调色旗文字（不用红） */
 .toast-flag {
   flex: none;
   padding: 0 0.4em;

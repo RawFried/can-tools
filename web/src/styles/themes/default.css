@@ -1,0 +1,141 @@
+/* ---------- 主题插件：default（石墨工作台 / Graphite Studio，初始主题） ----------
+   与 endfield 主题明确区分、但沿用同一部件外壳与状态语义：
+   - 冷灰蓝纸面 + 石墨墨色，纸/板两级底色与细线分区不变；
+   - 直角语言：--ef-cut-k 归零，可按压处不再切角；
+   - 系统界面字体（宽体拉丁 + 中文黑体改为常规系统栈），不再依赖 Saira；
+   - 强调色为工作台蓝（非黄非红）：“在这里 / 可操作 / 需要注意”沿用同一支蓝，
+     红色仍只属于删除（--ef-danger）；
+   - 地面纯净：隐藏等高线、动态尘埃与三色条，纸面就是纸面。
+   完整令牌集（外壳消费的每个 --ef-* 与 --chart-*）都在本文件定义，
+   任何主题下部件都不会回退到未定义变量。
+   裸 :root 兜底：早绘脚本只为非默认主题写 data-ui-theme，默认主题可能无该属性。 */
+
+:root,
+:root[data-ui-theme='default'] {
+  --ef-paper: #e7eaee; /* 页面纸面：冷调浅石墨 */
+  --ef-panel: #f7f8fa; /* 板面：近白，比纸面亮一级 */
+  --ef-ink: #1b2130; /* 墨：带蓝灰倾向的近黑 */
+  --ef-ink-2: #5a6472; /* 次要文字 / 字段标签（板面上约 5.6:1） */
+  --ef-rule: #ccd2da; /* 1px 细线 */
+  --ef-chip: #dde2e8; /* 安静底色：chip / 待机按钮 */
+  --ef-signal: #1558c0; /* 工作台蓝：“在这里 / 可操作 / 需要注意”（纸面上约 5.4:1） */
+  --ef-on-signal: #ffffff; /* 蓝底文字：约 6.6:1 */
+  --ef-trace: var(--ef-ink); /* “在这里”的线：白天用墨，夜里用蓝 */
+  --ef-tag-bg: var(--ef-ink); /* 数字标签底 */
+  --ef-tag-fg: var(--ef-panel);
+  --ef-danger: #b3261e; /* 仅用于删除，别无他用 */
+  --ef-tri-a: var(--ef-ink-2); /* 三色条在本主题隐藏；取值保持克制，防误启用时刺眼 */
+  --ef-tri-b: var(--ef-ink);
+  --ef-tri-c: var(--ef-signal);
+  --ef-mark: color-mix(in srgb, var(--ef-signal) 55%, transparent); /* 荧光笔 */
+  --ef-contour: color-mix(in srgb, var(--ef-ink) 9%, transparent);
+  --ef-hatch: repeating-linear-gradient(-45deg, transparent 0 5px, color-mix(in srgb, var(--ef-ink) 22%, transparent) 5px 6.5px);
+
+  /* 字体：系统界面栈 + 中文黑体，稳定、无需下载；等宽栈与外壳一致 */
+  --ef-font-ui: system-ui, -apple-system, 'Segoe UI', 'Noto Sans SC',
+    'Source Han Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    sans-serif;
+  --ef-font-text: system-ui, -apple-system, 'Segoe UI', 'Noto Sans SC',
+    'Source Han Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    sans-serif;
+  --ef-font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', Consolas, monospace;
+  /* 不做宽体拉伸：系统字体保持常规宽度，直角+常规字宽即本主题的字面语言 */
+  --ef-wide: 100%;
+  --ef-wider: 100%;
+
+  --ef-t-h1: 2.5rem;
+  --ef-t-title: 1.875rem;
+  --ef-t-h2: 1.375rem;
+  --ef-t-body: 1.0625rem;
+  --ef-t-ui: 0.9375rem;
+  --ef-t-field: 0.8125rem;
+
+  --ef-measure: 40rem; /* 阅读行宽，约 38 个汉字 */
+  --ef-pad: clamp(1rem, 4vw, 2.5rem);
+  --ef-cut-k: 0; /* 直角：所有切角装饰退化为纯方块 */
+  --ef-cut: calc(7px * var(--ef-cut-k));
+
+  --ef-ease: cubic-bezier(0.2, 0.7, 0.1, 1);
+  --ef-snap: cubic-bezier(0.16, 1, 0.3, 1); /* 快进缓停 */
+  --ef-mech: cubic-bezier(0.7, 0, 0.2, 1); /* 机械快门 */
+
+  color-scheme: light;
+}
+
+/* 显式深色：<html data-theme='dark'>（不作用于其他主题文档） */
+:root:not([data-ui-theme])[data-theme='dark'],
+:root[data-ui-theme='default'][data-theme='dark'] {
+  --ef-paper: #14181f; /* 页面纸面：深蓝石墨 */
+  --ef-panel: #1d222b; /* 板面：比纸面亮一级 */
+  --ef-ink: #e6eaf0; /* 墨：冷调亮文字（板面上约 13:1） */
+  --ef-ink-2: #98a2b0; /* 次要文字（板面上约 6.2:1） */
+  --ef-rule: #333b47; /* 1px 细线 */
+  --ef-chip: #2a313c; /* 安静底色 */
+  --ef-signal: #4d8dff; /* 夜间工作台蓝：深色板面上约 5:1 */
+  --ef-on-signal: #0d1420; /* 蓝底文字：约 5.7:1 */
+  --ef-trace: var(--ef-signal); /* 夜里“在这里”的线转蓝 */
+  --ef-tag-bg: #39414f;
+  --ef-tag-fg: var(--ef-ink);
+  --ef-danger: #ff8a7a;
+  --ef-mark: color-mix(in srgb, var(--ef-signal) 26%, transparent);
+  color-scheme: dark;
+}
+
+/* 未写 data-theme 时跟随系统深色偏好 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-ui-theme]):not([data-theme]),
+  :root[data-ui-theme='default']:not([data-theme]) {
+    --ef-paper: #14181f;
+    --ef-panel: #1d222b;
+    --ef-ink: #e6eaf0;
+    --ef-ink-2: #98a2b0;
+    --ef-rule: #333b47;
+    --ef-chip: #2a313c;
+    --ef-signal: #4d8dff;
+    --ef-on-signal: #0d1420;
+    --ef-trace: var(--ef-signal);
+    --ef-tag-bg: #39414f;
+    --ef-tag-fg: var(--ef-ink);
+    --ef-danger: #ff8a7a;
+    --ef-mark: color-mix(in srgb, var(--ef-signal) 26%, transparent);
+    color-scheme: dark;
+  }
+}
+
+/* 曲线三色：堇紫 / 松绿 / 绛紫——与蓝色信号色错开色相，哑光不发光；
+   虚实线型仍是第二层编码，色弱/灰度环境可靠线型分辨；红系黄系照旧回避。 */
+:root,
+:root[data-ui-theme='default'] {
+  --chart-1: #6d3fc0; /* 堇紫：浅色板面上约 6.7:1 */
+  --chart-2: #0b7a5e; /* 松绿：约 5.3:1 */
+  --chart-3: #a63e79; /* 绛紫：约 5.9:1 */
+}
+:root:not([data-ui-theme])[data-theme='dark'],
+:root[data-ui-theme='default'][data-theme='dark'] {
+  --chart-1: #b39ddb;
+  --chart-2: #4fc39a;
+  --chart-3: #e08cc2;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-ui-theme]):not([data-theme]),
+  :root[data-ui-theme='default']:not([data-theme]) {
+    --chart-1: #b39ddb;
+    --chart-2: #4fc39a;
+    --chart-3: #e08cc2;
+  }
+}
+
+/* 地面纯净：本主题不用等高线 / 尘埃 / 三色条（canvas 仍在绘制，仅不可见；
+   切回 endfield 主题时 backdrop.ts 的主题刷新会重新着色）。 */
+:root:not([data-ui-theme]) .ef-contours::before,
+:root[data-ui-theme='default'] .ef-contours::before {
+  display: none;
+}
+:root:not([data-ui-theme]) .ef-tri,
+:root[data-ui-theme='default'] .ef-tri {
+  display: none;
+}
+:root:not([data-ui-theme]) .fx-backdrop,
+:root[data-ui-theme='default'] .fx-backdrop {
+  display: none;
+}

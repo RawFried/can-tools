@@ -86,7 +86,7 @@ select.input {
   justify-content: center;
 }
 /* 行内窄按钮上，擦入前沿的亮线会被看成底层颜色透出一线：
-   这里只保留纯色填充（黄色铺满），其余按钮仍用套件的亮边。 */
+   这里只保留纯色填充（强调色铺满），其余按钮仍用套件的亮边。 */
 .btn-row .ef-btn::after {
   display: none;
 }
@@ -155,7 +155,7 @@ select.input {
   overflow-wrap: normal;
 }
 
-/* 「需要注意」的行内提示：垫黄块，不用红 */
+/* 「需要注意」的行内提示：垫强调色块，不用红 */
 .hint.error {
   display: inline-block;
   padding: 0 0.4em;

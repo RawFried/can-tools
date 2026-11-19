@@ -86,7 +86,7 @@ table.channel-stats-table td.cs-ch {
   margin-left: 0.2rem;
 }
 
-/* 总线负载：数值 + 细分段条；灰阶填充，超载（>100%）才垫黄 */
+/* 总线负载：数值 + 细分段条；灰阶填充，超载（>100%）才垫强调色 */
 td.cs-load {
   min-width: 108px;
 }

@@ -22,6 +22,18 @@
   font-display: swap;
 }
 </style>
+<!-- 主题早绘：样式表加载前把已保存的**非默认**主题标到 <html>，避免首帧用默认配色闪一下。
+     默认主题不需要属性；这里不写任何配色。id 列表必须与 src/theme.ts 的注册表保持一致
+     （内联脚本无法 import 模块）。存储不可用时静默按默认主题渲染。 -->
+<script>
+try {
+  const savedTheme = localStorage.getItem('can-tools-theme');
+  const knownThemes = ['default', 'endfield'];
+  if (savedTheme !== null && savedTheme !== 'default' && knownThemes.indexOf(savedTheme) >= 0) {
+    document.documentElement.setAttribute('data-ui-theme', savedTheme);
+  }
+} catch {}
+</script>
 <link rel="stylesheet" href="/app.css">
 <script defer src="/app.js"></script>
 </head>

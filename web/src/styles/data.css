@@ -77,7 +77,7 @@
   font-size: 0.8rem;
 }
 
-/* 变化汇总：数据字节变化时黄色闪烁；减少动态效果时停为静态黄块 */
+/* 变化汇总：数据字节变化时强调色闪烁；减少动态效果时停为静态强调色块 */
 .frame-byte {
   display: inline-block;
 }
@@ -284,7 +284,7 @@ tr.remote td.c-data {
   line-height: 1.75;
 }
 
-/* 暂停徽标：黄块 + 真实计数 */
+/* 暂停徽标：强调色块 + 真实计数 */
 .paused-badge {
   position: absolute;
   top: 0.5rem;

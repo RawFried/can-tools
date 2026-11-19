@@ -219,6 +219,12 @@ export class SignalWindow {
     this.renderHeader();
   }
 
+  /** 主题切换后重绘：色板来自 CSS 变量，需重新解析后刷新开关点色、图例与曲线。 */
+  refreshTheme(): void {
+    this.renderSignalBar();
+    this.renderChart();
+  }
+
   setLoading(loading: boolean): void {
     this.loading = loading;
     this.loadBtn.disabled = loading;

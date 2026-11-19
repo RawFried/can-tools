@@ -1,8 +1,8 @@
 /* CSS 入口，esbuild 打包为 web/app.css（后端 include_str! 嵌入）。
    级联顺序：
-   1. vendor/   endfield-ui 套件（ef-* 部件，含等高线数据 URI）；
-   2. fonts     覆盖套件的界面/正文字体栈（Saira + 中文黑体；
-                @font-face 写在页面骨架里，见 fonts.css 注释）；
+   1. vendor/   endfield-ui 部件外壳（ef-* 规则与等高线数据 URI；
+                主题身份令牌已迁出，见 themes/）；
+   2. fonts     字体接入说明（字体栈随主题插件定义，本文件无规则）；
    3. base      应用级基础（.ef 微调、命令栏状态字段、skip-link）；
    4. backdrop  动态等高线/尘埃 canvas 的定位与静态降级；
    5. layout    骨架网格与面板头部；
@@ -13,7 +13,11 @@
    10. send     发送报文；
    11. dbc      信号曲线（通道选择弹窗与按通道浮窗）；
    12. overlays 提示条与滚动条；
-   13. responsive 断点覆盖。
+   13. responsive 断点覆盖；
+   14. themes   主题插件（default / endfield 的全部身份令牌与 --chart-*）。
+       放在最后，令牌覆盖对所有共享样式生效；两组主题选择器互斥，
+       深浅（data-theme / prefers-color-scheme）与主题（data-ui-theme）
+       两轴独立组合，不会互相串味。
    新增样式请放入对应职责文件，不要在本文件写规则。 */
 @import './vendor/endfield.css';
 @import './fonts.css';
@@ -28,3 +32,4 @@
 @import './dbc.css';
 @import './overlays.css';
 @import './responsive.css';
+@import './themes/index.css';

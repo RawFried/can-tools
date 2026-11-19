@@ -13,7 +13,8 @@ const SAMPLE_CAP = 20000;
 interface SeriesState {
   message: DbcMessageDto;
   signal: DbcSignalDto;
-  look: SeriesLook;
+  /** 色板索引（0..MAX_SERIES-1）：颜色在渲染时从当前主题解析，切换主题后不会残留旧色。 */
+  paletteIndex: number;
   samples: ChartSample[];
 }
 interface MsgSeries {
@@ -41,6 +42,18 @@ export type ToggleResult = 'added' | 'removed' | 'limit' | 'none';
 
 function msgKey(extended: boolean, id: number): string {
   return (extended ? 'x' : 's') + id.toString(16);
+}
+
+/** 稳定索引 → 当前主题外观；色板短于索引范围时取模，保证不越界。
+ *  外观只在渲染时解析，因此主题切换后所有曲线同步换色。 */
+function lookOf(palette: readonly SeriesLook[], index: number): SeriesLook {
+  if (palette.length === 0) return { color: '#161616', dash: [] };
+  return palette[index % palette.length];
+}
+
+/** 外观同一性：颜色 + 线型；用于“首个未占用外观”的分配。 */
+function appearanceKey(look: SeriesLook): string {
+  return look.color + '|' + look.dash.join(',');
 }
 
 /** 定义形态（文件名或报文/信号数量）是否变化；变化时清空选择与样本。 */
@@ -117,9 +130,10 @@ export class SignalSession {
   signalsOfActive(): SignalChoice[] {
     const msg = this.activeMessage();
     if (msg === null) return [];
+    const palette = seriesPalette();
     return msg.signals.map((signal) => {
       const s = this.series.get(signalKey(msg, signal));
-      return { signal, color: s?.look.color ?? null };
+      return { signal, color: s ? lookOf(palette, s.paletteIndex).color : null };
     });
   }
 
@@ -144,13 +158,17 @@ export class SignalSession {
 
     const palette = seriesPalette();
     const used = new Set<string>();
-    for (const s of this.series.values()) {
-      used.add(s.look.color + '|' + s.look.dash.join(','));
+    for (const s of this.series.values()) used.add(appearanceKey(lookOf(palette, s.paletteIndex)));
+    let paletteIndex = -1;
+    for (let index = 0; index < MAX_SERIES; index++) {
+      if (!used.has(appearanceKey(lookOf(palette, index)))) {
+        paletteIndex = index;
+        break;
+      }
     }
-    const look =
-      palette.find((c) => !used.has(c.color + '|' + c.dash.join(','))) ??
-      palette[this.series.size % palette.length];
-    const item: SeriesState = { message: msg, signal: sig, look, samples: [] };
+    /* 色板比 MAX_SERIES 短时外观必然重复：退回按序号轮换（与旧行为一致） */
+    if (paletteIndex < 0) paletteIndex = this.series.size % MAX_SERIES;
+    const item: SeriesState = { message: msg, signal: sig, paletteIndex, samples: [] };
     this.series.set(key, item);
     this.rebuildSeriesIndex();
     this.backfill(item);
@@ -188,16 +206,18 @@ export class SignalSession {
     return had;
   }
 
-  /** 传给 SignalChart 的序列（统一坐标系；选中序列决定纵轴刻度）。 */
+  /** 传给 SignalChart 的序列（统一坐标系；纵轴刻度归属由 chart.ts 按吸附/上次曲线决定）。 */
   chartSeries(): ChartSeries[] {
     const out: ChartSeries[] = [];
+    const palette = seriesPalette();
     for (const [key, s] of this.series) {
+      const look = lookOf(palette, s.paletteIndex);
       out.push({
         key,
         label: s.signal.name,
         unit: s.signal.unit,
-        color: s.look.color,
-        dash: s.look.dash,
+        color: look.color,
+        dash: look.dash,
         samples: s.samples,
       });
     }
@@ -207,14 +227,16 @@ export class SignalSession {
   /** 图例数据：名称、末值（真实读数）与曲线外观。 */
   legendItems(): SignalLegendItem[] {
     const out: SignalLegendItem[] = [];
+    const palette = seriesPalette();
     for (const [key, s] of this.series) {
+      const look = lookOf(palette, s.paletteIndex);
       const last = s.samples[s.samples.length - 1];
       out.push({
         key,
         name: s.signal.name,
         unit: s.signal.unit,
-        color: s.look.color,
-        dash: s.look.dash,
+        color: look.color,
+        dash: look.dash,
         value: last ? last.v : null,
       });
     }

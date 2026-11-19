@@ -23,6 +23,7 @@ export const els = {
   wsDot: byId<HTMLElement>('wsDot'),
   wsText: byId<HTMLElement>('wsText'),
   versionLabel: byId<HTMLElement>('versionLabel'),
+  themeSelect: byId<HTMLSelectElement>('themeSelect'),
 
   /* 设备刷新与通道配置 */
   btnRefreshDevices: byId<HTMLButtonElement>('btnRefreshDevices'),

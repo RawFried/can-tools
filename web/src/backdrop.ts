@@ -117,6 +117,12 @@ class Backdrop {
     if (this.reduced) this.draw(0);
   };
 
+  /** 应用侧主题切换：与系统深浅模式无关，重新取色；静态模式立即重画。 */
+  refreshTheme(): void {
+    this.refreshPalette();
+    if (this.reduced) this.draw(0);
+  }
+
   private readonly onVisibilityChange = (): void => {
     if (document.hidden) {
       this.stop();
@@ -227,4 +233,9 @@ export function initBackdrop(): void {
   if (ctx === null) return;
   backdrop = new Backdrop(canvas, ctx);
   backdrop.start();
+}
+
+/** 主题切换后重新解析 --ef-ink-2：系统深浅模式未变，但主题变量可能已换。 */
+export function refreshBackdropTheme(): void {
+  backdrop?.refreshTheme();
 }

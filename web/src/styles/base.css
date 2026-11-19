@@ -85,7 +85,7 @@
   text-overflow: ellipsis;
 }
 
-/* 小方块状态灯：方形、无发光；黄=在线，虚线框=连接中，黄框=离线需要注意 */
+/* 小方块状态灯：方形、无发光；强调色=在线，虚线框=连接中，黄框=离线需要注意 */
 .cm-dot {
   width: 8px;
   height: 8px;
@@ -93,7 +93,7 @@
   background: #8b8b8b;
 }
 .cm-dot.ok {
-  /* 常态在线：中性读数；黄色只留给运行中/录制中/需注意 */
+  /* 常态在线：中性读数；强调色只留给运行中/录制中/需注意 */
   background: #b8b8b8;
 }
 .cm-dot.warn {
@@ -105,7 +105,7 @@
   background: var(--ef-signal);
 }
 
-/* 录制中：整块垫黄（“需要注意”），文字用墨色 */
+/* 录制中：整块垫强调色（“需要注意”），文字用墨色 */
 #recPill {
   padding: 0 0.5em;
   background: var(--ef-signal);
@@ -119,6 +119,41 @@
 .cm-ver {
   color: #b8b8b8;
   flex: none;
+}
+
+/* 主题选择器（.util 里的原生下拉）：命令栏两主题下都是深色条，
+   与 .signal-open 按钮同语言的深色小件——同底色、细线描边、直角、
+   自绘下箭头（UA 默认带圆角与系统强调色，需整体替换）。
+   弹出列表强制浅底深字，保证深浅模式与跨浏览器的选项可读。 */
+.ef-cmdbar .theme-select {
+  flex: none;
+  width: auto;
+  min-width: 4.75rem;
+  max-width: 10rem;
+  min-height: 1.85rem;
+  padding: 0.25rem 1.55rem 0.25rem 0.55rem;
+  border: 1px solid #3a3a3a;
+  border-radius: 0;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23b8b8b8'/%3E%3C/svg%3E")
+      right 0.5rem center / 10px 6px no-repeat,
+    #2e2e2e;
+  color: #ededed;
+  font-family: var(--ef-font-ui);
+  font-stretch: var(--ef-wide);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.ef-cmdbar .theme-select:hover {
+  border-color: #6a6a6a;
+  /* 悬停时箭头同步提亮（重绘同一 data URI，填充改白） */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23ffffff'/%3E%3C/svg%3E");
+}
+.ef-cmdbar .theme-select option {
+  background: #ffffff;
+  color: #161616;
 }
 
 @media (max-width: 759px) {
