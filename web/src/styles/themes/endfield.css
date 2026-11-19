@@ -24,6 +24,7 @@
   --ui-mark: color-mix(in srgb, var(--ui-signal) 55%, transparent); /* 荧光笔 */
   --ui-contour: color-mix(in srgb, var(--ui-ink) 9%, transparent);
   --ui-hatch: repeating-linear-gradient(-45deg, transparent 0 5px, color-mix(in srgb, var(--ui-ink) 22%, transparent) 5px 6.5px);
+  --ui-eyebrow-prefix: '// '; /* 眉标前缀「// 」（与外壳原硬编码一致，逐像素不变） */
 
   /* 字体：拉丁与数字走宽体 Saira，中文走黑体（原 fonts.css 的栈） */
   --ui-font-ui: 'Saira', 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC',

@@ -90,7 +90,7 @@ packaging/            AppImage 打包
 - **外观走主题插件**：`web/src/styles/themes/**` 提供完整身份令牌（`--ui-*`、`--chart-1..3` 的浅色/深色/系统兜底），`<html data-ui-theme="…">` 选择当前主题；`theme.ts` 的注册表负责选项、切换与持久化，`index.html` 的早绘脚本镜像同一 id 列表（脚本无法 import）。
   - `default`（石墨工作台）为初始主题：冷灰纸面 + 静态极光地面、01–05 面板与按键为磨砂玻璃（半透明 + 模糊，不支持时退化）、系统字体、蓝色强调；等高线/尘埃/三色条隐藏；
   - `endfield` 主题沿用 endfield-ui 规范：纸/墨/单一信号黄、切角只给可点击、宽体 Saira、静态等高线与尘埃；红色仍只给删除；
-  - 共享部件必须只消费令牌，不写死主题色；主题可覆盖 01–05 面板（`section.ui-panel[data-panel]`）与 `.ui-btn`/`.ui-seg` 等按钮类的皮肤，但不得改布局尺寸与状态语义。新增主题要建完整令牌集、在 `themes/index.css` 追加 `@import`，并同步 `theme.ts` 与早绘脚本的 id 列表。
+  - 共享部件必须只消费令牌，不写死主题色；主题可覆盖 01–05 面板（`section.ui-panel[data-panel]`）与 `.ui-btn`/`.ui-seg` 等按钮类的皮肤，但不得改布局尺寸与状态语义。所有 endfield 身份纹样（眉标前缀、空态标记、面板页签、hatch 纹理、弹窗/浮窗铬件等）都必须令牌化或由主题覆盖，默认主题不得残留 endfield 纹样。新增主题要建完整令牌集、在 `themes/index.css` 追加 `@import`，并同步 `theme.ts` 与早绘脚本的 id 列表。
 - **CSS 同样按职责分文件**（`web/src/styles/**`，`index.css` 为入口）。依赖方向单向：`vendor/ui-shell → fonts → base → backdrop → layout → controls → rail → stats → data → send → dbc → overlays → responsive → themes`；`vendor/ui-shell.css` 只保留共享部件规则与等高线数据 URI（身份令牌已迁出），除升级或结构迁移外不要改；`index.css` 的 `@import` 顺序即级联顺序，`themes` 必须最后（令牌覆盖所有共享样式），调整顺序前先确认选择器优先级与覆盖关系。禁止在 `index.css` 里写规则，也不要直接编辑 `web/app.css`。
 - 纯函数（如滤波推导、解析）放在可测试的位置并配注释说明边界条件；不要在没有依据的情况下改动已实测的位运算。
 

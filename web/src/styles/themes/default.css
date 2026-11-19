@@ -7,11 +7,15 @@
    - 按钮系统（.ui-btn 全状态 / .ui-seg / 顶栏控件 / 曲线小件）同为玻璃：
      半透明填充 + 描边 + 模糊，悬停提亮、按下压暗；不再使用 endfield 的
      切角与擦入（::before/::after 隐藏、mask 清空），尺寸与排版保持不变；
-   - 系统界面字体（宽体拉丁 + 中文黑体改为常规系统栈），不再依赖 Saira；
+   - 系统 UI 字体（宽体拉丁 + 中文黑体改为常规系统栈），不再依赖 Saira；
    - 强调色为工作台蓝（非黄非红）：“在这里 / 可操作 / 需要注意”沿用同一支蓝，
      红色仍只属于删除（--ui-danger）；
-   - 地面为静态极光渐变（.ui-root 上的 CSS 径向渐变，浅深两态共用一套令牌驱动），
-     等高线 / 动态尘埃 / 三色条保持隐藏，玻璃之下有内容可透。
+   - 地面为静态极光渐变（body.ui-root 上的 CSS 径向渐变），等高线 / 动态尘埃 /
+     三色条保持隐藏，玻璃之下有内容可透；
+   - 去 endfield 化：眉标无「//」前缀且不全大写（--ui-eyebrow-prefix 置空）；
+     空状态改玻璃圆珠（不再是斜线纹短带 + 墨块）；--ui-hatch 令牌改安静的
+     圆点网格且 busy 态不再用纹理；数字标签（--ui-tag-*）改玻璃薄底；
+     曲线浮窗 / 弹窗 / toast 铬件玻璃化；面板页签改顶缘光线。
    完整令牌集（外壳消费的每个 --ui-* 与 --chart-*）都在本文件定义，
    任何主题下部件都不会回退到未定义变量。
    裸 :root 兜底：早绘脚本只为非默认主题写 data-ui-theme，默认主题可能无该属性。
@@ -29,15 +33,19 @@
   --ui-signal: #1558c0; /* 工作台蓝：“在这里 / 可操作 / 需要注意”（纸面上约 5.4:1） */
   --ui-on-signal: #ffffff; /* 蓝底文字：约 6.6:1 */
   --ui-trace: var(--ui-ink); /* “在这里”的线：白天用墨，夜里用蓝 */
-  --ui-tag-bg: var(--ui-ink); /* 数字标签底 */
-  --ui-tag-fg: var(--ui-panel);
+  /* 数字标签改玻璃薄底（不再是墨块）：ch-badge / 外壳 ui-tag 共用 */
+  --ui-tag-bg: color-mix(in srgb, var(--ui-ink) 8%, transparent);
+  --ui-tag-fg: var(--ui-ink);
   --ui-danger: #b3261e; /* 仅用于删除，别无他用 */
   --ui-tri-a: var(--ui-ink-2); /* 三色条在本主题隐藏；取值保持克制，防误启用时刺眼 */
   --ui-tri-b: var(--ui-ink);
   --ui-tri-c: var(--ui-signal);
   --ui-mark: color-mix(in srgb, var(--ui-signal) 55%, transparent); /* 荧光笔 */
   --ui-contour: color-mix(in srgb, var(--ui-ink) 9%, transparent);
-  --ui-hatch: repeating-linear-gradient(-45deg, transparent 0 5px, color-mix(in srgb, var(--ui-ink) 22%, transparent) 5px 6.5px);
+  /* 阴影线是 endfield 的硬边纹理；本主题改为安静的圆点网格（供 busy 态等
+     未来的纹理消费者使用，现有消费点均已在覆盖段改写） */
+  --ui-hatch: radial-gradient(color-mix(in srgb, var(--ui-ink) 14%, transparent) 1px, transparent 1.4px) 0 0 / 6px 6px;
+  --ui-eyebrow-prefix: ''; /* 眉标无「//」前缀：编号裸排（01 / Channel） */
 
   /* 字体：系统界面栈 + 中文黑体，稳定、无需下载；等宽栈与外壳一致 */
   --ui-font-ui: system-ui, -apple-system, 'Segoe UI', 'Noto Sans SC',
@@ -99,10 +107,10 @@
   --ui-signal: #4d8dff; /* 夜间工作台蓝：深色板面上约 5:1 */
   --ui-on-signal: #0d1420; /* 蓝底文字：约 5.7:1 */
   --ui-trace: var(--ui-signal); /* 夜里“在这里”的线转蓝 */
-  --ui-tag-bg: #39414f;
-  --ui-tag-fg: var(--ui-ink);
   --ui-danger: #ff8a7a;
   --ui-mark: color-mix(in srgb, var(--ui-signal) 26%, transparent);
+  --ui-tag-bg: color-mix(in srgb, var(--ui-ink) 10%, transparent);
+  --ui-tag-fg: var(--ui-ink);
   /* 玻璃：深色态描边/高光里的白色比例降低，浮起改用黑影 */
   --glass-edge-a: 16%;
   --glass-lift: 0 1px 2px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.4);
@@ -122,7 +130,7 @@
     --ui-signal: #4d8dff;
     --ui-on-signal: #0d1420;
     --ui-trace: var(--ui-signal);
-    --ui-tag-bg: #39414f;
+    --ui-tag-bg: color-mix(in srgb, var(--ui-ink) 10%, transparent);
     --ui-tag-fg: var(--ui-ink);
     --ui-danger: #ff8a7a;
     --ui-mark: color-mix(in srgb, var(--ui-signal) 26%, transparent);
@@ -303,9 +311,12 @@
   border-color: color-mix(in srgb, var(--ui-danger) 20%, transparent);
   color: color-mix(in srgb, var(--ui-danger) 55%, var(--ui-ink-2));
 }
-/* 忙碌：保留阴影线语言，垫在玻璃表面之上 */
+/* 忙碌：安静的信号色薄染玻璃（不等待纹样），配合外壳的 progress 光标 */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn[aria-busy='true'] {
-  background: var(--ui-hatch), var(--glass-btn-bg);
+  background: var(--glass-btn-bg);
+  box-shadow:
+    inset 0 0 0 999px color-mix(in srgb, var(--ui-signal) 12%, transparent),
+    inset 0 1px 0 var(--glass-border);
 }
 
 /* —— 分段控件：整段一块玻璃，选中项为墨色玻璃（文字用纸面色，两态 ≥10:1） —— */
@@ -423,6 +434,121 @@
   background: color-mix(in srgb, var(--ui-panel) 70%, transparent);
   border-radius: var(--glass-r-s);
 }
+
+/* =====================================================================
+   去 endfield 化覆盖：残余的身份纹样逐点改写（契约见 themes/index.css）。
+   只改皮肤与小型装饰，不动布局与状态语义。
+   ===================================================================== */
+
+/* —— 眉标：中性标签——无「//」前缀（令牌已置空）、不全大写、收紧字距；
+   字号/字重沿用外壳，颜色保持次要墨 —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-eyebrow {
+  text-transform: none;
+  letter-spacing: 0.05em;
+  color: var(--ui-ink-2);
+}
+
+/* —— 搜索框：去掉「//」前缀（占位符已说明用途），留一个安静输入框 —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .search::before {
+  content: none;
+}
+
+/* —— 空状态标记：「通道未启动」上方不再用斜线纹短带 + 墨块，
+   改为一枚半透明信号色玻璃圆珠（与极光地面同语言） —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .empty::before {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--ui-signal) 32%, transparent);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 30%, rgb(255 255 255 / 0.28), transparent 55%),
+    color-mix(in srgb, var(--ui-signal) 14%, transparent);
+}
+
+/* —— 徽标与标签：墨底编号标签经 --ui-tag-* 令牌已成玻璃薄底，
+   这里补描边与圆角；来源标识收紧字距；暂停徽标保留语义强调色，仅圆角化 —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ch-badge {
+  border: 1px solid color-mix(in srgb, var(--ui-ink) 14%, transparent);
+  border-radius: 6px;
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .src-tag {
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .paused-badge {
+  border-radius: 6px;
+}
+
+/* —— 状态灯与录制牌：方形灯微圆角融入玻璃；录制牌保留强调色语义 —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .cm-dot {
+  border-radius: 2px;
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) #recPill {
+  border-radius: 6px;
+}
+
+/* —— 提示条（toast）：深色玻璃 + 左侧信号色缘（语义保留），圆角化 —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .toast {
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: var(--glass-r-s);
+  background:
+    linear-gradient(var(--ui-signal), var(--ui-signal)) left / 6px 100% no-repeat,
+    rgb(22 24 32 / 0.85);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .toast-flag {
+  border-radius: 4px;
+}
+
+/* —— 曲线浮窗与弹窗铬件：窗口本体玻璃化（尺寸/滚动区不变）——
+   标题栏改半透明 + 玻璃描边；拖动态从整块 chip 改为薄染；
+   曲线绘图面圆角化（画布自填纸色，圆角只裁外观） —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .signal-window {
+  background: var(--glass-panel-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--glass-r);
+  box-shadow: var(--glass-lift);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .signal-window-head {
+  border-bottom-color: var(--glass-border);
+  background: color-mix(in srgb, var(--ui-panel) 55%, transparent);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .signal-window.is-dragging .signal-window-head {
+  background: color-mix(in srgb, var(--ui-ink) 6%, transparent);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sw-tools {
+  border-bottom-color: color-mix(in srgb, var(--ui-ink) 12%, transparent);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .dbc-chart-box {
+  border-color: color-mix(in srgb, var(--ui-ink) 12%, transparent);
+  border-radius: var(--glass-r-s);
+  overflow: hidden;
+}
+
+/* —— 面板内嵌井（滤波区间行 / 录制进行卡）：不透明纸色改半透明薄染 + 圆角 —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .filter-row {
+  background: color-mix(in srgb, var(--ui-ink) 3%, transparent);
+  border-color: color-mix(in srgb, var(--ui-ink) 12%, transparent);
+  border-radius: var(--glass-r-s);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .rec-active {
+  background: color-mix(in srgb, var(--ui-panel) 55%, transparent);
+  border-color: color-mix(in srgb, var(--ui-ink) 25%, transparent);
+  border-radius: var(--glass-r-s);
+}
+
+/* —— 小型内联件：提示码片与空信号占位圆角化（虚线占位语义保留） —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .hint code {
+  border-radius: 4px;
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .dbc-signal-empty {
+  border-radius: 6px;
+}
+
 
 /* —— 地面：等高线、动态尘埃与三色条保持隐藏（极光渐变即地面；
    canvas 仍在绘制仅不可见，切回 endfield 时 backdrop.ts 会重新着色）。 —— */

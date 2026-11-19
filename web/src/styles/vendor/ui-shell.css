@@ -145,7 +145,9 @@
 }
 
 /* A small, wide, upper-case label above or beside a heading: "// OVERVIEW".
-   Add .slash for the double-slash prefix the game puts on titles. */
+   Add .slash for the double-slash prefix the game puts on titles.
+   [can-tools] 前缀是主题身份令牌 --ui-eyebrow-prefix（endfield 为 '// '，
+   其他主题可置空或换标记），回退值保持上游观感。 */
 .ui-eyebrow {
   font-family: var(--ui-font-ui);
   font-size: 0.7rem;
@@ -157,7 +159,7 @@
   color: var(--ui-ink-2);
 }
 .ui-eyebrow.slash::before {
-  content: '// ';
+  content: var(--ui-eyebrow-prefix, '// ');
   letter-spacing: 0;
 }
 
