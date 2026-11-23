@@ -1,21 +1,17 @@
-/* ---------- 主题插件：default（石墨工作台 / Graphite Studio，初始主题） ----------
-   与 endfield 主题明确区分、但沿用同一部件外壳与状态语义：
-   - 冷灰蓝纸面 + 石墨墨色，纸/板两级底色与细线分区不变；
-   - 玻璃语言：01–05 主面板（.ui-panel）为磨砂玻璃——半透明表面、1px 半透明
-     描边 + 上缘高光、克制的 12px 圆角、backdrop-filter 模糊加饱和
-     （不支持时经 @supports 退化为更高不透明度的哑光表面）；
-   - 按钮系统（.ui-btn 全状态 / .ui-seg / 顶栏控件 / 曲线小件）同为玻璃：
-     半透明填充 + 描边 + 模糊，悬停提亮、按下压暗；不再使用 endfield 的
-     切角与擦入（::before/::after 隐藏、mask 清空），尺寸与排版保持不变；
-   - 系统 UI 字体（宽体拉丁 + 中文黑体改为常规系统栈），不再依赖 Saira；
-   - 强调色为工作台蓝（非黄非红）：“在这里 / 可操作 / 需要注意”沿用同一支蓝，
-     红色仍只属于删除（--ui-danger）；
-   - 地面为静态极光渐变（body.ui-root 上的 CSS 径向渐变），等高线 / 动态尘埃 /
-     三色条保持隐藏，玻璃之下有内容可透；
-   - 去 endfield 化：眉标无「//」前缀且不全大写（--ui-eyebrow-prefix 置空）；
-     空状态改玻璃圆珠（不再是斜线纹短带 + 墨块）；--ui-hatch 令牌改安静的
-     圆点网格且 busy 态不再用纹理；数字标签（--ui-tag-*）改玻璃薄底；
-     曲线浮窗 / 弹窗 / toast 铬件玻璃化；面板页签改顶缘光线。
+/* ---------- 主题插件：default（仪表工作台，v0.3 配色，初始主题） ----------
+   回归 v0.3.0 及之前的主体配色（git show v0.3.0:web/app.css 为准），
+   实色表面、无磨砂玻璃（无 backdrop-filter / 半透明表面 / 极光地面）：
+   - 令牌映射：paper=bg，panel=surface，chip=surface-3，rule=border，
+     ink=text，ink-2=text-mid，signal=CAN1（青），on-signal=主按钮前景，
+     danger=err；曲线三色 --chart-1..3 = CAN1 / CAN2 / TX，深浅两态各自取值；
+   - 身份语言：28px 静态网格地面、实色卡片（surface + 1px border +
+     12px 圆角 + 克制阴影）、按钮 surface-3 + border-strong（悬停换
+     surface-2 + CAN1 描边）、主操作实色 CAN1、输入 surface-2、
+     命令栏跟随深浅（浅色浅底 / 深色深底，不再固定深色玻璃）；
+   - 去 endfield 化保持：眉标无「//」前缀（令牌置空）改为等宽 CAN1
+     索引标签；空状态为实色圆环标记；--ui-hatch 为安静圆点网格，
+     busy 态改 v0.3 旋转指示；切角/擦入/等高线/尘埃/三色条全部不用；
+   - 红色仍只属于删除与错误；暂停徽标用 v0.3 的警示琥珀（非红）。
    完整令牌集（外壳消费的每个 --ui-* 与 --chart-*）都在本文件定义，
    任何主题下部件都不会回退到未定义变量。
    裸 :root 兜底：早绘脚本只为非默认主题写 data-ui-theme，默认主题可能无该属性。
@@ -24,37 +20,37 @@
 
 :root,
 :root[data-ui-theme='default'] {
-  --ui-paper: #e7eaee; /* 页面纸面：冷调浅石墨（极光地面的底色） */
-  --ui-panel: #f7f8fa; /* 板面：近白，比纸面亮一级（玻璃表面按比例混透明） */
-  --ui-ink: #1b2130; /* 墨：带蓝灰倾向的近黑 */
-  --ui-ink-2: #5a6472; /* 次要文字 / 字段标签（板面上约 5.6:1） */
-  --ui-rule: #ccd2da; /* 1px 细线 */
-  --ui-chip: #dde2e8; /* 安静底色：chip / 待机按钮 */
-  --ui-signal: #1558c0; /* 工作台蓝：“在这里 / 可操作 / 需要注意”（纸面上约 5.4:1） */
-  --ui-on-signal: #ffffff; /* 蓝底文字：约 6.6:1 */
-  --ui-trace: var(--ui-ink); /* “在这里”的线：白天用墨，夜里用蓝 */
-  /* 数字标签改玻璃薄底（不再是墨块）：ch-badge / 外壳 ui-tag 共用 */
-  --ui-tag-bg: color-mix(in srgb, var(--ui-ink) 8%, transparent);
-  --ui-tag-fg: var(--ui-ink);
-  --ui-danger: #b3261e; /* 仅用于删除，别无他用 */
-  --ui-tri-a: var(--ui-ink-2); /* 三色条在本主题隐藏；取值保持克制，防误启用时刺眼 */
+  /* —— v0.3 浅色调色板（prefers-color-scheme: light 的取值） —— */
+  --ui-paper: #eef1f6; /* bg */
+  --ui-panel: #ffffff; /* surface：卡片 / 面板 */
+  --ui-chip: #ebeff5; /* surface-3：安静底色（chip / 待机按钮） */
+  --ui-ink: #1c2634; /* text */
+  --ui-ink-2: #4c5e73; /* text-mid */
+  --ui-rule: #d9dfe9; /* border */
+  --ui-signal: #077187; /* CAN1 · 青：“在这里 / 可操作 / 需要注意” */
+  --ui-on-signal: #ffffff; /* 主按钮前景（v0.3 btn-primary-fg） */
+  --ui-trace: var(--ui-signal); /* “在这里”的线：v0.3 两态都用 CAN1 */
+  --ui-tag-bg: rgba(7, 113, 135, 0.09); /* CAN1 dim：通道编号标签底 */
+  --ui-tag-fg: var(--ui-signal);
+  --ui-danger: #c23a3a; /* err：仅删除与错误 */
+  --ui-tri-a: var(--ui-ink-2); /* 三色条在本主题隐藏；取值保持克制 */
   --ui-tri-b: var(--ui-ink);
   --ui-tri-c: var(--ui-signal);
-  --ui-mark: color-mix(in srgb, var(--ui-signal) 55%, transparent); /* 荧光笔 */
-  --ui-contour: color-mix(in srgb, var(--ui-ink) 9%, transparent);
-  /* 阴影线是 endfield 的硬边纹理；本主题改为安静的圆点网格（供 busy 态等
-     未来的纹理消费者使用，现有消费点均已在覆盖段改写） */
+  --ui-mark: color-mix(in srgb, var(--ui-signal) 18%, transparent); /* 荧光笔 → CAN1 薄染 */
+  --ui-contour: rgba(30, 58, 95, 0.035); /* 地面网格色（等高线隐藏，仅作兜底） */
+  /* 阴影线是 endfield 的硬边纹理；本主题改为安静的圆点网格（仅作令牌兜底） */
   --ui-hatch: radial-gradient(color-mix(in srgb, var(--ui-ink) 14%, transparent) 1px, transparent 1.4px) 0 0 / 6px 6px;
-  --ui-eyebrow-prefix: ''; /* 眉标无「//」前缀：编号裸排（01 / Channel） */
+  --ui-eyebrow-prefix: ''; /* 眉标无「//」前缀：编号裸排 */
 
-  /* 字体：系统界面栈 + 中文黑体，稳定、无需下载；等宽栈与外壳一致 */
-  --ui-font-ui: system-ui, -apple-system, 'Segoe UI', 'Noto Sans SC',
-    'Source Han Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
-    sans-serif;
-  --ui-font-text: system-ui, -apple-system, 'Segoe UI', 'Noto Sans SC',
-    'Source Han Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
-    sans-serif;
-  --ui-font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', Consolas, monospace;
+  /* 字体：v0.3 的系统界面栈与等宽栈，不加载 Saira */
+  --ui-font-ui: 'Segoe UI Variable Text', 'Segoe UI', -apple-system,
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei',
+    'Noto Sans CJK SC', 'Source Han Sans SC', sans-serif;
+  --ui-font-text: 'Segoe UI Variable Text', 'Segoe UI', -apple-system,
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei',
+    'Noto Sans CJK SC', 'Source Han Sans SC', sans-serif;
+  --ui-font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'SF Mono',
+    Menlo, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', monospace;
   /* 不做宽体拉伸：系统字体保持常规宽度 */
   --ui-wide: 100%;
   --ui-wider: 100%;
@@ -68,29 +64,34 @@
 
   --ui-measure: 40rem; /* 阅读行宽，约 38 个汉字 */
   --ui-pad: clamp(1rem, 4vw, 2.5rem);
-  --ui-cut-k: 0; /* 切角装饰全部退化为直角（玻璃圆角另行提供） */
+  --ui-cut-k: 0; /* 无切角（圆角由组件规则按 v0.3 提供） */
   --ui-cut: calc(7px * var(--ui-cut-k));
 
   --ui-ease: cubic-bezier(0.2, 0.7, 0.1, 1);
   --ui-snap: cubic-bezier(0.16, 1, 0.3, 1); /* 快进缓停 */
   --ui-mech: cubic-bezier(0.7, 0, 0.2, 1); /* 机械快门 */
 
-  /* —— 玻璃配方（本主题专属令牌，endfield 不消费） ——
-     两级圆角/模糊；--glass-edge-a 是玻璃描边与上缘高光里白色的比例，
-     浅色态亮、深色态暗，深浅块只需改它；表面透明度先给“无模糊也能读”的
-     保守值，@supports 检测到 backdrop-filter 后再放宽（见下）。 */
-  --glass-r: 12px; /* 面板圆角 */
-  --glass-r-s: 8px; /* 控件圆角 */
-  --glass-blur: 14px; /* 面板模糊半径 */
-  --glass-blur-s: 8px; /* 控件模糊半径 */
-  --glass-edge-a: 55%;
-  --glass-border: color-mix(in srgb, #ffffff var(--glass-edge-a), transparent);
-  --glass-panel-bg: color-mix(in srgb, var(--ui-panel) 92%, transparent);
-  --glass-btn-bg: color-mix(in srgb, var(--ui-panel) 80%, transparent);
-  --glass-chip-bg: color-mix(in srgb, var(--ui-chip) 85%, transparent);
-  --glass-go-bg: color-mix(in srgb, var(--ui-signal) 96%, transparent);
-  --glass-bar-bg: rgb(22 22 22 / 0.92); /* 命令栏两主题下都是深色玻璃 */
-  --glass-lift: 0 1px 2px rgb(23 30 45 / 0.05), 0 10px 32px rgb(23 30 45 / 0.07); /* 克制的浮起，不是投影堆叠 */
+  /* —— v0.3 子令牌（本主题专属，endfield 不消费；深浅块按需覆盖） —— */
+  --v3-surface-2: #f5f7fa; /* 输入底 / 悬停按钮底 */
+  --v3-border-soft: rgba(52, 74, 102, 0.14); /* 行间细线 */
+  --v3-border-strong: #c2ccda; /* 控件描边 */
+  --v3-row-hover: rgba(11, 150, 171, 0.06); /* 行悬停 CAN1 薄染 */
+  --v3-text-faint: #5f7186; /* 弱化文字 / 装饰 */
+  --v3-grid: rgba(30, 58, 95, 0.035); /* 28px 地面网格 */
+  --v3-signal-dim: rgba(7, 113, 135, 0.09); /* CAN1 dim */
+  --v3-signal-line: rgba(7, 113, 135, 0.36); /* CAN1 line（悬停描边 / 内嵌圈） */
+  --v3-danger-dim: rgba(194, 58, 58, 0.09); /* err dim */
+  --v3-warn: #8f6107; /* 警示琥珀（暂停徽标） */
+  --v3-warn-dim: rgba(143, 97, 7, 0.11);
+  --v3-focus: #077187; /* 焦点环（v0.3 focus） */
+  --v3-shadow-card: 0 1px 2px rgba(23, 34, 48, 0.07), 0 14px 30px -24px rgba(23, 34, 48, 0.35);
+  --v3-shadow-pop: 0 4px 12px rgba(23, 34, 48, 0.14), 0 18px 40px -18px rgba(23, 34, 48, 0.4);
+  --v3-r-s: 8px; /* 控件圆角 */
+  --v3-r-m: 10px; /* 弹层圆角 */
+  --v3-r-l: 12px; /* 卡片圆角 */
+  /* 主题选择器箭头：data URI 按深浅换色（v0.3 无图标资源，纯内联） */
+  --v3-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%234c5e73'/%3E%3C/svg%3E");
+  --v3-arrow-hover: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%231c2634'/%3E%3C/svg%3E");
 
   color-scheme: light;
 }
@@ -98,22 +99,36 @@
 /* 显式深色：<html data-theme='dark'>（不作用于其他主题文档） */
 :root:not([data-ui-theme])[data-theme='dark'],
 :root[data-ui-theme='default'][data-theme='dark'] {
-  --ui-paper: #14181f; /* 页面纸面：深蓝石墨（极光地面的底色） */
-  --ui-panel: #1d222b; /* 板面：比纸面亮一级 */
-  --ui-ink: #e6eaf0; /* 墨：冷调亮文字（板面上约 13:1） */
-  --ui-ink-2: #98a2b0; /* 次要文字（板面上约 6.2:1） */
-  --ui-rule: #333b47; /* 1px 细线 */
-  --ui-chip: #2a313c; /* 安静底色 */
-  --ui-signal: #4d8dff; /* 夜间工作台蓝：深色板面上约 5:1 */
-  --ui-on-signal: #0d1420; /* 蓝底文字：约 5.7:1 */
-  --ui-trace: var(--ui-signal); /* 夜里“在这里”的线转蓝 */
-  --ui-danger: #ff8a7a;
-  --ui-mark: color-mix(in srgb, var(--ui-signal) 26%, transparent);
-  --ui-tag-bg: color-mix(in srgb, var(--ui-ink) 10%, transparent);
-  --ui-tag-fg: var(--ui-ink);
-  /* 玻璃：深色态描边/高光里的白色比例降低，浮起改用黑影 */
-  --glass-edge-a: 16%;
-  --glass-lift: 0 1px 2px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.4);
+  /* —— v0.3 深色调色板（v0.3 的默认深色取值） —— */
+  --ui-paper: #0e1319; /* bg */
+  --ui-panel: #151c26; /* surface */
+  --ui-chip: #212c3b; /* surface-3 */
+  --ui-ink: #dae3ee; /* text */
+  --ui-ink-2: #9db0c5; /* text-mid */
+  --ui-rule: #25303f; /* border */
+  --ui-signal: #37c5da; /* CAN1 · 青 */
+  --ui-on-signal: #04262d; /* 主按钮前景（v0.3 btn-primary-fg） */
+  --ui-trace: var(--ui-signal);
+  --ui-tag-bg: rgba(55, 197, 218, 0.12);
+  --ui-tag-fg: var(--ui-signal);
+  --ui-danger: #ef6159; /* err */
+  --ui-mark: color-mix(in srgb, var(--ui-signal) 20%, transparent);
+  --v3-surface-2: #1a2330;
+  --v3-border-soft: rgba(96, 122, 152, 0.16);
+  --v3-border-strong: #33425a;
+  --v3-row-hover: rgba(63, 201, 221, 0.05);
+  --v3-text-faint: #7e8fa4;
+  --v3-grid: rgba(140, 170, 205, 0.05);
+  --v3-signal-dim: rgba(55, 197, 218, 0.12);
+  --v3-signal-line: rgba(55, 197, 218, 0.38);
+  --v3-danger-dim: rgba(239, 97, 89, 0.1);
+  --v3-warn: #e5b04e;
+  --v3-warn-dim: rgba(229, 176, 78, 0.12);
+  --v3-focus: #45cede;
+  --v3-shadow-card: 0 1px 2px rgba(3, 8, 14, 0.45), 0 14px 34px -22px rgba(3, 8, 14, 0.7);
+  --v3-shadow-pop: 0 4px 10px rgba(3, 8, 14, 0.35), 0 18px 44px -16px rgba(3, 8, 14, 0.75);
+  --v3-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%239db0c5'/%3E%3C/svg%3E");
+  --v3-arrow-hover: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23dae3ee'/%3E%3C/svg%3E");
   color-scheme: dark;
 }
 
@@ -121,162 +136,164 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-ui-theme]):not([data-theme]),
   :root[data-ui-theme='default']:not([data-theme]) {
-    --ui-paper: #14181f;
-    --ui-panel: #1d222b;
-    --ui-ink: #e6eaf0;
-    --ui-ink-2: #98a2b0;
-    --ui-rule: #333b47;
-    --ui-chip: #2a313c;
-    --ui-signal: #4d8dff;
-    --ui-on-signal: #0d1420;
+    --ui-paper: #0e1319;
+    --ui-panel: #151c26;
+    --ui-chip: #212c3b;
+    --ui-ink: #dae3ee;
+    --ui-ink-2: #9db0c5;
+    --ui-rule: #25303f;
+    --ui-signal: #37c5da;
+    --ui-on-signal: #04262d;
     --ui-trace: var(--ui-signal);
-    --ui-tag-bg: color-mix(in srgb, var(--ui-ink) 10%, transparent);
-    --ui-tag-fg: var(--ui-ink);
-    --ui-danger: #ff8a7a;
-    --ui-mark: color-mix(in srgb, var(--ui-signal) 26%, transparent);
-    --glass-edge-a: 16%;
-    --glass-lift: 0 1px 2px rgb(0 0 0 / 0.45), 0 12px 32px rgb(0 0 0 / 0.4);
+    --ui-tag-bg: rgba(55, 197, 218, 0.12);
+    --ui-tag-fg: var(--ui-signal);
+    --ui-danger: #ef6159;
+    --ui-mark: color-mix(in srgb, var(--ui-signal) 20%, transparent);
+    --v3-surface-2: #1a2330;
+    --v3-border-soft: rgba(96, 122, 152, 0.16);
+    --v3-border-strong: #33425a;
+    --v3-row-hover: rgba(63, 201, 221, 0.05);
+    --v3-text-faint: #7e8fa4;
+    --v3-grid: rgba(140, 170, 205, 0.05);
+    --v3-signal-dim: rgba(55, 197, 218, 0.12);
+    --v3-signal-line: rgba(55, 197, 218, 0.38);
+    --v3-danger-dim: rgba(239, 97, 89, 0.1);
+    --v3-warn: #e5b04e;
+    --v3-warn-dim: rgba(229, 176, 78, 0.12);
+    --v3-focus: #45cede;
+    --v3-shadow-card: 0 1px 2px rgba(3, 8, 14, 0.45), 0 14px 34px -22px rgba(3, 8, 14, 0.7);
+    --v3-shadow-pop: 0 4px 10px rgba(3, 8, 14, 0.35), 0 18px 44px -16px rgba(3, 8, 14, 0.75);
+    --v3-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%239db0c5'/%3E%3C/svg%3E");
+    --v3-arrow-hover: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23dae3ee'/%3E%3C/svg%3E");
     color-scheme: dark;
   }
 }
 
-/* 曲线三色：堇紫 / 松绿 / 绛紫——与蓝色信号色错开色相，哑光不发光；
-   虚实线型仍是第二层编码，色弱/灰度环境可靠线型分辨；红系黄系照旧回避。 */
+/* 曲线三色 = v0.3 的 CAN1 / CAN2 / TX（深浅各自取值；虚实线型仍是第二层编码） */
 :root,
 :root[data-ui-theme='default'] {
-  --chart-1: #6d3fc0; /* 堇紫：浅色板面上约 6.7:1 */
-  --chart-2: #0b7a5e; /* 松绿：约 5.3:1 */
-  --chart-3: #a63e79; /* 绛紫：约 5.9:1 */
+  --chart-1: #077187; /* CAN1 · 青 */
+  --chart-2: #8f5803; /* CAN2 · 琥珀 */
+  --chart-3: #6440c9; /* TX · 紫 */
 }
 :root:not([data-ui-theme])[data-theme='dark'],
 :root[data-ui-theme='default'][data-theme='dark'] {
-  --chart-1: #b39ddb;
-  --chart-2: #4fc39a;
-  --chart-3: #e08cc2;
+  --chart-1: #37c5da;
+  --chart-2: #f0a63a;
+  --chart-3: #a995f2;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-ui-theme]):not([data-theme]),
   :root[data-ui-theme='default']:not([data-theme]) {
-    --chart-1: #b39ddb;
-    --chart-2: #4fc39a;
-    --chart-3: #e08cc2;
-  }
-}
-
-/* 支持 backdrop-filter 时才放宽玻璃透明度（模糊保证了可读性）；
-   不支持的引擎自动落入上面的保守不透明度，界面仍是完整可读的哑光表面。 */
-@supports ((-webkit-backdrop-filter: blur(2px)) or (backdrop-filter: blur(2px))) {
-  :root,
-  :root[data-ui-theme='default'] {
-    --glass-panel-bg: color-mix(in srgb, var(--ui-panel) 72%, transparent);
-    --glass-btn-bg: color-mix(in srgb, var(--ui-panel) 58%, transparent);
-    --glass-chip-bg: color-mix(in srgb, var(--ui-chip) 65%, transparent);
-    --glass-go-bg: color-mix(in srgb, var(--ui-signal) 88%, transparent);
-    --glass-bar-bg: rgb(22 22 22 / 0.82);
+    --chart-1: #37c5da;
+    --chart-2: #f0a63a;
+    --chart-3: #a995f2;
   }
 }
 
 /* =====================================================================
-   玻璃部件覆盖（仅 default 作用域；令牌之外的组件覆盖面，契约见
-   themes/index.css。尺寸/网格一律不动，只改皮肤。）
+   v0.3 实色部件覆盖（仅 default 作用域；契约见 themes/index.css）。
+   无 backdrop-filter、无半透明表面；尺寸/网格/语义一律不动。
    ===================================================================== */
 
-/* —— 极光地面：纸面之上的三片静色光晕（蓝/绛紫/松绿，全部取自本主题令牌，
-   深浅两态自动换色），fixed 固定让滚动时玻璃透出的内容稳定 —— */
+/* —— 地面：28px 静态网格（v0.3 bg-grid，深浅随令牌换色） —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) body.ui-root {
   background:
-    radial-gradient(52rem 34rem at 82% -8%, color-mix(in srgb, var(--ui-signal) 14%, transparent), transparent 62%),
-    radial-gradient(46rem 30rem at -8% 96%, color-mix(in srgb, var(--chart-3) 12%, transparent), transparent 60%),
-    radial-gradient(40rem 26rem at 46% 118%, color-mix(in srgb, var(--chart-2) 10%, transparent), transparent 60%),
+    linear-gradient(var(--v3-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--v3-grid) 1px, transparent 1px),
     var(--ui-paper);
-  background-attachment: fixed;
+  background-size: 28px 28px;
 }
 
 /* —— 面板（01–05 主面板与 .ui-panel 通用；data-panel 钩子留给逐板差异化）：
-   磨砂玻璃 + 1px 半透明描边 + 上缘高光线 + 克制浮起。
-   ::before 由墨色页签改为静态顶缘光线，悬停/聚焦增亮；
-   overflow:hidden 让满宽子元素（如 .panel-foot）在圆角处干净收边。 —— */
+   实色卡片 = surface + 1px border + 12px 圆角 + 克制阴影（v0.3 card）。
+   玻璃顶缘光线随玻璃语言一并移除（::before 隐藏）；overflow:hidden 让
+   满宽子元素（如 .panel-foot）在圆角处干净收边。 —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-panel {
-  background: var(--glass-panel-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--glass-r);
-  box-shadow: var(--glass-lift), inset 0 1px 0 var(--glass-border);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
-  backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+  background: var(--ui-panel);
+  border: 1px solid var(--ui-rule);
+  border-radius: var(--v3-r-l);
+  box-shadow: var(--v3-shadow-card);
   overflow: hidden;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-panel::before {
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--glass-border) 35%, var(--glass-border) 65%, transparent);
-  transform: none;
-  opacity: 0.7;
-  transition: opacity 0.2s;
-}
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-panel:is(:hover, :focus-within) {
-  border-color: color-mix(in srgb, #ffffff calc(var(--glass-edge-a) + 15%), transparent);
-}
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-panel:is(:hover, :focus-within)::before {
-  opacity: 1;
+  display: none;
 }
 
-/* —— 自动滚动开关：玻璃主题用胶囊轨道 + 圆形滑块（endfield 保持原方形开关） —— */
+/* —— 眉标：v0.3 card-index 语言——等宽 CAN1 索引标签（无「//」前缀、
+   不全大写、收紧字距），作为面板标题上方的实色小片 —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-eyebrow {
+  align-self: flex-start;
+  font-family: var(--ui-font-mono);
+  font-size: 0.66rem;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  color: var(--ui-signal);
+  background: var(--v3-signal-dim);
+  padding: 3px 6px;
+  border-radius: 5px;
+}
+
+/* —— 自动滚动开关：v0.3 胶囊轨道 + 圆形滑块（轨道 surface-3 + 描边，
+   选中 CAN1 dim 底 + CAN1 滑块） —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-switch {
+  background: var(--ui-chip);
+  border: 1px solid var(--v3-border-strong);
   border-radius: 999px;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-switch::before {
   border-radius: 50%;
+  background: var(--v3-text-faint);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-switch:checked {
+  background: var(--v3-signal-dim);
+  border-color: var(--ui-signal);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-switch:checked::before {
+  background: var(--ui-signal);
 }
 
-/* —— 按钮系统：玻璃替代切角+擦入。清除 mask 与 ::before/::after（亮边动画），
-   悬停 = 描边提亮 + 内嵌白色泛光（box-shadow 可平滑过渡），按下 = 内嵌压暗，
-   尺寸/字号/内边距全部沿用外壳，布局零位移。 —— */
+/* —— 按钮系统：v0.3 实色——surface-3 底 + border-strong 描边，
+   悬停 surface-2 + CAN1 line 描边，主操作实色 CAN1，危险透明红。
+   清除切角 mask 与擦入伪元素（busy 的 ::after 重新启用为旋转指示）；
+   尺寸/字号/内边距沿用外壳，布局零位移。 —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn {
-  background: var(--glass-btn-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--glass-r-s);
-  box-shadow: inset 0 1px 0 var(--glass-border);
+  background: var(--ui-chip);
+  border: 1px solid var(--v3-border-strong);
+  border-radius: var(--v3-r-s);
   -webkit-mask: none;
   mask: none;
-  -webkit-backdrop-filter: blur(var(--glass-blur-s)) saturate(1.25);
-  backdrop-filter: blur(var(--glass-blur-s)) saturate(1.25);
-  transition: border-color 0.15s, box-shadow 0.15s, color 0.12s 0.06s, transform 0.1s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.06s;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn::before,
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn::after {
   display: none;
 }
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn:is(:hover, :focus-visible, :active):not(:disabled) {
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--v3-surface-2);
+  border-color: var(--v3-signal-line);
   color: var(--ui-ink);
 }
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn:is(:hover, :focus-visible):not(:disabled) {
-  border-color: color-mix(in srgb, #ffffff calc(var(--glass-edge-a) + 20%), transparent);
-  box-shadow:
-    inset 0 0 0 999px rgb(255 255 255 / 0.1),
-    inset 0 1px 0 color-mix(in srgb, #ffffff calc(var(--glass-edge-a) + 20%), transparent);
-}
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn:active:not(:disabled) {
-  box-shadow:
-    inset 0 0 0 999px rgb(0 0 0 / 0.12),
-    inset 0 1px 0 var(--glass-border);
+  background: var(--ui-chip);
+  border-color: var(--v3-border-strong);
 }
-/* 焦点环用信号蓝（.go/.danger 上改用墨色，蓝底上仍可辨） */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn:focus-visible {
-  outline: 2px solid var(--ui-signal);
-  outline-offset: -3px;
+  outline: 2px solid var(--v3-focus);
+  outline-offset: 2px;
 }
-/* 主操作：信号色玻璃，悬停收敛为实色信号蓝 */
+/* 主操作：实色 CAN1（v0.3 btn-primary），悬停轻微提亮 */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.go {
-  background: var(--glass-go-bg);
-  border-color: color-mix(in srgb, var(--ui-signal) 55%, transparent);
+  background: var(--ui-signal);
+  border-color: transparent;
   color: var(--ui-on-signal);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25);
+  font-weight: 600;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.go:is(:hover, :focus-visible):not(:disabled) {
   background: var(--ui-signal);
-  border-color: var(--ui-signal);
+  border-color: transparent;
+  filter: brightness(1.08);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.go:is(:hover, :focus-visible, :active):not(:disabled) {
   color: var(--ui-on-signal);
@@ -284,297 +301,401 @@
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.go:focus-visible {
   outline-color: var(--ui-ink);
 }
-/* 危险操作：红只属于删除——红字 + 红描边玻璃，悬停垫红色泛光 */
+/* 危险操作：红只属于删除——透明底 + 红字 + 红薄描边，悬停垫 err dim */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.danger {
-  border-color: color-mix(in srgb, var(--ui-danger) 40%, transparent);
+  background: transparent;
+  border-color: var(--v3-danger-dim);
   color: var(--ui-danger);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.danger:is(:hover, :focus-visible):not(:disabled) {
-  border-color: color-mix(in srgb, var(--ui-danger) 65%, transparent);
-  box-shadow:
-    inset 0 0 0 999px color-mix(in srgb, var(--ui-danger) 16%, transparent),
-    inset 0 1px 0 color-mix(in srgb, var(--ui-danger) 30%, transparent);
+  background: var(--v3-danger-dim);
+  border-color: var(--ui-danger);
+  color: var(--ui-danger);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.danger:is(:hover, :focus-visible, :active):not(:disabled) {
   color: var(--ui-danger);
 }
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.danger:focus-visible {
-  outline-color: var(--ui-ink);
+/* 图标按钮（删除区间行）：弱化前景，悬停转红（v0.3 icon-only 语言） */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.icon-only {
+  color: var(--v3-text-faint);
 }
-/* 禁用：安静玻璃（弱底、弱边、无高光、墨字降为 75%）——与可用态明显可分 */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.icon-only:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--v3-danger-dim);
+  border-color: var(--ui-danger);
+  color: var(--ui-danger);
+}
+/* 禁用：v0.3 统一中性退让——surface-2 底 + 中等强度文字 + 描边不变 */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn:disabled {
-  background: color-mix(in srgb, var(--ui-ink) 4%, transparent);
-  border-color: color-mix(in srgb, var(--ui-ink) 8%, transparent);
-  box-shadow: none;
-  color: color-mix(in srgb, var(--ui-ink-2) 75%, transparent);
+  background: var(--v3-surface-2);
+  border-color: var(--v3-border-strong);
+  color: var(--ui-ink-2);
+  opacity: 0.7;
   cursor: not-allowed;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.go:disabled {
-  background: color-mix(in srgb, var(--ui-signal) 18%, transparent);
-  border-color: color-mix(in srgb, var(--ui-signal) 25%, transparent);
-  color: color-mix(in srgb, var(--ui-ink-2) 80%, transparent);
+  background: var(--v3-surface-2);
+  color: var(--ui-ink-2);
+  filter: none;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.danger:disabled {
-  background: color-mix(in srgb, var(--ui-ink) 3%, transparent);
-  border-color: color-mix(in srgb, var(--ui-danger) 20%, transparent);
-  color: color-mix(in srgb, var(--ui-danger) 55%, var(--ui-ink-2));
+  background: var(--v3-surface-2);
+  border-color: var(--v3-border-strong);
+  color: var(--ui-ink-2);
 }
-/* 忙碌：安静的信号色薄染玻璃（不等待纹样），配合外壳的 progress 光标 */
+/* 忙碌：v0.3 旋转指示（::after 重新启用），文字弱化、指针进度由外壳提供 */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn[aria-busy='true'] {
-  background: var(--glass-btn-bg);
-  box-shadow:
-    inset 0 0 0 999px color-mix(in srgb, var(--ui-signal) 12%, transparent),
-    inset 0 1px 0 var(--glass-border);
+  background: var(--v3-surface-2);
+  border-color: var(--v3-border-strong);
+  color: var(--v3-text-faint);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn[aria-busy='true']::after {
+  display: block;
+  content: '';
+  width: 11px;
+  height: 11px;
+  flex: none;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: v3-spin 0.7s linear infinite;
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-btn.go[aria-busy='true'] {
+  background: var(--ui-signal);
+  border-color: transparent;
+  color: var(--ui-on-signal);
+  opacity: 0.6;
+}
+@keyframes v3-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* —— 分段控件：整段一块玻璃，选中项为墨色玻璃（文字用纸面色，两态 ≥10:1） —— */
+/* —— 分段控件：v0.3 seg——surface-2 轨道 + rule 描边，选中 surface-3 底 +
+   CAN1 line 内嵌圈 + 加粗；滑块式（seg-slider）保留滑动结构，滑块为
+   实色 CAN1 圆角块（内缩 3px，translateX(100%) 恰好落到另一半） —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-seg {
-  border: 1px solid color-mix(in srgb, var(--ui-ink) 25%, transparent);
-  border-radius: var(--glass-r-s);
+  border: 1px solid var(--ui-rule);
+  border-radius: 9px;
   overflow: hidden;
-  background: var(--glass-btn-bg);
-  -webkit-backdrop-filter: blur(var(--glass-blur-s)) saturate(1.25);
-  backdrop-filter: blur(var(--glass-blur-s)) saturate(1.25);
+  background: var(--v3-surface-2);
 }
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-seg label:has(:checked) {
-  background: color-mix(in srgb, var(--ui-ink) 85%, transparent);
-  color: var(--ui-paper);
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-seg:not(.seg-slider) label:has(:checked) {
+  background: var(--ui-chip);
+  color: var(--ui-ink);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--v3-signal-line);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-seg label:not(:has(:checked)):hover {
-  box-shadow: inset 0 0 0 999px rgb(255 255 255 / 0.08);
+  background: transparent;
+  color: var(--ui-ink);
 }
-
-/* —— 滑块式分段：默认主题用信号色胶囊滑块（结构见 controls.css），
-   并清掉上一版整块墨色选中底色，交给滑块表达状态。 —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-seg.seg-slider {
   --seg-thumb-bg: var(--ui-signal);
   --seg-thumb-fg: var(--ui-on-signal);
-  --seg-thumb-radius: calc(var(--glass-r-s) - 2px);
+  --seg-thumb-radius: 6px;
+  background: var(--v3-surface-2);
 }
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-seg.seg-slider > label:has(> input:checked) {
-  background: transparent;
-  color: var(--ui-on-signal);
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-seg.seg-slider::before {
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-seg.seg-slider > label {
+  color: var(--ui-ink);
 }
 
-/* —— 命令栏与顶栏控件：栏体本身半透明模糊（滚动内容从栏下透出）；
-   「信号曲线」按钮与主题选择器是深色玻璃小件（命令栏两主题下都是深色，
-   白色泛光/描边在深底上两态都成立） —— */
+/* —— 命令栏：v0.3 topbar 跟随深浅——实色纸面 + rule 下边线 + 墨字，
+   不再固定深色玻璃；状态灯改圆形，读数与版本片用 v0.3 语言 —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-cmdbar {
-  background: var(--glass-bar-bg);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2);
-  backdrop-filter: blur(12px) saturate(1.2);
+  background: var(--ui-paper);
+  color: var(--ui-ink);
+  border-bottom: 1px solid var(--ui-rule);
 }
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-cmdbar .brand {
+  color: var(--ui-ink);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-cmdbar .seal {
+  border-radius: 6px;
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-cmdbar .util {
+  color: var(--ui-ink-2);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .cm-field {
+  color: var(--ui-ink-2);
+}
+/* 状态灯：圆形（v0.3 pill-dot）；中性=在线，虚线=连接中，CAN1=需要注意 */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .cm-dot {
+  border-radius: 50%;
+  background: var(--v3-text-faint);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .cm-dot.ok {
+  background: var(--ui-ink-2);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .cm-dot.warn {
+  background: transparent;
+  border: 1px dashed var(--v3-text-faint);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .cm-dot.err {
+  background: var(--ui-signal);
+}
+/* 录制牌：CAN1 实色胶囊（红只给删除/错误）；版本片：等宽 + 细边（v0.3 version） */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) #recPill {
+  background: var(--ui-signal);
+  color: var(--ui-on-signal);
+  border-radius: 999px;
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .cm-ver {
+  color: var(--ui-ink-2);
+  font-family: var(--ui-font-mono);
+  border: 1px solid var(--ui-rule);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+/* 顶栏两个控件随浅深栏面走：surface-3 实色 + border-strong 描边 */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-cmdbar .signal-open {
-  background: rgb(255 255 255 / 0.07);
-  border: 1px solid rgb(255 255 255 / 0.18);
-  color: #ededed;
-  -webkit-backdrop-filter: blur(var(--glass-blur-s));
-  backdrop-filter: blur(var(--glass-blur-s));
+  background: var(--ui-chip);
+  border: 1px solid var(--v3-border-strong);
+  color: var(--ui-ink);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-cmdbar .signal-open:is(:hover, :focus-visible):not(:disabled) {
-  background: rgb(255 255 255 / 0.14);
-  border-color: rgb(255 255 255 / 0.32);
-  color: #ededed;
-  box-shadow: none;
+  background: var(--v3-surface-2);
+  border-color: var(--v3-signal-line);
+  color: var(--ui-ink);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-cmdbar .theme-select {
-  background-color: rgb(255 255 255 / 0.07);
-  border-color: rgb(255 255 255 / 0.18);
-  color: #ededed;
-  border-radius: var(--glass-r-s);
-  -webkit-backdrop-filter: blur(var(--glass-blur-s));
-  backdrop-filter: blur(var(--glass-blur-s));
+  background: var(--v3-arrow) right 0.5rem center / 10px 6px no-repeat, var(--ui-chip);
+  border: 1px solid var(--v3-border-strong);
+  border-radius: var(--v3-r-s);
+  color: var(--ui-ink);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-cmdbar .theme-select:hover {
-  background-color: rgb(255 255 255 / 0.13);
-  border-color: rgb(255 255 255 / 0.3);
+  background-image: var(--v3-arrow-hover);
+  background-color: var(--v3-surface-2);
+  border-color: var(--v3-signal-line);
 }
-/* 深色栏上的焦点环固定用亮灰（信号蓝在浅色主题下太深，深底上不可辨） */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-cmdbar :is(.signal-open, .theme-select):focus-visible {
-  outline: 2px solid #ededed;
+  outline: 2px solid var(--v3-focus);
   outline-offset: -3px;
 }
 
-/* —— 曲线小件：信号开关 / 图例行 / 报文行与 ID 标签，玻璃化以贴合面板；
-   开/选中态统一为信号色玻璃 + 信号底文字。
-   信号开关的颜色块（如 EngineSpeed）改为圆点，不再是 endfield 的方格。 —— */
+/* —— 曲线小件：实色 chip（surface-3 + border-strong），开/选中态转
+   CAN1 dim + CAN1 line + CAN1 字（v0.3 chip-mini.ch1 语言）；
+   信号开关的颜色块保持圆点 —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-chip,
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-legend {
-  background: var(--glass-chip-bg);
-  border: 1px solid color-mix(in srgb, var(--ui-ink) 10%, transparent);
-  border-radius: var(--glass-r-s);
-  -webkit-backdrop-filter: blur(var(--glass-blur-s));
-  backdrop-filter: blur(var(--glass-blur-s));
+  background: var(--ui-chip);
+  border: 1px solid var(--v3-border-strong);
+  border-radius: 6px;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-chip .sig-dot {
   border-radius: 50%;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-chip:hover,
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-legend:hover {
-  background: var(--glass-chip-bg);
-  box-shadow: inset 0 0 0 999px rgb(255 255 255 / 0.08);
+  background: var(--v3-surface-2);
+  border-color: var(--v3-signal-line);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-chip.is-on,
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sig-legend.is-active {
-  background: var(--glass-go-bg);
-  border-color: color-mix(in srgb, var(--ui-signal) 55%, transparent);
-  color: var(--ui-on-signal);
+  background: var(--v3-signal-dim);
+  border-color: var(--v3-signal-line);
+  color: var(--ui-signal);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .dbc-msg-id {
-  background: var(--glass-chip-bg);
-  border-color: color-mix(in srgb, var(--ui-ink) 10%, transparent);
-  border-radius: 6px;
+  background: var(--ui-chip);
+  border-color: var(--v3-border-soft);
+  border-radius: 5px;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .dbc-msg.is-active {
-  background: var(--glass-go-bg);
-  color: var(--ui-on-signal);
+  background: var(--v3-signal-dim);
+  color: var(--ui-signal);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .dbc-msg.is-active .dbc-msg-id {
-  background: color-mix(in srgb, var(--ui-on-signal) 16%, transparent);
+  background: color-mix(in srgb, var(--ui-signal) 14%, transparent);
   border-color: transparent;
-  color: var(--ui-on-signal);
+  color: var(--ui-signal);
 }
 
-/* —— 行悬停：玻璃面板内不再垫不透明纸色，改半透明墨色薄染（保留左侧 trace 条） —— */
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-table tbody tr:hover,
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) table.channel-stats-table tbody tr:hover {
-  background: color-mix(in srgb, var(--ui-ink) 4%, transparent);
+/* —— 表格：粘性表头 surface-2 + border-strong 底线，行线 border-soft，
+   行悬停 CAN1 薄染（v0.3 row-hover；左侧 trace 条随令牌转 CAN1） —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) table.frames th,
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) table.channel-stats-table th {
+  background: var(--v3-surface-2);
+  border-bottom-color: var(--v3-border-strong);
 }
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .dbc-msg:hover {
-  background: color-mix(in srgb, var(--ui-ink) 4%, transparent);
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) table.frames td,
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) table.channel-stats-table td {
+  border-bottom-color: var(--v3-border-soft);
 }
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) table.frames tbody tr:hover td,
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) table.channel-stats-table tbody tr:hover,
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-table tbody tr:hover {
+  background: var(--v3-row-hover);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .dbc-msg:hover,
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .signal-picker-row:is(:hover, :focus-visible) {
-  background: color-mix(in srgb, var(--ui-ink) 5%, transparent);
+  background: var(--v3-row-hover);
 }
 
-/* —— 表单输入的轻玻璃：半透明填充 + 半透明细边 + 控件级圆角（不加模糊，
-   避免与面板双重采样的开销）；焦点样式沿用外壳的 trace 描边 —— */
+/* —— 表单输入：surface-2 实色 + border-strong 描边 + 8px 圆角；
+   悬停 CAN1 line，聚焦 CAN1 边 + surface 底 + 焦点环（v0.3 input） —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-form :is(input:not([type='checkbox'], [type='radio'], [type='range']), select) {
-  background: color-mix(in srgb, var(--ui-panel) 70%, transparent);
-  border-color: color-mix(in srgb, var(--ui-ink) 18%, transparent);
-  border-radius: var(--glass-r-s);
+  background: var(--v3-surface-2);
+  border-color: var(--v3-border-strong);
+  border-radius: var(--v3-r-s);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-form :is(input:not([type='checkbox'], [type='radio'], [type='range']), select):hover {
+  border-color: var(--v3-signal-line);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-form :is(input:not([type='checkbox'], [type='radio'], [type='range']), select):focus-visible {
+  border-color: var(--ui-signal);
+  background: var(--ui-panel);
+  outline: 2px solid var(--v3-focus);
+  outline-offset: 1px;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .search {
-  background: color-mix(in srgb, var(--ui-panel) 70%, transparent);
-  border-radius: var(--glass-r-s);
+  background: var(--v3-surface-2);
+  border-color: var(--v3-border-strong);
+  border-radius: var(--v3-r-s);
 }
-
-/* =====================================================================
-   去 endfield 化覆盖：残余的身份纹样逐点改写（契约见 themes/index.css）。
-   只改皮肤与小型装饰，不动布局与状态语义。
-   ===================================================================== */
-
-/* —— 眉标：中性标签——无「//」前缀（令牌已置空）、不全大写、收紧字距；
-   字号/字重沿用外壳，颜色保持次要墨 —— */
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ui-eyebrow {
-  text-transform: none;
-  letter-spacing: 0.05em;
-  color: var(--ui-ink-2);
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .search:hover {
+  border-color: var(--v3-signal-line);
 }
-
-/* —— 搜索框：去掉「//」前缀（占位符已说明用途），留一个安静输入框 —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .search:focus-within {
+  border-color: var(--ui-signal);
+  background: var(--ui-panel);
+  box-shadow: none;
+}
+/* 搜索框：去掉「//」前缀（占位符已说明用途） */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .search::before {
   content: none;
 }
 
-/* —— 空状态标记：「通道未启动」上方不再用斜线纹短带 + 墨块，
-   改为一枚半透明信号色玻璃圆珠（与极光地面同语言） —— */
+/* —— 空状态标记：「通道未启动」上方为实色 CAN1 薄染圆环（无玻璃高光、
+   无 endfield 斜线纹） —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .empty::before {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   margin-bottom: 0.4rem;
-  border: 1px solid color-mix(in srgb, var(--ui-signal) 32%, transparent);
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 32% 30%, rgb(255 255 255 / 0.28), transparent 55%),
-    color-mix(in srgb, var(--ui-signal) 14%, transparent);
+  background: var(--v3-signal-dim);
+  box-shadow: inset 0 0 0 1.5px var(--v3-signal-line);
 }
 
-/* —— 徽标与标签：墨底编号标签经 --ui-tag-* 令牌已成玻璃薄底，
-   这里补描边与圆角；来源标识收紧字距；暂停徽标保留语义强调色，仅圆角化 —— */
+/* —— 徽标与标签：通道编号 = CAN1 dim + CAN1 字 + 内嵌 CAN1 圈（经
+   --ui-tag-* 令牌与这里补的圈/圆角）；来源标识细边；暂停徽标用
+   v0.3 警示琥珀胶囊（非红）；错误提示改红薄染（红允许给错误） —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .ch-badge {
-  border: 1px solid color-mix(in srgb, var(--ui-ink) 14%, transparent);
-  border-radius: 6px;
+  border: 0;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px var(--v3-signal-line);
+  font-family: var(--ui-font-mono);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .src-tag {
   letter-spacing: 0.04em;
+  border-color: var(--v3-border-soft);
   border-radius: 4px;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .paused-badge {
-  border-radius: 6px;
+  background: var(--v3-warn-dim);
+  border: 1px solid var(--v3-warn);
+  color: var(--v3-warn);
+  border-radius: 999px;
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .hint.error {
+  background: var(--v3-danger-dim);
+  color: var(--ui-danger);
 }
 
-/* —— 状态灯与录制牌：方形灯微圆角融入玻璃；录制牌保留强调色语义 —— */
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .cm-dot {
-  border-radius: 2px;
+/* —— 状态灯（左栏通道行 / 录制点）：圆形化，录制点保持 CAN1 —— */
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .channel-state::before {
+  border-radius: 50%;
 }
-:root:is(:not([data-ui-theme]), [data-ui-theme='default']) #recPill {
-  border-radius: 6px;
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .rec-dot {
+  border-radius: 50%;
 }
 
-/* —— 提示条（toast）：深色玻璃 + 左侧信号色缘（语义保留），圆角化 —— */
+/* —— 提示条（toast）：v0.3 实色——surface-3 + border-strong + CAN1 左缘
+   + 弹层阴影；强调色旗保留语义 —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .toast {
-  border: 1px solid rgb(255 255 255 / 0.12);
-  border-radius: var(--glass-r-s);
-  background:
-    linear-gradient(var(--ui-signal), var(--ui-signal)) left / 6px 100% no-repeat,
-    rgb(22 24 32 / 0.85);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  background: var(--ui-chip);
+  border: 1px solid var(--v3-border-strong);
+  border-left: 3px solid var(--ui-signal);
+  border-radius: var(--v3-r-m);
+  color: var(--ui-ink);
+  box-shadow: var(--v3-shadow-pop);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .toast-x {
+  color: var(--v3-text-faint);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .toast-x:hover {
+  color: var(--ui-ink);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .toast-flag {
   border-radius: 4px;
 }
 
-/* —— 曲线浮窗与弹窗铬件：窗口本体玻璃化（尺寸/滚动区不变）——
-   标题栏改半透明 + 玻璃描边；拖动态从整块 chip 改为薄染；
-   曲线绘图面圆角化（画布自填纸色，圆角只裁外观） —— */
+/* —— 曲线浮窗与弹窗：实色卡片 + rule 描边 + 12px 圆角 + 弹层阴影
+   （尺寸/滚动区不变）；标题栏 surface-2；曲线绘图面圆角化 —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .signal-window {
-  background: var(--glass-panel-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--glass-r);
-  box-shadow: var(--glass-lift);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
-  backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+  background: var(--ui-panel);
+  border: 1px solid var(--ui-rule);
+  border-radius: var(--v3-r-l);
+  box-shadow: var(--v3-shadow-pop);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .signal-window-head {
-  border-bottom-color: var(--glass-border);
-  background: color-mix(in srgb, var(--ui-panel) 55%, transparent);
+  background: var(--v3-surface-2);
+  border-bottom-color: var(--ui-rule);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .signal-window.is-dragging .signal-window-head {
-  background: color-mix(in srgb, var(--ui-ink) 6%, transparent);
+  background: var(--ui-chip);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sw-tools {
-  border-bottom-color: color-mix(in srgb, var(--ui-ink) 12%, transparent);
+  border-bottom-color: var(--ui-rule);
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .dbc-chart-box {
-  border-color: color-mix(in srgb, var(--ui-ink) 12%, transparent);
-  border-radius: var(--glass-r-s);
+  border-color: var(--v3-border-soft);
+  border-radius: var(--v3-r-s);
   overflow: hidden;
 }
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .signal-modal-panel {
+  box-shadow: var(--v3-shadow-pop);
+}
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .sw-hint.is-error {
+  background: var(--v3-danger-dim);
+  color: var(--ui-danger);
+  font-weight: 600;
+}
 
-/* —— 面板内嵌井（滤波区间行 / 录制进行卡）：不透明纸色改半透明薄染 + 圆角 —— */
+/* —— 面板内嵌井：滤波区间行 surface-2 + rule 描边；录制进行卡
+   CAN1 dim + CAN1 描边（运行中，非错误） —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .filter-row {
-  background: color-mix(in srgb, var(--ui-ink) 3%, transparent);
-  border-color: color-mix(in srgb, var(--ui-ink) 12%, transparent);
-  border-radius: var(--glass-r-s);
+  background: var(--v3-surface-2);
+  border-color: var(--ui-rule);
+  border-radius: 9px;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .rec-active {
-  background: color-mix(in srgb, var(--ui-panel) 55%, transparent);
-  border-color: color-mix(in srgb, var(--ui-ink) 25%, transparent);
-  border-radius: var(--glass-r-s);
+  background: var(--v3-signal-dim);
+  border-color: var(--ui-signal);
+  border-radius: 9px;
 }
 
-/* —— 小型内联件：提示码片与空信号占位圆角化（虚线占位语义保留） —— */
+/* —— 小型内联件：提示码片 surface-3；空信号占位保持虚线语义 —— */
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .hint code {
+  background: var(--ui-chip);
+  border-color: var(--v3-border-soft);
   border-radius: 4px;
 }
 :root:is(:not([data-ui-theme]), [data-ui-theme='default']) .dbc-signal-empty {
   border-radius: 6px;
 }
+:root:is(:not([data-ui-theme]), [data-ui-theme='default']) .skip-link {
+  border-radius: var(--v3-r-s);
+}
 
-
-/* —— 地面：等高线、动态尘埃与三色条保持隐藏（极光渐变即地面；
+/* —— 地面：等高线、动态尘埃与三色条保持隐藏（28px 网格即地面；
    canvas 仍在绘制仅不可见，切回 endfield 时 backdrop.ts 会重新着色）。 —— */
 :root:not([data-ui-theme]) .ui-contours::before,
 :root[data-ui-theme='default'] .ui-contours::before {

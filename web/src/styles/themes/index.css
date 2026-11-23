@@ -19,29 +19,31 @@
    ---------- 身份纹面契约（endfield 视觉残余，必须令牌化或主题覆盖） ----------
    存量 endfield 纹样一律属于主题身份，共享样式不得写死：
    - 眉标前缀：--ui-eyebrow-prefix（外壳 .ui-eyebrow.slash::before 消费；
-     endfield '// '，default 置空并改中性排印）；
+     endfield '// '，default 置空并改等宽 CAN1 索引标签）；
    - 空状态标记：.empty::before（endfield 斜线纹短带 + 墨块；
-     default 玻璃圆珠）、.empty-inline / .dbc-signal-empty（无纹样，仅语义）；
+     default 实色 CAN1 圆环）、.empty-inline / .dbc-signal-empty（无纹样，仅语义）；
    - 纹理填充：--ui-hatch（busy 按钮、空状态、外壳展示件；default 改圆点网格
-     且 busy 态改信号色薄染，不再消费纹理）；
-   - 面板页签与引导线：.ui-panel::before（endfield 墨色页签；default 顶缘光线）、
-     .ui-panel.lead-*（未使用）；
+     且 busy 态改 v0.3 旋转指示，不再消费纹理）；
+   - 面板页签与引导线：.ui-panel::before（endfield 墨色页签；default 隐藏，
+     面板为 v0.3 实色卡片）、.ui-panel.lead-*（未使用）；
    - 地面：等高线（.ui-contours::before 与 --ui-contour-a/b 数据）、尘埃
      （.fx-backdrop canvas）、三色条（.ui-tri / --ui-tri-*）——default 全部隐藏，
-     地面由 body.ui-root 的极光渐变承担；
+     地面由 body.ui-root 的 28px 静态网格承担；
    - 状态与徽标：状态灯（.cm-dot）、录制牌（#recPill）、暂停徽标
      （.paused-badge）、通道标签（.ch-badge，色随 --ui-tag-*）、来源标识
-     （.src-tag）——语义色不可改（红只给删除），皮肤与圆角可主题化；
+     （.src-tag）——语义色不可改（红只给删除/错误），皮肤与圆角可主题化；
    - 形状细节：曲线小件颜色点（.sig-dot）与自动滚动开关（.ui-switch 轨道/滑块）
      的形状也可主题化（default 为圆点 / 胶囊 + 圆滑块，endfield 保持方格）；
    - 弹窗与浮窗铬件：.signal-window / .signal-window-head / .sw-tools /
      .dbc-chart-box / .signal-modal-backdrop / toast（.toast / .toast-flag）；
    - 按钮机械动效：切角（--ui-cut-*）与擦入（.ui-btn::before/::after）；
-     default 清 mask、藏伪元素，改玻璃交互。
+     default 清 mask、藏伪元素，改实色表面 + 描边交互。
    约束：不得改变尺寸、内边距节奏与网格布局（布局归共享样式）；
-   状态语义保持——红色只给删除、禁用可分辨、焦点环在深浅两态可见。
-   现状：default 覆盖上列全部身份纹面（玻璃语言）；endfield 只定义令牌
-   （含 --ui-eyebrow-prefix），零组件覆盖，保持与上游逐像素一致。
+   状态语义保持——红色只给删除/错误、禁用可分辨、焦点环在深浅两态可见。
+   现状：default 采用 v0.3「仪表工作台」实色配色（实色表面 + 1px 描边 +
+   圆角与克制阴影 + 28px 网格地面，无磨砂玻璃/backdrop-filter），
+   覆盖上列全部身份纹面；endfield 只定义令牌（含 --ui-eyebrow-prefix），
+   零组件覆盖，保持与上游逐像素一致。
 
    新增主题：建完整令牌集（浅色 + 深色 + prefers-color-scheme 兜底 +
    --chart-1..3 与 --ui-eyebrow-prefix），按需追加组件覆盖，在此追加 @import，
