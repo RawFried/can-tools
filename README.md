@@ -307,7 +307,7 @@ ARCH=aarch64 BIN=target/aarch64-unknown-linux-gnu/release/can-tools \
 部分发行版没有 `libfuse2`，可直接解包运行：
 
 ```bash
-./can-tools-0.4.7-x86_64.AppImage --appimage-extract-and-run
+./can-tools-0.4.8-x86_64.AppImage --appimage-extract-and-run
 ```
 
 ## 交叉编译（cargo-zigbuild）
